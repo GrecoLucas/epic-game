@@ -59,29 +59,42 @@ class MonsterView {
     // Atualizar visual baseado no estado (perseguindo ou patrulhando)
     updateVisualState(isChasing) {
         if (!this.mesh) return;
-        
-        const material = this.mesh.material;
-        
+
+        // Find the body and head meshes which have the main material
+        const body = this.mesh.getChildMeshes(false, (node) => node.name === "monsterBody")[0];
+        const head = this.mesh.getChildMeshes(false, (node) => node.name === "monsterHead")[0];
+
+        // Get the material (assuming body and head share the same material instance)
+        const material = body ? body.material : (head ? head.material : null);
+
+        if (!material) {
+            console.warn("MonsterView: Could not find material on body or head mesh.");
+            return; // Exit if no material found
+        }
+
         // Mudar cor baseado no estado
         if (isChasing) {
             // Vermelho vivo quando perseguindo
             material.diffuseColor = new BABYLON.Color3(1, 0, 0);
-            material.emissiveColor = new BABYLON.Color3(0.5, 0, 0);
-            
+            material.emissiveColor = new BABYLON.Color3(0.5, 0, 0); // Brighter emissive when chasing
+
             // Aumentar intensidade da luz
             const light = this.mesh.getChildMeshes(false, (node) => node.name === "monsterLight")[0];
-            if (light) {
-                light.intensity = 0.8;
+            if (light && light instanceof BABYLON.PointLight) { // Check type
+                light.intensity = 1.2; // Increase intensity more noticeably
             }
         } else {
-            // Vermelho escuro quando patrulhando
-            material.diffuseColor = new BABYLON.Color3(0.8, 0.1, 0.1);
-            material.emissiveColor = new BABYLON.Color3(0, 0, 0);
-            
+            // Cor original (Lava) quando patrulhando
+            // Revert to the original lava material colors defined in MonsterModel
+            material.diffuseColor = new BABYLON.Color3(0.5, 0.1, 0.1);
+            material.emissiveColor = new BABYLON.Color3(0.3, 0.05, 0.05); // Original emissive
+
             // Diminuir intensidade da luz
             const light = this.mesh.getChildMeshes(false, (node) => node.name === "monsterLight")[0];
-            if (light) {
-                light.intensity = 0.5;
+            if (light && light instanceof BABYLON.PointLight) { // Check type
+                // Keep the pulsing animation base intensity (defined in MonsterModel)
+                // We don't need to set it manually here unless overriding the animation
+                // light.intensity = 0.8; // Or whatever the base intensity should be
             }
         }
     }
@@ -89,23 +102,41 @@ class MonsterView {
     // Criar efeito visual quando o monstro toma dano
     showDamageEffect() {
         if (!this.mesh) return;
-        
-        // Piscar brevemente em branco
-        const originalDiffuse = this.mesh.material.diffuseColor.clone();
-        const originalEmissive = this.mesh.material.emissiveColor.clone();
-        
+
+        // Find the body and head meshes
+        const body = this.mesh.getChildMeshes(false, (node) => node.name === "monsterBody")[0];
+        const head = this.mesh.getChildMeshes(false, (node) => node.name === "monsterHead")[0];
+        const meshesToFlash = [body, head].filter(m => m && m.material); // Filter out nulls
+
+        if (meshesToFlash.length === 0) return;
+
+        // Store original colors for each mesh
+        const originalColors = meshesToFlash.map(m => ({
+            mesh: m,
+            diffuse: m.material.diffuseColor.clone(),
+            emissive: m.material.emissiveColor.clone()
+        }));
+
+
         // Mudar para branco
-        this.mesh.material.diffuseColor = new BABYLON.Color3(1, 1, 1);
-        this.mesh.material.emissiveColor = new BABYLON.Color3(0.5, 0.5, 0.5);
-        
+        meshesToFlash.forEach(m => {
+            m.material.diffuseColor = new BABYLON.Color3(1, 1, 1);
+            m.material.emissiveColor = new BABYLON.Color3(0.8, 0.8, 0.8); // Brighter flash
+        });
+
+
         // Voltar para a cor original após um curto período
         setTimeout(() => {
-            if (this.mesh && this.mesh.material) {
-                this.mesh.material.diffuseColor = originalDiffuse;
-                this.mesh.material.emissiveColor = originalEmissive;
-            }
-        }, 100);
+            originalColors.forEach(data => {
+                // Check if mesh and material still exist before restoring
+                if (data.mesh && data.mesh.material && !data.mesh.isDisposed()) {
+                    data.mesh.material.diffuseColor = data.diffuse;
+                    data.mesh.material.emissiveColor = data.emissive;
+                }
+            });
+        }, 150); // Slightly longer flash
     }
+// ...existi
     
     // Mostrar efeito quando o monstro está morrendo
     showDeathEffect() {

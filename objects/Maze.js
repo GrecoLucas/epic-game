@@ -71,6 +71,11 @@ class Maze {
     getMonsterPositions() {
         return this.model.getMonsterPositions();
     }
+    
+    // Método para obter as posições das armas
+    getGunPositions() {
+        return this.controller.getGunPositions();
+    }
 }
 
 export default Maze;

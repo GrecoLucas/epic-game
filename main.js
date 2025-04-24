@@ -2,7 +2,8 @@ import Player from './Player.js';
 import Collision from './utils/Collision.js';
 import Buttons from './objects/Buttons.js';
 import Maze from './objects/Maze.js'; 
-import Monster from './Monster.js'; // Importar a classe Monster
+import Monster from './Monster.js'; 
+import GunLoader from './GunLoader.js'; 
 
 class Game {
     constructor(engine, scene) {
@@ -15,6 +16,7 @@ class Game {
         this.maze = null; 
         this.door = null; // Adicionar referência à porta
         this.monsters = []; // Lista de monstros em vez de referência única
+        this.gunLoader = null; // Referência ao carregador de armas
         
         // Armazenar referência ao Game na cena para acesso pelo DoorController
         this.scene.gameInstance = this;
@@ -79,6 +81,12 @@ class Game {
         // Registrar meshes dos botões para colisão
         this.collisionSystem.addMeshes(this.buttonsManager.getMeshes());
 
+        // Inicializar o carregador de armas
+        this.gunLoader = new GunLoader(this.scene);
+        
+        // Criar armas baseadas no labirinto
+        await this.createGunsFromMaze();
+        
         // Configurar o raycasting para melhorar a detecção de clique nos botões
         const camera = this.player.getCamera();
         camera.minZ = 0.1; // Distância mínima de renderização pequena para facilitar interação
@@ -156,6 +164,34 @@ class Game {
     // Método para obter todos os monstros
     getMonsters() {
         return this.monsters;
+    }
+    
+    // Método para criar armas baseadas no labirinto
+    async createGunsFromMaze() {
+        if (this.maze && this.gunLoader) {
+            // Tentar várias vezes (max 10 tentativas) com intervalo de 100ms
+            for (let i = 0; i < 10; i++) {
+                const gunPositions = this.maze.getGunPositions();
+                if (gunPositions && gunPositions.length > 0) {
+                    console.log(`Criando ${gunPositions.length} armas nas posições marcadas...`);
+                    
+                    // Criar arma em cada posição G encontrada no labirinto
+                    gunPositions.forEach((position, index) => {
+                        // Ajustar a altura para ficar um pouco acima do chão
+                        position.y = 0.5;
+                        
+                        // Criar arma nesta posição
+                        const gun = this.gunLoader.createGunAtPosition(position.x, position.y, position.z);
+                        console.log(`Arma #${index + 1} criada na posição [${position.x}, ${position.y}, ${position.z}]`);
+                    });
+                    
+                    return;
+                }
+                // Esperar 100ms antes de tentar novamente
+                await new Promise(resolve => setTimeout(resolve, 100));
+            }
+            console.warn("Não foi possível obter posições das armas do labirinto após várias tentativas");
+        }
     }
     
     // Método para aguardar o labirinto carregar completamente

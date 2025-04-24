@@ -63,7 +63,7 @@ class Gun {
         return this.view.createPhysicalMeshes(this.scene);
     }
     
-    // Verificar colisão direta com o jogador
+    // Verificar colisão direta com o jogador - não pega automaticamente, apenas verifica proximidade
     checkPlayerCollision(playerPosition, pickupRadius = 1.5) {
         if (this.model.isPickedUp) return false;
         
@@ -71,12 +71,8 @@ class Gun {
         const dz = this.model.position.z - playerPosition.z;
         const distance = Math.sqrt(dx*dx + dz*dz);
         
-        if (distance <= pickupRadius) {
-            this.pickup();
-            return true;
-        }
-        
-        return false;
+        // Apenas retornar se está próximo ou não, sem pegar automaticamente
+        return distance <= pickupRadius;
     }
 }
 

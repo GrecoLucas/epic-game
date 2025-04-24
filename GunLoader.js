@@ -43,16 +43,18 @@ class GunLoader {
         }
     }
     
-    // Verificar colisões entre jogador e todas as armas
-    checkPlayerCollisions(playerPosition) {
+    // Verificar proximidade entre jogador e todas as armas (sem pegar automaticamente)
+    checkPlayerProximity(playerPosition) {
+        let nearbyGuns = [];
+        
         for (const gun of this.guns) {
             if (gun.checkPlayerCollision(playerPosition)) {
-                console.log("Jogador coletou uma arma!");
-                // Opcionalmente retornar a arma coletada
-                return gun;
+                // Adicionar à lista de armas próximas, mas não coletar automaticamente
+                nearbyGuns.push(gun);
             }
         }
-        return null;
+        
+        return nearbyGuns.length > 0 ? nearbyGuns : null;
     }
     
     // Obter todas as armas

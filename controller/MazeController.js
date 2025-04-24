@@ -60,6 +60,11 @@ class MazeController {
         return this.model.getButtonPositions();
     }
     
+    // Método para obter as posições das armas
+    getGunPositions() {
+        return this.model.getGunPositions();
+    }
+    
     // Obter a posição inicial do jogador
     getPlayerStartPosition() {
         return this.model.getPlayerStartPosition();

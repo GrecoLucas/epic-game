@@ -7,6 +7,9 @@ class GunController {
         
         // Referência para a função de disparo de áudio (será definida externamente)
         this.playSoundCallback = null;
+        
+        // Configurar o callback de pickup para a view
+        this.view.setPickupCallback(() => this.pickup());
     }
 
     update(playerPosition, playerDirection) {

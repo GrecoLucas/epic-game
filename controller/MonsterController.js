@@ -8,6 +8,9 @@ class MonsterController {
         this.lastFrameTime = Date.now();
         this.playerPosition = null;
         this.isDisposed = false;
+
+        this.isStunned = false; // Add stun state
+        this.stunTimer = null;
         
         // Inicializar o controlador
         this.initialize();
@@ -19,7 +22,10 @@ class MonsterController {
         
         // Registrar para atualização a cada frame
         this.scene.registerBeforeRender(() => {
+            // Check isDisposed first
             if (this.isDisposed) return;
+            // If stunned, skip the update logic
+            if (this.isStunned) return;
             this.update();
         });
         
@@ -87,21 +93,29 @@ class MonsterController {
     
     // Iniciar comportamento de patrulha
     startPatrolBehavior() {
-        if (this.isDisposed) return;
-        
-        // Movimento aleatório a cada 3-6 segundos
-        const patrolInterval = 300;
-        
+        // Check if disposed or stunned before starting/continuing patrol
+        if (this.isDisposed || this.isStunned) return;
+
+        // Clear existing timer before setting a new one
+        if (this.model.moveTimeout) {
+            clearTimeout(this.model.moveTimeout);
+            this.model.moveTimeout = null;
+        }
+
+        // Movimento aleatório a cada 3-6 segundos (adjust interval as needed)
+        const patrolInterval = 3000 + Math.random() * 3000;
+
         this.model.moveTimeout = setTimeout(() => {
-            if (this.isDisposed) return;
-            
+            // Check again inside the timeout
+            if (this.isDisposed || this.isStunned) return;
+
             // Se não estiver perseguindo o jogador
             if (!this.model.isPlayerChased()) {
                 // Mover para uma direção aleatória
                 this.moveRandomly();
             }
-            
-            // Continuar o comportamento de patrulha
+
+            // Continuar o comportamento de patrulha recursively
             this.startPatrolBehavior();
         }, patrolInterval);
     }
@@ -109,7 +123,8 @@ class MonsterController {
     // Mover em uma direção aleatória
     moveRandomly() {
         if (!this.model.getMesh() || this.isDisposed) return;
-        
+        if (!this.model.getMesh() || this.isDisposed || this.isStunned) return;
+
         // Gerar um ângulo aleatório
         const angle = Math.random() * Math.PI * 2;
         
@@ -124,39 +139,90 @@ class MonsterController {
         const movement = direction.scale(0.1);
         this.model.moveWithCollision(movement);
     }
+
+    stun(duration) {
+        if (this.isStunned || this.isDisposed) return; // Don't stun if already stunned or disposed
+
+        console.log("Monster stunned!");
+        this.isStunned = true;
+        this.view.showDamageEffect(); // Use damage effect as visual stun indicator
+
+        // Clear any existing stun timer
+        if (this.stunTimer) {
+            clearTimeout(this.stunTimer);
+        }
+
+        // Stop current actions immediately (optional, but good for responsiveness)
+        if (this.model.chaseTimeout) clearTimeout(this.model.chaseTimeout);
+        if (this.model.moveTimeout) clearTimeout(this.model.moveTimeout);
+        this.model.chaseTimeout = null;
+        this.model.moveTimeout = null;
+        this.model.stopChasing(); // Ensure chasing state is reset if stunned while chasing
+        this.view.updateVisualState(false); // Update visual state if needed
+
+
+        // Set a timer to remove the stun effect
+        this.stunTimer = setTimeout(() => {
+            if (this.isDisposed) return; // Check again in case disposed during stun
+            this.isStunned = false;
+            this.stunTimer = null;
+            console.log("Monster unstunned.");
+            // Restart patrol behavior after stun wears off
+            this.startPatrolBehavior();
+        }, duration);
+    }
     
     // Tomar dano
     takeDamage(amount) {
+        if (this.isDisposed) return false; // Check if already disposed
+
         // Efeito visual de dano
         this.view.showDamageEffect();
-        
+
         // Aplicar dano ao modelo
         const isDead = this.model.takeDamage(amount);
-        
+        console.log(`Monster took ${amount} damage. Health: ${this.model.health}`);
+
+
         // Se o monstro morreu, mostrar animação de morte
         if (isDead) {
+            console.log("Monster died.");
             this.die();
         }
-        
+
         return isDead;
     }
     
     // Monstro morre
     die() {
+        if (this.isDisposed) return; // Prevent multiple deaths/disposals
+
+        // Marcar como disposto PRIMEIRO para evitar race conditions
+        this.isDisposed = true;
+
         // Mostrar efeito de morte
         this.view.showDeathEffect();
-        
+
         // Limpar timeouts
         if (this.model.chaseTimeout) {
             clearTimeout(this.model.chaseTimeout);
+            this.model.chaseTimeout = null;
         }
-        
         if (this.model.moveTimeout) {
             clearTimeout(this.model.moveTimeout);
+            this.model.moveTimeout = null;
         }
-        
-        // Marcar como disposto para evitar atualizações
-        this.isDisposed = true;
+         if (this.stunTimer) { // Clear stun timer on death
+            clearTimeout(this.stunTimer);
+            this.stunTimer = null;
+        }
+
+        // Optional: Remove monster from the game's list after a delay
+        // This depends on how you manage monster instances in main.js
+        // Example:
+        // setTimeout(() => {
+        //     this.scene.gameInstance?.removeMonster(this); // Assuming 'this' refers to the Monster instance, might need adjustment
+        // }, 2000); // Delay to allow death animation
     }
     
     // Obter mesh do monstro

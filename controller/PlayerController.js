@@ -6,6 +6,7 @@ class PlayerController {
         this.view = playerView;
         this.inputMap = {};
         this.nearbyButton = null; // Referência ao botão mais próximo
+        this.nearbyGun = null; // Referência à arma mais próxima
         this.interactionDistance = 5; // Distância máxima para interagir com botões
         this.interactionHint = null; // Elemento UI para mostrar dica de interação
         
@@ -52,10 +53,13 @@ class PlayerController {
         this.interactionHint = hintText;
     }
     
-    // Configurar detecção de proximidade com botões
+    // Configurar detecção de proximidade com botões e armas
     setupProximityDetection() {
         // Registrar função para verificar proximidade antes de cada frame
         this.scene.registerBeforeRender(() => {
+            const playerPosition = this.model.getPosition();
+            
+            // --- DETECÇÃO DE BOTÕES ---
             // Obter todos os botões na cena
             const buttonMeshes = this.scene.meshes.filter(mesh => mesh.name && mesh.name.includes("button"));
             
@@ -64,8 +68,6 @@ class PlayerController {
             
             // Verificar distância para cada botão
             if (buttonMeshes.length > 0) {
-                const playerPosition = this.model.getPosition();
-                
                 let closestDistance = this.interactionDistance;
                 let closestButton = null;
                 
@@ -80,11 +82,66 @@ class PlayerController {
                 
                 // Se encontrou um botão próximo, atualizar referência
                 this.nearbyButton = closestButton;
+            }
+            
+            // --- DETECÇÃO DE ARMAS ---
+            // Obter todas as armas na cena (qualquer mesh que contenha "gun_ground")
+            const gunMeshes = this.scene.meshes.filter(mesh => 
+                mesh.name && mesh.name.includes("gun_ground")
+            );
+            
+            // Resetar a arma mais próxima
+            this.nearbyGun = null;
+            
+            // Verificar distância para cada arma
+            if (gunMeshes.length > 0) {
+                let closestDistance = this.interactionDistance;
+                let closestGun = null;
                 
-                // Mostrar ou esconder dica baseado na proximidade
-                if (this.nearbyButton && this.interactionHint) {
+                // Agrupar os meshes por arma (todas as partes com o mesmo pai)
+                const gunGroups = {};
+                
+                for (const gunMesh of gunMeshes) {
+                    // Pular armas que já foram coletadas (invisíveis)
+                    if (!gunMesh.isVisible) continue;
+                    
+                    // Encontrar o mesh raiz que contém todas as partes
+                    let rootMesh = gunMesh;
+                    while (rootMesh.parent && rootMesh.parent.name && rootMesh.parent.name.includes("gun_ground")) {
+                        rootMesh = rootMesh.parent;
+                    }
+                    
+                    // Usar o ID do rootMesh como chave para agrupar
+                    const rootId = rootMesh.uniqueId || rootMesh.id;
+                    if (!gunGroups[rootId]) {
+                        gunGroups[rootId] = rootMesh;
+                    }
+                }
+                
+                // Verificar a distância para cada grupo (arma)
+                for (const rootId in gunGroups) {
+                    const rootMesh = gunGroups[rootId];
+                    const distance = BABYLON.Vector3.Distance(playerPosition, rootMesh.position);
+                    
+                    if (distance < closestDistance) {
+                        closestDistance = distance;
+                        closestGun = rootMesh;
+                    }
+                }
+                
+                // Se encontrou uma arma próxima, atualizar referência
+                this.nearbyGun = closestGun;
+            }
+            
+            // Atualizar dica baseado na proximidade (prioridade: arma > botão)
+            if (this.interactionHint) {
+                if (this.nearbyGun) {
+                    this.interactionHint.text = "Pressione E para pegar a arma";
                     this.interactionHint.alpha = 1;
-                } else if (this.interactionHint) {
+                } else if (this.nearbyButton) {
+                    this.interactionHint.text = "Pressione E para ativar";
+                    this.interactionHint.alpha = 1;
+                } else {
                     this.interactionHint.alpha = 0;
                 }
             }
@@ -93,9 +150,15 @@ class PlayerController {
     
     setupMouseControls() {
         this.scene.onPointerDown = (evt) => {
+            // Verificar se é o botão esquerdo do mouse (0)
+            const isLeftClick = evt.button === 0;
+            
             if (!this.scene.alreadyLocked) {
                 this.scene.getCameraByName("playerCamera").attachControl(document.getElementById("renderCanvas"));
                 this.lockCamera();
+            } else if (isLeftClick) {
+                // Se já bloqueado e é um clique esquerdo, verificar se temos uma arma e atirar
+                this.handleShoot();
             }
         };
     }
@@ -116,20 +179,28 @@ class PlayerController {
                 return;
             }
             
-            // Realizar um raycast a partir da câmera
-            const camera = this.view.getCamera();
-            const ray = camera.getForwardRay(3); // Distância maior para facilitar a interação
-            const hit = this.scene.pickWithRay(ray, predicate);
+            // Verificar se é o botão esquerdo do mouse (0)
+            const isLeftClick = evt.button === 0;
             
-            if (hit && hit.pickedMesh) {
-                // Simulamos um clique no objeto sem precisar acertar diretamente
-                const actionManager = hit.pickedMesh.actionManager;
-                if (actionManager) {
-                    try {
-                        // Dispara as ações registradas para o evento OnPickTrigger
-                        actionManager.processTrigger(BABYLON.ActionManager.OnPickTrigger);
-                    } catch (error) {
-                        console.log("Erro ao processar trigger:", error);
+            if (isLeftClick) {
+                // Verificar se o jogador tem uma arma e ativar o disparo
+                this.handleShoot();
+                
+                // Realizar um raycast a partir da câmera para interação com botões
+                const camera = this.view.getCamera();
+                const ray = camera.getForwardRay(3); // Distância maior para facilitar a interação
+                const hit = this.scene.pickWithRay(ray, predicate);
+                
+                if (hit && hit.pickedMesh) {
+                    // Simulamos um clique no objeto sem precisar acertar diretamente
+                    const actionManager = hit.pickedMesh.actionManager;
+                    if (actionManager) {
+                        try {
+                            // Dispara as ações registradas para o evento OnPickTrigger
+                            actionManager.processTrigger(BABYLON.ActionManager.OnPickTrigger);
+                        } catch (error) {
+                            console.log("Erro ao processar trigger:", error);
+                        }
                     }
                 }
             }
@@ -162,9 +233,14 @@ class PlayerController {
                     const key = evt.sourceEvent.key.toLowerCase();
                     this.inputMap[key] = true;
                     
-                    // Verificar se é a tecla de interação (E) e se há um botão próximo
-                    if (key === "e" && this.nearbyButton) {
-                        this.activateNearbyButton();
+                    // Verificar se é a tecla de interação (E)
+                    if (key === "e") {
+                        // Prioridade: arma > botão
+                        if (this.nearbyGun) {
+                            this.pickupNearbyGun();
+                        } else if (this.nearbyButton) {
+                            this.activateNearbyButton();
+                        }
                     }
                 }
             )
@@ -232,6 +308,227 @@ class PlayerController {
                 BABYLON.Animation.ANIMATIONLOOPMODE_CONSTANT
             );
         }, 100);
+    }
+    
+    // Pegar a arma mais próxima
+    pickupNearbyGun() {
+        if (this.nearbyGun) {
+            try {
+                // Encontrar a instância Gun associada a este mesh
+                // Percorrer todas as instâncias de Gun no GunLoader através do sistema de metadados
+                const gunInstance = this.findGunInstanceByMesh(this.nearbyGun);
+                
+                if (gunInstance) {
+                    // Chamar o método pickup da instância Gun
+                    gunInstance.pickup();
+                    console.log("Arma coletada com a tecla E");
+                } else {
+                    // Alternativa: disparar o evento de clique no mesh da arma
+                    if (this.nearbyGun.actionManager) {
+                        this.nearbyGun.actionManager.processTrigger(BABYLON.ActionManager.OnPickTrigger);
+                        console.log("Ação de pickup disparada via ActionManager");
+                    }
+                }
+            } catch (error) {
+                console.log("Erro ao pegar arma próxima:", error);
+            }
+        }
+    }
+    
+    // Método auxiliar para encontrar a instância de Gun associada a um mesh
+    findGunInstanceByMesh(gunMesh) {
+        // Verificar se temos o GunLoader no game
+        if (this.scene.gameInstance && this.scene.gameInstance.gunLoader) {
+            const guns = this.scene.gameInstance.gunLoader.getGuns();
+            
+            // Verificar cada arma para encontrar aquela que possui este mesh
+            for (const gun of guns) {
+                // Comparar os meshes físicos com o mesh da arma próxima
+                const meshes = gun.view.physicalMeshes;
+                if (meshes && meshes.includes(gunMesh)) {
+                    return gun;
+                }
+            }
+        }
+        
+        return null;
+    }
+    
+    // Método que verifica se o jogador tem uma arma equipada e dispara
+        handleShoot() {
+        const equippedGun = this.getPlayerEquippedGun();
+        
+        if (!equippedGun) {
+            console.log("Attempted to shoot without an equipped gun.");
+            return;
+        }
+        
+        // Configuração do raio a partir da câmera
+        const camera = this.view.getCamera();
+        const cameraPosition = camera.globalPosition;
+        const forwardDirection = camera.getForwardRay(1).direction;
+        
+        // Ajuste da origem do raio (ligeiramente à frente da câmera)
+        const rayOriginOffset = 0.1;
+        const rayOrigin = cameraPosition.add(forwardDirection.scale(rayOriginOffset));
+        const rayLength = 200; // Alcance máximo do tiro
+        
+        // Cria o raio com a origem ajustada
+        const ray = new BABYLON.Ray(rayOrigin, forwardDirection, rayLength);
+        
+        // Ativa visualização de debug apenas se necessário
+        const DEBUG_MODE = false; // Pode ser ativado com uma variável de configuração
+        
+        if (DEBUG_MODE) {
+            // Visualização do raio
+            this.scene.getMeshByName("rayVisualizer")?.dispose();
+            const rayHelper = new BABYLON.RayHelper(ray);
+            rayHelper.show(this.scene, new BABYLON.Color3(1, 1, 0));
+            const visualizer = this.scene.getMeshByName("rayLine");
+            if(visualizer) visualizer.name = "rayVisualizer";
+            
+            // Cleanup de visualizadores de boundingbox
+            this.scene.meshes.filter(m => m.name === "bboxVisualizer").forEach(m => m.dispose());
+            
+            // Detecta e registra todos os hits (para debug)
+            this.logAllHits(ray);
+        }
+        
+        // Definição otimizada do predicate para filtrar apenas partes de monstros
+        const monsterPartPredicate = (mesh) => {
+            if (!mesh.isPickable) return false;
+            
+            // Lista de partes de monstros para verificar
+            const monsterPartNames = ["monsterBody", "monsterHead", "monsterRoot", "eye", "horn"];
+            
+            // Verifica o mesh atual e toda sua hierarquia de pais
+            let currentMesh = mesh;
+            while (currentMesh) {
+                if (currentMesh.name) {
+                    // Verifica se o nome inclui alguma das partes de monstro
+                    if (monsterPartNames.some(part => currentMesh.name.includes(part))) {
+                        return true;
+                    }
+                }
+                currentMesh = currentMesh.parent;
+            }
+            return false;
+        };
+        
+        // Primeiro: checar se há obstáculos no caminho (paredes, etc)
+        const rawHit = this.scene.pickWithRay(ray);
+        const obstacleDistance = rawHit && rawHit.pickedMesh ? rawHit.distance : rayLength;
+        
+        // Verifica hits de monstros, mas apenas até o primeiro obstáculo
+        let validHits = [];
+        
+        // Otimização: Verifica monstros apenas se não houver obstáculos muito próximos
+        if (obstacleDistance > 0.5) {
+            // Limita o ray para o primeiro obstáculo
+            const limitedRay = new BABYLON.Ray(rayOrigin, forwardDirection, obstacleDistance);
+            validHits = this.scene.multiPickWithRay(limitedRay, monsterPartPredicate);
+        }
+        
+        // Processa o hit mais próximo
+        const closestHit = validHits.length > 0 ? validHits[0] : null;
+        
+        if (closestHit && closestHit.pickedMesh) {
+            // Processamento do hit no monstro
+            this.processMonsterHit(closestHit, equippedGun);
+        } else if (DEBUG_MODE && rawHit && rawHit.pickedMesh) {
+            console.log(`Hitscan hit non-monster object: '${rawHit.pickedMesh.name}' at distance ${rawHit.distance.toFixed(3)}`);
+        }
+        
+        // Efeito de tiro (som, animação, etc)
+        const shotFired = equippedGun.shoot();
+        if (shotFired) {
+            console.log("Disparo efetuado (ammo/effects)!");
+        } else {
+            console.log("Disparo falhou (sem munição ou recarregando).");
+        }
+    }
+    
+    // Método auxiliar para processamento de hits em monstros
+    processMonsterHit(hit, equippedGun) {
+        console.log("Hit monster part:", hit.pickedMesh.name, "at distance", hit.distance.toFixed(3));
+        
+        const monstersList = this.scene.gameInstance?.getMonsters() || [];
+        let hitMonster = null;
+        
+        // Encontra o monstro baseado no mesh atingido
+        for (const monster of monstersList) {
+            const monsterMesh = monster.getMesh();
+            if (!monsterMesh) continue;
+            
+            if (hit.pickedMesh === monsterMesh || hit.pickedMesh.isDescendantOf(monsterMesh)) {
+                hitMonster = monster;
+                break;
+            }
+        }
+        
+        if (hitMonster) {
+            const monsterController = hitMonster.getController();
+            if (monsterController && !monsterController.isDisposed) {
+                const damage = equippedGun.model.getDamage();
+                
+                // Adiciona variação de dano baseada na parte atingida
+                let damageMultiplier = 1.0;
+                if (hit.pickedMesh.name.includes("Head") || hit.pickedMesh.name.includes("eye")) {
+                    damageMultiplier = 2.0; // Dano crítico para cabeça
+                    console.log("CRITICAL HIT! Headshot x2 damage");
+                }
+                
+                const finalDamage = Math.round(damage * damageMultiplier);
+                console.log(`Applying ${finalDamage} damage and stunning monster.`);
+                
+                monsterController.takeDamage(finalDamage);
+                monsterController.stun(2000);
+                
+                // Efeito visual de hit
+                this.createHitEffect(hit.pickedPoint);
+            }
+        } else {
+            console.log("Hit monster mesh part, but couldn't find associated Monster instance.");
+        }
+    }
+    
+    // Método auxiliar para logging de hits (apenas para debug)
+    logAllHits(ray) {
+        const allHits = this.scene.multiPickWithRay(ray);
+        
+        if (allHits && allHits.length > 0) {
+            console.log(`--- MultiPick (All Hits) ---`);
+            allHits.forEach((h, index) => {
+                console.log(`  Hit ${index}: Name='${h.pickedMesh.name}', Distance=${h.distance.toFixed(3)}, Pickable=${h.pickedMesh.isPickable}`);
+            });
+            console.log(`---------------------------`);
+        } else {
+            console.log("MultiPick found nothing.");
+        }
+    }
+    
+    // Método para criar efeito visual no ponto de impacto
+    createHitEffect(position) {
+        // Partículas ou decal no ponto de impacto
+        const hitMarker = BABYLON.MeshBuilder.CreateSphere("hitMarker", { diameter: 0.1 }, this.scene);
+        hitMarker.position = position;
+        hitMarker.material = new BABYLON.StandardMaterial("hitMarkerMat", this.scene);
+        hitMarker.material.emissiveColor = new BABYLON.Color3(1, 0, 0);
+        
+        // Auto-destruição após 300ms
+        setTimeout(() => {
+            hitMarker.dispose();
+        }, 300);
+    }
+    
+    // Método para obter a arma que o jogador está segurando (se houver)
+    getPlayerEquippedGun() {
+        // Verificar se temos o GunLoader no game
+        if (this.scene.gameInstance && this.scene.gameInstance.gunLoader) {
+            // Obter a arma que está sendo carregada pelo jogador (isPickedUp = true)
+            return this.scene.gameInstance.gunLoader.getPlayerGun();
+        }
+        return null;
     }
     
     updateMovement() {

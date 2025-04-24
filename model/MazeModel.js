@@ -5,6 +5,7 @@ class MazeModel {
         this.playerStartPosition = null;
         this.doorPosition = null; // Nova propriedade para armazenar a posição da porta
         this.monsterPositions = []; // Lista de posições de monstros
+        this.gunPositions = []; // Lista de posições de armas
         this.cellSize = 8; // Tamanho padrão de cada célula
         this.wallHeight = 7; // Altura das paredes do labirinto
         this.mazeWidth = 0;
@@ -49,6 +50,11 @@ class MazeModel {
                         this.monsterPositions.push({ row: i, col: j });
                         // Considerar essa posição como chão (0)
                         processedRow.push(0);
+                    } else if (row[j] === 'G') {
+                        // Armazenar a posição da arma
+                        this.gunPositions.push({ row: i, col: j });
+                        // Considerar essa posição como chão (0)
+                        processedRow.push(0);
                     } else {
                         // Para outros valores, converter para inteiro
                         processedRow.push(parseInt(row[j], 10));
@@ -74,10 +80,14 @@ class MazeModel {
             // Calcular as posições dos monstros
             this.processMonsterPositions();
             
+            // Calcular as posições das armas
+            this.processGunPositions();
+            
             console.log("Layout do labirinto carregado com sucesso:", this.mazeLayout);
             console.log("Posição inicial do jogador:", this.playerStartPosition);
             console.log("Posição da porta:", this.doorPosition);
             console.log("Posições dos monstros:", this.monsterPositions);
+            console.log("Posições das armas:", this.gunPositions);
             return true;
         } catch (error) {
             console.error("Erro ao carregar o arquivo do labirinto:", error);
@@ -96,6 +106,19 @@ class MazeModel {
         
         // Substituir as posições de grade por posições de mundo
         this.monsterPositions = processedPositions;
+    }
+    
+    // Método para processar todas as posições de armas encontradas
+    processGunPositions() {
+        const processedPositions = [];
+        
+        for (const pos of this.gunPositions) {
+            const worldPos = this.calculateWorldPosition(pos.row, pos.col);
+            processedPositions.push(worldPos);
+        }
+        
+        // Substituir as posições de grade por posições de mundo
+        this.gunPositions = processedPositions;
     }
     
     // Método auxiliar para calcular posição no mundo a partir da grade
@@ -205,6 +228,11 @@ class MazeModel {
     // Manter compatibilidade com o código anterior, retorna a primeira posição
     getMonsterPosition() {
         return this.monsterPositions.length > 0 ? this.monsterPositions[0] : null;
+    }
+    
+    // Getter para obter todas as posições de armas
+    getGunPositions() {
+        return this.gunPositions;
     }
 }
 
