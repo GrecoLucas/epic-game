@@ -1,0 +1,447 @@
+class BuildingController {
+    // Update constructor signature
+    constructor(scene, camera, collisionSystem, mazeView, mazeModel) {
+        this.scene = scene;
+        this.camera = camera; // Should be valid now
+        this.collisionSystem = collisionSystem;
+        this.mazeView = mazeView;
+        this.mazeModel = mazeModel; // Store the model
+
+        this.isEnabled = false;
+        this.selectedItem = 'wall';
+        this.buildPreviewMesh = null;
+        // Reduzir a distância máxima de construção para ficar mais próximo e intuitivo
+        this.placementDistance = 5; // Reduzido de 10 para 5
+        
+        // Access cellSize from the model
+        this.cellSize = this.mazeModel.cellSize;
+        // Access wallHeight via mazeView (assuming it's set correctly there)
+        this.wallHeight = this.mazeView.wallMaterial?.wallHeight || 4; // Use default if needed
+
+        this.previewMaterialValid = null;
+        this.previewMaterialInvalid = null;
+        this._createPreviewMaterials();
+
+        this.currentPlacementValid = false;
+        this.currentPlacementPosition = null;
+        this.currentPlacementRotation = 0;
+        // Adicionar direção da rampa (east ou south)
+        this.rampDirection = 'east'; // Padrão: east
+
+        // Add a check for camera validity during initialization
+        if (!this.camera) {
+            console.error("BuildingController initialized with an invalid camera!");
+        } else {
+            console.log("BuildingController initialized successfully.");
+        }
+    }
+
+    _createPreviewMaterials() {
+        this.previewMaterialValid = new BABYLON.StandardMaterial("previewMatValid", this.scene);
+        this.previewMaterialValid.diffuseColor = new BABYLON.Color3(0, 1, 0); // Verde
+        this.previewMaterialValid.alpha = 0.5;
+
+        this.previewMaterialInvalid = new BABYLON.StandardMaterial("previewMatInvalid", this.scene);
+        this.previewMaterialInvalid.diffuseColor = new BABYLON.Color3(1, 0, 0); // Vermelho
+        this.previewMaterialInvalid.alpha = 0.5;
+    }
+
+    enable() {
+        if (this.isEnabled) return;
+        this.isEnabled = true;
+        console.log("Build Mode Enabled. Selected:", this.selectedItem);
+        // Adicionar lógica de UI se necessário
+    }
+
+    disable() {
+        if (!this.isEnabled) return;
+        this.isEnabled = false;
+        if (this.buildPreviewMesh) {
+            this.buildPreviewMesh.dispose();
+            this.buildPreviewMesh = null;
+        }
+        this.currentPlacementValid = false;
+        this.currentPlacementPosition = null;
+        console.log("Build Mode Disabled.");
+        // Adicionar lógica de UI se necessário
+    }
+
+    toggle() {
+        if (this.isEnabled) {
+            this.disable();
+        } else {
+            this.enable();
+        }
+    }
+
+    setSelectedItem(itemType) {
+        if (!this.isEnabled || !['wall', 'ramp'].includes(itemType)) return;
+        if (this.selectedItem !== itemType) {
+            this.selectedItem = itemType;
+            console.log("Selected build item:", this.selectedItem);
+            // Forçar recriação do preview no próximo update
+            if (this.buildPreviewMesh) {
+                this.buildPreviewMesh.dispose();
+                this.buildPreviewMesh = null;
+            }
+        }
+    }
+
+    // Chamado a cada frame quando o modo de construção está ativo
+    update() {
+        if (!this.isEnabled || !this.camera) return;
+
+        const placementInfo = this._getPlacementPosition();
+        
+        if (placementInfo) {
+            this.currentPlacementPosition = placementInfo.position;
+            this.currentPlacementValid = this._isValidPlacement(this.currentPlacementPosition);
+            this._updatePreviewMesh(placementInfo.position, this.currentPlacementValid);
+        } else if (this.buildPreviewMesh) {
+            this.buildPreviewMesh.setEnabled(false);
+            this.currentPlacementValid = false;
+            this.currentPlacementPosition = null;
+        }
+    }
+
+    // Tenta colocar o item selecionado na posição atual do preview
+    placeItem() {
+        if (!this.isEnabled || !this.currentPlacementValid || !this.currentPlacementPosition) {
+            console.log("Cannot place item: Invalid position or not in build mode.");
+            return;
+        }
+
+        console.log(`Attempting to place ${this.selectedItem} at ${this.currentPlacementPosition}`);
+        let newMesh = null;
+
+        if (this.selectedItem === 'wall') {
+            // Passar o cellSize para garantir que o tamanho seja consistente
+            newMesh = this.mazeView.createPlayerWall(this.currentPlacementPosition, this.cellSize);
+        } else if (this.selectedItem === 'ramp') {
+            // Passar o cellSize, rotação e a direção da rampa
+            newMesh = this.mazeView.createPlayerRamp(
+                this.currentPlacementPosition, 
+                this.currentPlacementRotation, 
+                this.cellSize, 
+                this.rampDirection // Passar a direção da rampa (east ou south)
+            );
+        }
+
+        if (newMesh) {
+            // Adicionar ao sistema de colisão
+            this.collisionSystem.addMesh(newMesh);
+            console.log(`Item placed successfully: ${this.selectedItem} - Direction: ${this.rampDirection}`);
+
+            // Opcional: Adicionar a uma lista de objetos construídos na instância do jogo
+            // this.scene.gameInstance.addBuiltObject(newMesh);
+
+            // Opcional: Consumir recursos do jogador
+        } else {
+            console.error("Failed to create build item mesh.");
+        }
+    }
+
+    // Calcula a posição na grade baseada no raycast a partir do centro da tela (crosshair)
+    _getPlacementPosition() {
+        // Verificar se a câmera é válida
+        if (!this.camera) {
+            console.error("Attempted to get placement position with invalid camera.");
+            return null;
+        }
+        
+        // Criar um ray a partir do centro da tela (onde está o crosshair)
+        // Este método é melhor que getForwardRay pois usa exatamente o ponto onde o jogador está mirando
+        const ray = this.scene.createPickingRay(
+            this.scene.getEngine().getRenderWidth() / 2,  // Centro X da tela
+            this.scene.getEngine().getRenderHeight() / 2, // Centro Y da tela
+            BABYLON.Matrix.Identity(),
+            this.camera
+        );
+        
+        // Predicate para acertar apenas o chão ou outras construções
+        const predicate = (mesh) => {
+            return mesh.isPickable && 
+                  !mesh.name.startsWith("preview_") && 
+                  (mesh.name === "floor" || mesh.metadata?.isBuildableSurface);
+        };
+        
+        const hit = this.scene.pickWithRay(ray, predicate);
+
+        if (hit && hit.pickedPoint) {
+            // --- Grid Snapping ---
+            const gridX = Math.round(hit.pickedPoint.x / this.cellSize) * this.cellSize;
+            const gridZ = Math.round(hit.pickedPoint.z / this.cellSize) * this.cellSize;
+
+            // Ajustar Y baseado no item e na superfície atingida
+            const hitMeshBB = hit.pickedMesh.getBoundingInfo().boundingBox;
+            const groundY = hit.pickedMesh.name === "floor" ? 0 : hit.pickedMesh.position.y + hitMeshBB.extendSizeWorld.y;
+            let buildY = groundY;
+            
+            if (this.selectedItem === 'wall') {
+                buildY += this.wallHeight / 2;
+            }
+
+            const position = new BABYLON.Vector3(gridX, buildY, gridZ);
+            return { position: position };
+        } else {
+            // Se não acertou nada, criar um ponto a uma distância fixa na direção do centro da tela
+            const rayDirection = ray.direction.clone();
+            const fixedDistance = 5; // Distância fixa mais próxima
+            
+            const rayOrigin = this.camera.position.clone();
+            const rayTarget = rayOrigin.add(rayDirection.scale(fixedDistance));
+            
+            // Aplicar grid snapping na posição calculada
+            const gridX = Math.round(rayTarget.x / this.cellSize) * this.cellSize;
+            const gridZ = Math.round(rayTarget.z / this.cellSize) * this.cellSize;
+            
+            // Altura para o bloco flutuante
+            let buildY = rayTarget.y;
+            // Se for uma parede, ajustar para o centro vertical
+            if (this.selectedItem === 'wall') {
+                buildY = Math.max(0, Math.round(buildY - (this.wallHeight / 2)) + (this.wallHeight / 2));
+            } else {
+                // Para rampas, arredondar para a grade mais próxima
+                buildY = Math.max(0, Math.round(buildY / this.cellSize) * this.cellSize);
+            }
+            
+            const position = new BABYLON.Vector3(gridX, buildY, gridZ);
+            return { position: position };
+        }
+    }
+
+    // Verifica se a posição é válida (ex: não colide com jogador, monstros, outras estruturas)
+    _isValidPlacement(position) {
+        if (!position) return false;
+
+        // Lógica de validação:
+        // 1. Verificar colisões com uma pequena caixa invisível na posição alvo
+        //    contra outros meshes (jogador, monstros, paredes existentes, etc.)
+        // 2. Verificar regras específicas (ex: parede precisa de chão embaixo?)
+
+        // Exemplo simples (precisa ser mais robusto):
+        // Verificar se já existe algo muito próximo no mesmo centro da célula
+        const meshesInCell = this.scene.getMeshesByTags(`cell_${position.x}_${position.z}`, (mesh) => mesh.checkCollisions);
+        if (meshesInCell.length > 0) {
+             // Verificar se a colisão é apenas com o chão (permitido)
+             const nonFloorCollisions = meshesInCell.filter(m => m.name !== 'floor');
+             if(nonFloorCollisions.length > 0) {
+                 console.log("Placement invalid: Cell occupied.");
+                 return false;
+             }
+        }
+
+        // Adicionar mais verificações aqui (distância do jogador, etc.)
+
+        return true; // Placeholder
+    }
+
+    // Cria ou atualiza o mesh de pré-visualização
+    _updatePreviewMesh(position, isValid) {
+        const previewName = `preview_${this.selectedItem}`;
+        const rampDir = this.rampDirection || 'east'; // Usar a direção atual da rampa
+
+        // Recriar se o tipo de item mudou ou não existe
+        if (!this.buildPreviewMesh || this.buildPreviewMesh.name !== `${previewName}_${rampDir}`) {
+            if (this.buildPreviewMesh) this.buildPreviewMesh.dispose();
+
+            if (this.selectedItem === 'wall') {
+                this.buildPreviewMesh = BABYLON.MeshBuilder.CreateBox(`${previewName}_wall`, {
+                    width: this.cellSize, height: this.wallHeight, depth: this.cellSize
+                }, this.scene);
+            } else { // ramp
+                // Criar um preview mais detalhado baseado na direção da rampa
+                if (rampDir === 'east') {
+                    // Rampa East: Inclinação de oeste para leste (sobe no lado leste)
+                    const eastRampMesh = this._createRampPreviewMesh('east');
+                    this.buildPreviewMesh = eastRampMesh;
+                } else if (rampDir === 'south') {
+                    // Rampa South: Inclinação de norte para sul (sobe no lado sul)
+                    const southRampMesh = this._createRampPreviewMesh('south');
+                    this.buildPreviewMesh = southRampMesh;
+                }
+                
+                // Aplicar rotação inicial (se houver)
+                this.buildPreviewMesh.rotation.y = this.currentPlacementRotation;
+            }
+            
+            this.buildPreviewMesh.isPickable = false;
+            this.buildPreviewMesh.checkCollisions = false;
+            // Adicionar texto 3D identificando o tipo de rampa
+            this._addRampDirectionLabel();
+        }
+
+        // Atualizar posição e material
+        this.buildPreviewMesh.position = position;
+        this.buildPreviewMesh.material = isValid ? this.previewMaterialValid : this.previewMaterialInvalid;
+        this.buildPreviewMesh.setEnabled(true);
+
+        // Atualizar rótulo de direção se existir
+        if (this._rampDirectionLabel) {
+            this._rampDirectionLabel.position = new BABYLON.Vector3(
+                position.x, 
+                position.y + this.wallHeight / 2 + 0.5, // Posicionar acima da rampa
+                position.z
+            );
+        }
+    }
+
+    // Método auxiliar para criar o preview mesh da rampa com a forma correta
+    _createRampPreviewMesh(direction) {
+        const previewName = `preview_ramp_${direction}`;
+        const rampWidth = this.cellSize;
+        const rampHeight = this.wallHeight / 2; // Metade da altura para o preview
+        const rampDepth = this.cellSize;
+
+        // Criar uma malha personalizada para o preview da rampa
+        const positions = [];
+        const indices = [];
+        const normals = [];
+        const colors = []; // Adicionar cores para melhor distinção visual
+
+        if (direction === 'south') {
+            // Rampa South (inclinação de norte para sul)
+            positions.push(
+                // Base (retângulo)
+                -rampWidth/2, 0, -rampDepth/2,  // 0: frente esquerda
+                rampWidth/2, 0, -rampDepth/2,   // 1: frente direita
+                rampWidth/2, 0, rampDepth/2,    // 2: trás direita
+                -rampWidth/2, 0, rampDepth/2,   // 3: trás esquerda
+                
+                // Topo (inclinado)
+                -rampWidth/2, rampHeight, -rampDepth/2,  // 4: frente esquerda alto
+                rampWidth/2, rampHeight, -rampDepth/2,   // 5: frente direita alto
+                rampWidth/2, 0, rampDepth/2,            // 6: trás direita (base)
+                -rampWidth/2, 0, rampDepth/2            // 7: trás esquerda (base)
+            );
+            
+            // Indicadores visuais na parte frontal (texto "SOUTH")
+            for (let i = 0; i < 8; i++) {
+                // Azul para rampa sul
+                colors.push(0.2, 0.2, 0.8, 0.7);
+            }
+        } else { // 'east'
+            // Rampa East (inclinação de oeste para leste)
+            positions.push(
+                // Base (retângulo)
+                -rampDepth/2, 0, -rampWidth/2,  // 0: frente esquerda
+                rampDepth/2, 0, -rampWidth/2,   // 1: frente direita
+                rampDepth/2, 0, rampWidth/2,    // 2: trás direita
+                -rampDepth/2, 0, rampWidth/2,   // 3: trás esquerda
+                
+                // Topo (inclinado)
+                -rampDepth/2, 0, -rampWidth/2,          // 4: frente esquerda (base)
+                rampDepth/2, rampHeight, -rampWidth/2,  // 5: frente direita alto
+                rampDepth/2, rampHeight, rampWidth/2,   // 6: trás direita alto
+                -rampDepth/2, 0, rampWidth/2           // 7: trás esquerda (base)
+            );
+            
+            // Indicadores visuais na parte lateral (texto "EAST")
+            for (let i = 0; i < 8; i++) {
+                // Verde para rampa leste
+                colors.push(0.2, 0.8, 0.2, 0.7);
+            }
+        }
+        
+        // Índices comuns para ambas direções
+        indices.push(
+            // Base
+            0, 2, 1, 0, 3, 2,
+            // Frente
+            0, 1, 5, 0, 5, 4,
+            // Trás
+            3, 6, 2, 3, 7, 6,
+            // Esquerda
+            0, 4, 7, 0, 7, 3,
+            // Direita
+            1, 2, 6, 1, 6, 5,
+            // Topo
+            4, 5, 6, 4, 6, 7
+        );
+        
+        // Calcular normais para iluminação correta
+        BABYLON.VertexData.ComputeNormals(positions, indices, normals);
+        
+        // Criar malha personalizada
+        const mesh = new BABYLON.Mesh(previewName, this.scene);
+        const vertexData = new BABYLON.VertexData();
+        vertexData.positions = positions;
+        vertexData.indices = indices;
+        vertexData.normals = normals;
+        vertexData.colors = colors; // Adicionar cores à malha
+        vertexData.applyToMesh(mesh);
+        
+        return mesh;
+    }
+
+    // Método para adicionar um rótulo 3D indicando a direção da rampa
+    _addRampDirectionLabel() {
+        if (this.selectedItem !== 'ramp') return;
+        
+        // Remover rótulo existente se houver
+        if (this._rampDirectionLabel) {
+            this._rampDirectionLabel.dispose();
+        }
+        
+        // Texto descritivo baseado na direção
+        const labelText = this.rampDirection === 'east' ? "EAST ➜" : "SOUTH ⬇";
+        
+        // Criar um plano com texto
+        const labelPlane = BABYLON.MeshBuilder.CreatePlane("rampDirectionLabel", {
+            width: 1.5, 
+            height: 0.5
+        }, this.scene);
+        
+        // Garantir que o rótulo sempre olhe para a câmera
+        labelPlane.billboardMode = BABYLON.Mesh.BILLBOARDMODE_ALL;
+        
+        // Criar textura dinâmica para o texto
+        const labelTexture = BABYLON.GUI.AdvancedDynamicTexture.CreateForMesh(labelPlane);
+        
+        // Criar texto
+        const text = new BABYLON.GUI.TextBlock();
+        text.text = labelText;
+        text.color = this.rampDirection === 'east' ? "lime" : "lightblue";
+        text.fontSize = 24;
+        text.outlineWidth = 2;
+        text.outlineColor = "black";
+        
+        // Adicionar o texto à textura
+        labelTexture.addControl(text);
+        
+        // Armazenar referência ao rótulo
+        this._rampDirectionLabel = labelPlane;
+        
+        // Posicionar inicialmente (será atualizado em _updatePreviewMesh)
+        labelPlane.position = new BABYLON.Vector3(0, this.wallHeight/2 + 0.5, 0);
+        
+        // Garantir que o rótulo não seja interativo
+        labelPlane.isPickable = false;
+    }
+
+    // TODO: Adicionar métodos para rotacionar o item (ex: rotatePreview(angle))
+    rotatePreview(clockwise = true) {
+        if (!this.isEnabled || this.selectedItem !== 'ramp') return;
+
+        // Rotacionar em incrementos de 90 graus
+        const increment = Math.PI / 2;
+        this.currentPlacementRotation += clockwise ? increment : -increment;
+        
+        // Normalizar rotação para ficar entre 0 e 2π
+        this.currentPlacementRotation = (this.currentPlacementRotation + 2 * Math.PI) % (2 * Math.PI);
+
+        // Atualizar visualização apenas se o preview estiver visível
+        if (this.buildPreviewMesh?.isEnabled()) {
+            this.buildPreviewMesh.rotation.y = this.currentPlacementRotation;
+                
+            // Re-validar posicionamento após a rotação
+            if (this.currentPlacementPosition) {
+                this.currentPlacementValid = this._isValidPlacement(this.currentPlacementPosition);
+                this.buildPreviewMesh.material = this.currentPlacementValid ? 
+                    this.previewMaterialValid : this.previewMaterialInvalid;
+            }
+        }
+    }
+}
+
+export default BuildingController;

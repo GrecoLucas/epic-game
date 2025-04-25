@@ -1,16 +1,19 @@
-// Controller - Responsável pelo controle e input do player
+import BuildingController from './BuildingController.js'; // Importar a nova classe
+
 class PlayerController {
     constructor(scene, playerModel, playerView) {
         this.scene = scene;
         this.model = playerModel;
         this.view = playerView;
         this.inputMap = {};
-        this.nearbyButton = null; // Referência ao botão mais próximo
-        this.nearbyGun = null; // Referência à arma mais próxima
-        this.interactionDistance = 5; // Distância máxima para interagir com botões
-        this.interactionHint = null; // Elemento UI para mostrar dica de interação
-        this.groundCheckDistance = 0.5; // Aumentado para detectar o chão a uma distância maior
-        
+        this.nearbyButton = null;
+        this.nearbyGun = null;
+        this.interactionDistance = 5;
+        this.interactionHint = null;
+        this.groundCheckDistance = 0.5;
+        // Initialize buildingController as null initially
+        this.buildingController = null;
+
         this.initialize();
     }
 
@@ -34,7 +37,26 @@ class PlayerController {
         this.scene.registerBeforeRender(() => {
             this.checkIfGrounded();
             this.model.updatePhysics();
+            // Add call to updateMovement
+            this.updateMovement();
+            if (this.buildingController?.isEnabled) { // Chamar update do building controller se ativo
+                this.buildingController.update();
+            }
         });
+
+        // --- Instantiate BuildingController AFTER view and camera are initialized ---
+        if (this.scene.gameInstance && this.scene.gameInstance.collisionSystem && this.scene.gameInstance.maze?.view && this.scene.gameInstance.maze?.model) {
+             this.buildingController = new BuildingController(
+                 this.scene,
+                 this.view.getCamera(), // Camera should exist now
+                 this.scene.gameInstance.collisionSystem,
+                 this.scene.gameInstance.maze.view,
+                 this.scene.gameInstance.maze.model // Pass the model
+             );
+        } else {
+            console.error("Falha ao inicializar BuildingController: Dependências (collisionSystem, mazeView, mazeModel) não encontradas na cena.");
+            // this.buildingController remains null
+        }
     }
 
     // Criar um elemento de UI para mostrar dica de interação com botões
@@ -154,54 +176,59 @@ class PlayerController {
     
     // Novo método para configurar o raycast e melhorar a interação com objetos
     setupRaycastForInteraction() {
-        // Configurar um predicate para identificar objetos clicáveis (botões)
         const buttonPredicate = (mesh) => {
             return mesh.isPickable && mesh.name && mesh.name.includes("button");
         };
-        
-        // Registrar callback para evento de clique
+
         this.scene.onPointerDown = (evt) => {
-            // Primeiro verificar o lock da câmera
             if (!this.scene.alreadyLocked) {
-                // Use getCamera() which should return the active player camera
-                const camera = this.view.getCamera(); 
+                const camera = this.view.getCamera();
                 if (camera) {
                     camera.attachControl(document.getElementById("renderCanvas"));
                     this.lockCamera();
                 }
                 return;
             }
-            
-            // Verificar se é o botão esquerdo do mouse (0)
-            const isLeftClick = evt.button === 0;
-            
-            if (isLeftClick) {
-                // 1. Lógica de Disparo
-                this.handleShoot();
-                
-                // 2. Lógica de Interação com Botão (via Raycast)
-                const camera = this.view.getCamera();
-                if (!camera) return; // Safety check
 
-                const ray = camera.getForwardRay(this.interactionDistance); // Usar a distância de interação definida
-                const hit = this.scene.pickWithRay(ray, buttonPredicate);
-                
-                if (hit && hit.pickedMesh) {
-                    // Ativar o botão atingido pelo raycast
-                    const actionManager = hit.pickedMesh.actionManager;
-                    if (actionManager) {
-                        try {
-                            // Disparar animação visual de feedback
-                            this.createFeedbackAnimation(hit.pickedMesh);
-                            // Dispara as ações registradas para o evento OnPickTrigger
-                            actionManager.processTrigger(BABYLON.ActionManager.OnPickTrigger);
-                        } catch (error) {
-                            console.log("Erro ao processar trigger do botão via raycast:", error);
+            const isLeftClick = evt.button === 0;
+            const isRightClick = evt.button === 2; // Botão direito
+
+            if (isLeftClick) {
+                // --- Prioridade: Construção ---
+                if (this.buildingController?.isEnabled) {
+                    this.buildingController.placeItem(); // Tenta colocar o item
+                }
+                // --- Senão, Disparo ---
+                else {
+                    this.handleShoot(); // Lógica de disparo normal
+                }
+
+                // --- Interação com Botão (Raycast) ---
+                // Pode ser mantido, mas talvez desativado no modo construção?
+                if (!this.buildingController?.isEnabled) {
+                    const camera = this.view.getCamera();
+                    if (!camera) return;
+                    const ray = camera.getForwardRay(this.interactionDistance);
+                    const hit = this.scene.pickWithRay(ray, buttonPredicate);
+                    if (hit && hit.pickedMesh) {
+                        const actionManager = hit.pickedMesh.actionManager;
+                        if (actionManager) {
+                            try {
+                                this.createFeedbackAnimation(hit.pickedMesh);
+                                actionManager.processTrigger(BABYLON.ActionManager.OnPickTrigger);
+                            } catch (error) {
+                                console.log("Erro ao processar trigger do botão via raycast:", error);
+                            }
                         }
                     }
                 }
+            } else if (isRightClick) {
+                 // Exemplo: Usar botão direito para rotacionar no modo construção
+                 if (this.buildingController?.isEnabled) {
+                     this.buildingController.rotatePreview(); // Rotaciona o preview (se for rampa)
+                 }
+                 // Adicionar outra lógica para botão direito se necessário (mira?)
             }
-            // Adicione aqui lógica para outros botões do mouse se necessário (e.g., evt.button === 1 for middle, evt.button === 2 for right)
         };
     }
     
@@ -220,9 +247,10 @@ class PlayerController {
     }
     
     setupInputHandling() {
-        // Keyboard
-        this.scene.actionManager = new BABYLON.ActionManager(this.scene);
-        
+        if (!this.scene.actionManager) { // Garante que o actionManager exista
+             this.scene.actionManager = new BABYLON.ActionManager(this.scene);
+        }
+
         // Detectar teclas pressionadas
         this.scene.actionManager.registerAction(
             new BABYLON.ExecuteCodeAction(
@@ -230,25 +258,45 @@ class PlayerController {
                 (evt) => {
                     const key = evt.sourceEvent.key.toLowerCase();
                     this.inputMap[key] = true;
-                    
-                    // Verificar se é a tecla de interação (E)
+
+                    // --- Inputs Gerais (Fora do Modo Construção ou Sempre Ativos) ---
                     if (key === "e") {
-                        // Prioridade: arma > botão
-                        if (this.nearbyGun) {
-                            this.pickupNearbyGun();
-                        } else if (this.nearbyButton) {
-                            this.activateNearbyButton();
+                        if (!this.buildingController?.isEnabled) { // Só interage se NÃO estiver construindo
+                            if (this.nearbyGun) this.pickupNearbyGun();
+                            else if (this.nearbyButton) this.activateNearbyButton();
                         }
                     }
-                    
-                    // Verificar se é a tecla de pulo (Espaço)
                     if (key === " ") {
-                        this.model.jump();
+                        if (!this.buildingController?.isEnabled) { // Só pula se NÃO estiver construindo? (Opcional)
+                             this.model.jump();
+                        }
+                    }
+
+                    // --- Inputs do Modo Construção ---
+                    if (this.buildingController) {
+                        if (key === "b") { // Tecla para ativar/desativar modo construção
+                            this.buildingController.toggle();
+                        }
+                        if (this.buildingController.isEnabled) {
+                            if (key === "1") { // Selecionar Parede
+                                this.buildingController.setSelectedItem('wall');
+                            }
+                            if (key === "2") { // Selecionar Rampa East
+                                this.buildingController.setSelectedItem('ramp');
+                                this.buildingController.rampDirection = 'east';
+                                this.buildingController.currentPlacementRotation = 0; // Reset para orientação east
+                            }
+                            if (key === "3") { // Selecionar Rampa South
+                                this.buildingController.setSelectedItem('ramp');
+                                this.buildingController.rampDirection = 'south';
+                                this.buildingController.currentPlacementRotation = Math.PI / 2; // 90 graus (direção sul)
+                            }
+                        }
                     }
                 }
             )
         );
-        
+
         // Detectar teclas liberadas
         this.scene.actionManager.registerAction(
             new BABYLON.ExecuteCodeAction(
@@ -258,9 +306,9 @@ class PlayerController {
                 }
             )
         );
-        
-        // Atualizar movimento a cada frame
-        this.scene.registerBeforeRender(() => this.updateMovement());
+
+        // Atualizar movimento a cada frame (já estava no initialize, remover duplicação se houver)
+        // this.scene.registerBeforeRender(() => this.updateMovement()); // Movido para initialize
     }
     
     // Ativar o botão mais próximo
@@ -385,6 +433,7 @@ class PlayerController {
         const forwardDirection = camera.getForwardRay(1).direction;
         const rayOrigin = cameraPosition.add(forwardDirection.scale(config.rayOriginOffset));
         const ray = new BABYLON.Ray(rayOrigin, forwardDirection, config.rayLength);
+
 
 
 

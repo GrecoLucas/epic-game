@@ -535,6 +535,237 @@ class MazeView {
         }, 1000);
         
     }
+
+    /**
+     * Cria uma instância única de parede construída pelo jogador.
+     * @param {BABYLON.Vector3} position Posição central da parede.
+     * @param {number} cellSize O tamanho da célula da grade.
+     * @returns {BABYLON.Mesh} O mesh da parede criada.
+     */
+    createPlayerWall(position, cellSize) {
+        // Use cellSize if provided, otherwise use default from the constructor
+        const wallWidth = cellSize || this.cellSize || 4;
+        
+        const wall = BABYLON.MeshBuilder.CreateBox(`playerWall_${Date.now()}`, {
+            width: wallWidth,
+            height: this.wallMaterial?.wallHeight || 4, // Use optional chaining and default
+            depth: wallWidth
+        }, this.scene);
+
+        wall.position = position;
+        // Clone material safely
+        wall.material = this.wallMaterial ? this.wallMaterial.clone(`playerWallMat_${wall.uniqueId}`) : 
+                         new BABYLON.StandardMaterial(`playerWallMat_${wall.uniqueId}`, this.scene);
+        wall.checkCollisions = true;
+        wall.isPickable = true;
+
+        // Adicionar tag para identificação e grid snapping
+        BABYLON.Tags.AddTagsTo(wall, `cell_${position.x}_${position.z}`);
+        // Adicionar metadata para indicar que é uma superfície construível
+        if (!wall.metadata) wall.metadata = {};
+        wall.metadata.isBuildableSurface = true;
+        wall.metadata.isPlayerBuilt = true;
+
+        // Adicionar física se necessário (exemplo básico)
+        if (this.scene.getPhysicsEngine()?.getPhysicsPlugin()) {
+            wall.physicsImpostor = new BABYLON.PhysicsImpostor(wall, BABYLON.PhysicsImpostor.BoxImpostor, 
+                                  { mass: 0, restitution: 0.1 }, this.scene);
+        } else {
+             console.warn("Physics not enabled, skipping impostor for player wall.");
+        }
+
+        console.log(`Created player wall at ${position}`);
+        return wall;
+    }
+
+    /**
+     * Cria uma instância única de rampa construída pelo jogador.
+     * @param {BABYLON.Vector3} position Posição da base da rampa.
+     * @param {number} rotationY Rotação em radianos no eixo Y.
+     * @param {number} cellSize O tamanho da célula da grade.
+     * @param {string} direction A direção da rampa ('east' ou 'south').
+     * @returns {BABYLON.Mesh} O mesh da rampa criada.
+     */
+    createPlayerRamp(position, rotationY, cellSize, direction = 'east') {
+        // Use cellSize if provided, otherwise fallback
+        const rampWidth = cellSize || this.cellSize || 4;
+        const rampHeight = this.wallMaterial?.wallHeight || 4;
+        const rampDepth = rampWidth; // Usar a mesma largura para profundidade
+
+        // Criar a forma da rampa - versão mais elaborada
+        // A direção determina como a rampa está orientada
+        const rampName = `playerRamp_${direction}_${Date.now()}`;
+
+        // Definir os vértices do triângulo retângulo sólido (similar à lógica existente em createRamps)
+        const positions = [];
+        const indices = [];
+        const normals = [];
+        const uvs = [];
+        
+        // Configurar geometria baseada na direção
+        if (direction === 'south') { // Inclinação de sul para norte
+            positions.push(
+                // Face inferior (retângulo)
+                -rampWidth/2, 0, -rampDepth/2,  // 0: esquerda frontal inferior
+                rampWidth/2, 0, -rampDepth/2,   // 1: direita frontal inferior
+                rampWidth/2, 0, rampDepth/2,    // 2: direita traseira inferior
+                -rampWidth/2, 0, rampDepth/2,   // 3: esquerda traseira inferior
+                
+                // Face superior (triângulo inclinado)
+                -rampWidth/2, rampHeight, -rampDepth/2,  // 4: esquerda frontal superior
+                rampWidth/2, rampHeight, -rampDepth/2,   // 5: direita frontal superior
+                rampWidth/2, 0, rampDepth/2,    // 6: direita traseira inferior (mesmo que 2)
+                -rampWidth/2, 0, rampDepth/2    // 7: esquerda traseira inferior (mesmo que 3)
+            );
+            
+            // Indices para definir as faces (triângulos) da malha
+            indices.push(
+                // Base (face inferior) - normal para baixo
+                0, 2, 1,
+                0, 3, 2,
+                
+                // Face frontal (retângulo vertical) - normal para frente
+                0, 1, 5,
+                0, 5, 4,
+                
+                // Face traseira (retângulo horizontal) - normal para trás
+                3, 6, 2,
+                3, 7, 6,
+                
+                // Face lateral esquerda (triângulo) - normal para esquerda
+                0, 4, 7,
+                0, 7, 3,
+                
+                // Face lateral direita (triângulo) - normal para direita
+                1, 2, 6,
+                1, 6, 5,
+                
+                // Face superior (rampa) - normal para cima/diagonal
+                4, 5, 6,
+                4, 6, 7
+            );
+        } else { // Padrão: 'east' - Inclinação de leste para oeste
+            positions.push(
+                // Face inferior (retângulo)
+                -rampDepth/2, 0, -rampWidth/2,  // 0: frontal esquerda inferior
+                rampDepth/2, 0, -rampWidth/2,   // 1: frontal direita inferior
+                rampDepth/2, 0, rampWidth/2,    // 2: traseira direita inferior
+                -rampDepth/2, 0, rampWidth/2,   // 3: traseira esquerda inferior
+                
+                // Face superior (triângulo inclinado)
+                -rampDepth/2, 0, -rampWidth/2,      // 4: frontal esquerda inferior (mesmo que 0)
+                rampDepth/2, rampHeight, -rampWidth/2,  // 5: frontal direita superior
+                rampDepth/2, rampHeight, rampWidth/2,   // 6: traseira direita superior
+                -rampDepth/2, 0, rampWidth/2        // 7: traseira esquerda inferior (mesmo que 3)
+            );
+            
+            // Indices para definir as faces (triângulos) da malha
+            indices.push(
+                // Base (face inferior) - normal para baixo
+                0, 2, 1,
+                0, 3, 2,
+                
+                // Face frontal (retângulo inclinado) - normal para frente
+                0, 1, 5,
+                0, 5, 4,
+                
+                // Face traseira (retângulo inclinado) - normal para trás
+                3, 6, 2,
+                3, 7, 6,
+                
+                // Face lateral esquerda (retângulo plano) - normal para esquerda
+                0, 4, 7,
+                0, 7, 3,
+                
+                // Face lateral direita (inclinada) - normal para direita
+                1, 2, 6,
+                1, 6, 5,
+                
+                // Face superior (inclinada) - normal para cima
+                4, 5, 6,
+                4, 6, 7
+            );
+        }
+
+        // Calcular as normais para iluminação correta
+        BABYLON.VertexData.ComputeNormals(positions, indices, normals);
+        
+        // Gerar UVs simples
+        for (let i = 0; i < positions.length / 3; i++) {
+            // Mapear UVs com base na posição para melhor mapeamento de textura
+            const vertexIndex = i * 3;
+            const y = positions[vertexIndex + 1]; // Componente Y
+            
+            // Normalizar a altura para o mapeamento UV
+            const v = y / rampHeight;
+            
+            // Para o componente U, usamos uma combinação de X e Z para evitar distorções
+            const x = positions[vertexIndex];
+            const z = positions[vertexIndex + 2];
+            
+            // Normalizar para coordenadas UV (0-1)
+            const u = (x / rampWidth + 0.5 + z / rampDepth + 0.5) / 2;
+            
+            uvs.push(u, v);
+        }
+
+        // Criar a malha da rampa
+        const ramp = new BABYLON.Mesh(rampName, this.scene);
+        
+        // Aplicar os dados da geometria à malha
+        const vertexData = new BABYLON.VertexData();
+        vertexData.positions = positions;
+        vertexData.indices = indices;
+        vertexData.normals = normals;
+        vertexData.uvs = uvs;
+        vertexData.applyToMesh(ramp);
+        
+        // Posicionar a rampa
+        ramp.position = position.clone();
+        
+        // Aplicar rotação (permite ajuste fino além da geometria da direção)
+        ramp.rotation.y = rotationY;
+
+        // Aplicar material
+        const rampMaterial = this.rampMaterial ? 
+                            this.rampMaterial.clone(`playerRampMat_${ramp.uniqueId}`) : 
+                            new BABYLON.StandardMaterial(`playerRampMat_${ramp.uniqueId}`, this.scene);
+        
+        // Para melhor renderização das faces da rampa
+        rampMaterial.backFaceCulling = false;
+        rampMaterial.twoSidedLighting = true;
+        
+        ramp.material = rampMaterial;
+        
+        // Habilitar colisões
+        ramp.checkCollisions = true;
+        ramp.isPickable = true;
+
+        // Adicionar tag para identificação e grid snapping
+        BABYLON.Tags.AddTagsTo(ramp, `cell_${position.x}_${position.z}`);
+        
+        // Adicionar metadata
+        if (!ramp.metadata) ramp.metadata = {};
+        ramp.metadata.isBuildableSurface = true;
+        ramp.metadata.isPlayerBuilt = true;
+        ramp.metadata.isRamp = true;
+        ramp.metadata.rampDirection = direction;
+
+        // Adicionar física se disponível
+        if (this.scene.getPhysicsEngine()?.getPhysicsPlugin()) {
+            ramp.physicsImpostor = new BABYLON.PhysicsImpostor(
+                ramp, 
+                BABYLON.PhysicsImpostor.MeshImpostor, // Usando MeshImpostor para forma personalizada
+                { mass: 0, restitution: 0.1 }, 
+                this.scene
+            );
+        } else {
+            console.warn("Physics not enabled, skipping impostor for player ramp.");
+        }
+
+        console.log(`Created player ramp (${direction}) at ${position} with rotation ${rotationY}`);
+        return ramp;
+    }
     // Retornar todos os meshes criados pelo MazeView
     getMeshes() {
         return this.meshes;
