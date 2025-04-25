@@ -33,9 +33,6 @@ class FloorAndWalls {
         ceiling.material = wallMaterial;
         ceiling.checkCollisions = true;
         this.meshes.push(ceiling);
-
-        // Garantir que todos os elementos tenham colisão ativada
-        this.enableCollisions();
     }
     
     createWalls(wallMaterial) {
@@ -72,13 +69,6 @@ class FloorAndWalls {
         this.meshes.push(wallWest);
     }
     
-    enableCollisions() {
-        // Habilitar colisões em todos os meshes
-        this.meshes.forEach(mesh => {
-            mesh.checkCollisions = true;
-        });
-    }
-
     getMeshes() {
         return this.meshes;
     }

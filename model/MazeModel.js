@@ -13,6 +13,8 @@ class MazeModel {
         this.mazeHeight = 0;
         this.playerPosition = { row: -1, col: -1 }; // Nova propriedade para armazenar a posição do P
         this.doorPosition = { row: -1, col: -1 }; // Nova propriedade para armazenar a posição do D
+        this.wallHealth = {}; // Novo: Rastrear vida das paredes { 'wall_row_col': health }
+        this.initialWallHealth = 100; // Novo: Vida inicial das paredes
     }
 
     // Método para carregar o layout do labirinto do arquivo maze.txt
@@ -231,7 +233,76 @@ class MazeModel {
         console.log("Posições dos botões detectadas:", this.buttonPositions);
     }
     
+    convertWorldToGridPosition(worldX, worldZ) {
+        // Obter dimensões do labirinto
+        const rows = this.mazeLayout.length;
+        const cols = this.mazeLayout[0].length;
+        
+        // Calcular offset para ajustar a posição relativa à origem
+        const offsetX = (cols * this.cellSize) / 2;
+        const offsetZ = (rows * this.cellSize) / 2;
+        
+        // Converter coordenadas do mundo para índices na matriz
+        const col = Math.round((worldX + offsetX - (this.cellSize / 2)) / this.cellSize);
+        const row = Math.round((worldZ + offsetZ - (this.cellSize / 2)) / this.cellSize);
+        
+        // Verificar se está dentro dos limites do labirinto
+        if (row >= 0 && row < rows && col >= 0 && col < cols) {
+            return { row, col };
+        }
+        
+        return null;
+    }
     
+    // Método para verificar se uma posição no mundo contém uma parede (não destruída)
+    hasWallAt(worldPosition) {
+        const gridPos = this.convertWorldToGridPosition(worldPosition.x, worldPosition.z);
+        if (!gridPos) return false;
+
+        // Verifica se o layout *ainda* marca como parede (valor 1)
+        // E se a linha/coluna existe
+        if (this.mazeLayout && this.mazeLayout[gridPos.row] && this.mazeLayout[gridPos.row][gridPos.col] !== undefined) {
+             return this.mazeLayout[gridPos.row][gridPos.col] === 1;
+        }
+        return false;
+    }
+
+    // Novo método para aplicar dano a uma parede
+    damageWallAt(worldPosition, damageAmount) {
+        const gridPos = this.convertWorldToGridPosition(worldPosition.x, worldPosition.z);
+        if (!gridPos) return { destroyed: false, remainingHealth: -1 };
+
+        const wallId = `wall_${gridPos.row}_${gridPos.col}`;
+
+        // Inicializar vida se não existir (deveria existir se for uma parede válida)
+        if (this.mazeLayout[gridPos.row][gridPos.col] !== 1) {
+             console.log(`MODELO: Tentativa de danificar algo que não é parede em [${gridPos.row},${gridPos.col}]`);
+             return { destroyed: false, remainingHealth: -1 };
+        }
+
+        if (this.wallHealth[wallId] === undefined) {
+            // Se a parede existe no layout mas não tem vida registrada, inicializa
+            this.wallHealth[wallId] = this.initialWallHealth;
+        }
+
+        // Aplicar dano
+        this.wallHealth[wallId] -= damageAmount;
+        const remainingHealth = this.wallHealth[wallId];
+
+        console.log(`MODELO: Parede ${wallId} recebeu ${damageAmount} de dano. Vida restante: ${remainingHealth}`);
+
+        // Verificar se a parede foi destruída
+        if (remainingHealth <= 0) {
+            console.log(`MODELO: Parede ${wallId} destruída (vida <= 0). Atualizando layout.`);
+            // Atualizar o layout para indicar que não há mais parede
+            this.mazeLayout[gridPos.row][gridPos.col] = 0;
+            delete this.wallHealth[wallId]; // Limpar vida
+            return { destroyed: true, remainingHealth: 0 };
+        }
+
+        return { destroyed: false, remainingHealth: remainingHealth };
+    }
+
     // Getters
     getLayout() {
         return this.mazeLayout;
@@ -276,6 +347,11 @@ class MazeModel {
 
     getRampPositions() {
         return this.rampPositions;
+    }
+
+    // Novo getter para vida inicial da parede
+    getInitialWallHealth() {
+        return this.initialWallHealth;
     }
 }
 

@@ -70,6 +70,48 @@ class MazeController {
         return this.model.getPlayerStartPosition();
     }
     
+    // Novo método para lidar com dano à parede
+    damageWallAt(position, damageAmount) {
+        console.log(`CONTROLLER: Processando ${damageAmount} de dano na parede em [${position.x}, ${position.z}]`);
+
+        // 1. Aplicar dano ao modelo e obter resultado
+        const damageResult = this.model.damageWallAt(position, damageAmount);
+        const { destroyed, remainingHealth } = damageResult;
+
+        if (remainingHealth === -1) {
+             console.log(`CONTROLLER: Dano ignorado (posição inválida ou não é parede).`);
+             return damageResult; // Retorna o resultado { destroyed: false, remainingHealth: -1 }
+        }
+
+        // 2. Atualizar a visualização
+        const gridPos = this.model.convertWorldToGridPosition(position.x, position.z);
+        if (!gridPos) return damageResult; // Segurança extra
+
+        const wallName = `wall_${gridPos.row}_${gridPos.col}`;
+        const initialHealth = this.model.getInitialWallHealth();
+
+        if (destroyed) {
+            // Se destruída, remover visualmente
+            console.log(`CONTROLLER: Parede ${wallName} destruída. Removendo visualmente.`);
+            // Passar a posição correta para o efeito visual
+            this.view.destroyWallVisual(wallName, position); 
+        } else {
+            // Se apenas danificada, aplicar efeito visual de dano
+            console.log(`CONTROLLER: Parede ${wallName} danificada. Aplicando efeito visual.`);
+            this.view.applyWallDamageVisual(wallName, remainingHealth, initialHealth);
+        }
+
+        return damageResult; // Retorna { destroyed: boolean, remainingHealth: number }
+    }
+
+    destroyWallAt(position) {
+        console.log(`CONTROLLER: Processando destruição INSTANTÂNEA em [${position.x}, ${position.z}]`);
+        // Força dano suficiente para destruir
+        const initialHealth = this.model.getInitialWallHealth();
+        // Certifica-se de que o dano é pelo menos 1 se a vida inicial for 0 ou negativa
+        const damageToApply = Math.max(1, initialHealth);
+        return this.damageWallAt(position, damageToApply);
+    }
     // Abrir a porta
     openDoor() {
         if (this.door) {

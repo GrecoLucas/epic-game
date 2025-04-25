@@ -31,6 +31,20 @@ class Maze {
     isLoaded() {
         return this.loaded;
     }
+
+    // Método para destruir parede (agora delega para dano total)
+    destroyWallAt(position) {
+        console.log(`MAZE: Solicitação para DESTRUIR parede em [${position.x}, ${position.z}]`);
+        // Delegar para o controlador (que agora chama damageWallAt com dano total)
+        return this.controller.destroyWallAt(position);
+    }
+
+    // Novo método para aplicar dano à parede
+    damageWallAt(position, damageAmount) {
+        console.log(`MAZE: Solicitação para APLICAR ${damageAmount} DE DANO na parede em [${position.x}, ${position.z}]`);
+        // Delegar para o controlador
+        return this.controller.damageWallAt(position, damageAmount);
+    }
     
     // Obter a posição inicial do jogador definida no labirinto
     getPlayerStartPosition() {

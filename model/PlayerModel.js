@@ -25,7 +25,6 @@ class PlayerModel {
         );
         this.mesh.position = this.position;
         this.mesh.isVisible = false; // invisível na primeira pessoa
-        this.mesh.checkCollisions = true; // Habilitar colisões para o mesh do jogador
         this.mesh.ellipsoid = new BABYLON.Vector3(0.5, 0.9, 0.5); // Ajustar elipsoide de colisão
         this.mesh.ellipsoidOffset = new BABYLON.Vector3(0, 0.9, 0); // Centralizar o elipsoide
     }

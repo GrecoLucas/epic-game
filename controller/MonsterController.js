@@ -12,6 +12,15 @@ class MonsterController {
         this.isStunned = false; // Add stun state
         this.stunTimer = null;
         
+        this.lastWallCollisionCheck = 0;
+        this.wallCheckInterval = 100; // Verificar a cada 100ms
+
+        this.wallContactTimers = {}; // Novo: Rastrear contato com paredes { wallName: { startTime: timestamp, lastDamageTime: timestamp } }
+        this.WALL_CONTACT_DAMAGE_THRESHOLD = 1500; // ms de contato para começar a danificar
+        this.WALL_DAMAGE_AMOUNT = 20; // Dano por tick
+        this.WALL_DAMAGE_COOLDOWN = 500; // ms entre ticks de dano
+    
+        
         // Inicializar o controlador
         this.initialize();
     }
@@ -31,12 +40,105 @@ class MonsterController {
             // If stunned, skip the update logic
             if (this.isStunned) return;
             this.update();
+            
+            // Novo: Verificar colisões com paredes
+            const currentTime = Date.now();
+            if (currentTime - this.lastWallCollisionCheck > this.wallCheckInterval) {
+                this.checkWallCollision();
+                this.lastWallCollisionCheck = currentTime;
+            }
         });
         
         // Iniciar o comportamento de patrulha
         this.startPatrolBehavior();
     }
     
+    // Novo método para verificar colisão com paredes
+    checkWallCollision() {
+        if (this.isDisposed || this.isStunned || !this.model || !this.model.getMesh()) return;
+
+        const monsterPosition = this.model.getPosition();
+        const collisionRadius = 1.5;
+        // Direções para verificar (agora em 8 direções para melhor cobertura)
+        const directions = [
+            new BABYLON.Vector3(1, 0, 0),    // direita
+            new BABYLON.Vector3(-1, 0, 0),   // esquerda
+            new BABYLON.Vector3(0, 0, 1),    // frente
+            new BABYLON.Vector3(0, 0, -1),   // trás
+            new BABYLON.Vector3(0.7, 0, 0.7), // diagonal frente-direita
+            new BABYLON.Vector3(-0.7, 0, 0.7), // diagonal frente-esquerda
+            new BABYLON.Vector3(0.7, 0, -0.7), // diagonal trás-direita
+            new BABYLON.Vector3(-0.7, 0, -0.7)  // diagonal trás-esquerda
+        ];
+        
+        // Função para determinar quais objetos considerar para colisão
+        const predicate = (mesh) => {
+            // Procurar por meshes individuais cujo nome começa com "wall_"
+            return mesh.isPickable &&
+                   mesh.checkCollisions &&
+                   mesh.name.startsWith("wall_"); // <<-- ATUALIZADO AQUI
+        };
+
+        // Pegar o labirinto da cena global
+        const maze = this.scene.gameInstance?.maze;
+        if (!maze) return; // Precisa do labirinto para danificar paredes
+
+        const now = Date.now();
+        const currentHits = new Set(); // Paredes atingidas nesta verificação
+
+        // Verificar cada direção
+        for (const direction of directions) {
+            // Criar um raio a partir da posição do monstro na direção específica
+            const ray = new BABYLON.Ray(monsterPosition, direction, collisionRadius);
+            
+            // Verificar colisão
+            const hit = this.scene.pickWithRay(ray, predicate);
+            
+            if (hit.hit && hit.pickedMesh) {
+                // Usar o nome do mesh atingido para confirmar que é uma parede
+                const wallName = hit.pickedMesh.name;
+                const wallCenterPosition = hit.pickedMesh.position; // Posição central da parede
+                currentHits.add(wallName); // Marcar como atingida
+
+                // Inicializar timer se for o primeiro contato
+                if (!this.wallContactTimers[wallName]) {
+                    this.wallContactTimers[wallName] = { startTime: now, lastDamageTime: 0 };
+                    console.log(`MONSTRO: Iniciou contato com ${wallName}`);
+                }
+
+                // Verificar se já passou tempo suficiente e se o cooldown permite
+                const contactDuration = now - this.wallContactTimers[wallName].startTime;
+                const canDamage = now - this.wallContactTimers[wallName].lastDamageTime >= this.WALL_DAMAGE_COOLDOWN;
+
+                if (contactDuration >= this.WALL_CONTACT_DAMAGE_THRESHOLD && canDamage) {
+                    console.log(`MONSTRO: Tempo de contato suficiente com ${wallName}. Aplicando dano...`);
+
+                    // Aplicar dano através do Maze
+                    // A função damageWallAt no Maze/MazeController cuidará de atualizar modelo e view
+                    const damageResult = maze.damageWallAt(wallCenterPosition, this.WALL_DAMAGE_AMOUNT);
+
+                    // Atualizar tempo do último dano
+                    this.wallContactTimers[wallName].lastDamageTime = now;
+
+                    // Se a parede foi destruída pelo dano, remover o timer
+                    if (damageResult && damageResult.destroyed) {
+                         console.log(`MONSTRO: Parede ${wallName} foi destruída pelo dano.`);
+                         delete this.wallContactTimers[wallName];
+                    }
+                }
+            }
+        }
+
+        // Limpar timers de paredes que não estão mais em contato
+        for (const wallName in this.wallContactTimers) {
+            if (!currentHits.has(wallName)) {
+                console.log(`MONSTRO: Perdeu contato com ${wallName}`);
+                delete this.wallContactTimers[wallName];
+            }
+        }
+    }
+    
+    // Método para criar efeito visual de destruição da parede
     update() {
         // Calcular delta entre frames para movimento suave
         const currentTime = Date.now();

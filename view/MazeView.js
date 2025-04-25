@@ -83,7 +83,6 @@ class MazeView {
         // Centralizar o chão na origem
         floor.position = new BABYLON.Vector3(0, 0, 0);
         floor.material = this.floorMaterial;
-        floor.checkCollisions = true;
         this.meshes.push(floor);
     }
     
@@ -93,15 +92,20 @@ class MazeView {
         const cols = layout[0].length;
         const offsetX = (cols * dimensions.cellSize) / 2;
         const offsetZ = (rows * dimensions.cellSize) / 2;
-        const wallMeshes = [];
 
         for (let row = 0; row < rows; row++) {
             for (let col = 0; col < cols; col++) {
+                // Se não for uma parede (valor 1), pular
                 if (layout[row][col] !== 1) continue;
+
+                // Calcular posição no mundo
                 const x = (col * dimensions.cellSize) - offsetX + (dimensions.cellSize / 2);
                 const z = (row * dimensions.cellSize) - offsetZ + (dimensions.cellSize / 2);
+                const wallName = `wall_${row}_${col}`; // Nome único
+
+                // Criar a parede como um mesh individual
                 const wall = BABYLON.MeshBuilder.CreateBox(
-                    `wall_${row}_${col}`,
+                    wallName, 
                     {
                         width: dimensions.cellSize,
                         height: dimensions.wallHeight,
@@ -110,22 +114,24 @@ class MazeView {
                     this.scene
                 );
                 wall.position = new BABYLON.Vector3(x, dimensions.wallHeight / 2, z);
-                wallMeshes.push(wall);
+
+                // Aplicar material e colisões diretamente à parede individual
+                // Clonar material para permitir modificações individuais (dano visual)
+                wall.material = this.wallMaterial.clone(`${wallName}_material`); 
+
+                // Adicionar metadados para identificar a posição da grade (opcional, mas útil)
+                wall.metadata = { type: "wall", gridRow: row, gridCol: col };
+
+                // Adicionar a parede individual à lista de meshes da view
+                this.meshes.push(wall);
             }
         }
 
-        if (wallMeshes.length) {
-            const mergedWalls = BABYLON.Mesh.MergeMeshes(wallMeshes, true, true, undefined, false, true);
-            if (mergedWalls) {
-                mergedWalls.name = "mazeMergedWalls";
-                mergedWalls.material = this.wallMaterial;
-                mergedWalls.checkCollisions = true;
-                this.meshes.push(mergedWalls);
-            }
-        }
+        console.log(`VIEW: Criadas ${this.meshes.filter(m => m.name.startsWith('wall_')).length} paredes individuais.`);
     }
     
-        createRamps(rampPositions, dimensions) {
+    // Criar rampas com base nas posições
+    createRamps(rampPositions, dimensions) {
         for (const position of rampPositions) {
             // Determinar a altura final (topo da parede)
             const wallTopHeight = dimensions.wallHeight;
@@ -190,7 +196,6 @@ class MazeView {
             ramp.material = this.rampMaterial;
             
             // Propriedades físicas importantes para subir a rampa
-            ramp.checkCollisions = true;
             ramp.ellipsoid = new BABYLON.Vector3(0.5, 0.5, 0.5); // Ajustar colisão
             ramp.ellipsoidOffset = new BABYLON.Vector3(0, 1, 0);
             
@@ -209,6 +214,159 @@ class MazeView {
             // Adicionar à lista de meshes
             this.meshes.push(ramp);
         }
+    }
+
+    // Método para destruir a *representação visual* da parede
+    destroyWallVisual(wallName, position) {
+        console.log(`VIEW: Destruindo visualmente a parede ${wallName}`);
+        const wallMesh = this.scene.getMeshByName(wallName);
+
+        if (wallMesh) {
+            // Efeito visual de destruição final
+            this.createWallDestructionEffect(position); // Usar a posição do evento
+
+            // Remover o mesh da cena
+            wallMesh.dispose();
+
+            // Remover da lista de meshes da view
+            const index = this.meshes.indexOf(wallMesh);
+            if (index > -1) {
+                this.meshes.splice(index, 1);
+            }
+            console.log(`VIEW: Mesh da parede ${wallName} removido.`);
+            return true;
+        } else {
+            console.log(`VIEW: Mesh ${wallName} não encontrado para destruição visual.`);
+            return false;
+        }
+    }
+
+    // Novo método para aplicar efeito visual de dano
+    applyWallDamageVisual(wallName, remainingHealth, initialHealth) {
+        const wallMesh = this.scene.getMeshByName(wallName);
+        if (!wallMesh || !wallMesh.material) return;
+
+        const damageRatio = 1 - (remainingHealth / initialHealth); // 0 = sem dano, 1 = destruído
+
+        // Mudar cor para indicar dano (mais escuro/avermelhado)
+        const baseColor = this.wallMaterial.diffuseColor || new BABYLON.Color3(1, 1, 1); // Cor base do material original
+        // Certifique-se de que wallMesh.material existe antes de acessar suas propriedades
+        if (wallMesh.material instanceof BABYLON.StandardMaterial) {
+            wallMesh.material.diffuseColor = BABYLON.Color3.Lerp(baseColor, new BABYLON.Color3(0.5, 0.2, 0.2), damageRatio);
+            // Adicionar um leve brilho vermelho
+            wallMesh.material.emissiveColor = new BABYLON.Color3(damageRatio * 0.3, 0, 0);
+        }
+
+        // Criar um pequeno efeito de partículas no local (opcional)
+        this.createWallDamageImpactEffect(wallMesh.position);
+
+        console.log(`VIEW: Aplicado efeito visual de dano a ${wallName} (Dano: ${(damageRatio * 100).toFixed(0)}%)`);
+    }
+
+    // Efeito de partículas para impacto de dano (menor que destruição)
+    createWallDamageImpactEffect(position) {
+        const impactSystem = new BABYLON.ParticleSystem("wallImpact", 50, this.scene);
+        impactSystem.particleTexture = new BABYLON.Texture("textures/flare.png", this.scene);
+        impactSystem.emitter = position.clone();
+        impactSystem.minEmitBox = new BABYLON.Vector3(-0.1, -0.1, -0.1);
+        impactSystem.maxEmitBox = new BABYLON.Vector3(0.1, 0.1, 0.1);
+
+        impactSystem.color1 = new BABYLON.Color4(0.8, 0.8, 0.8, 0.8);
+        impactSystem.color2 = new BABYLON.Color4(0.6, 0.6, 0.6, 0.5);
+        impactSystem.colorDead = new BABYLON.Color4(0.4, 0.4, 0.4, 0.0);
+
+        impactSystem.minSize = 0.05;
+        impactSystem.maxSize = 0.15;
+        impactSystem.minLifeTime = 0.2;
+        impactSystem.maxLifeTime = 0.5;
+        impactSystem.emitRate = 100;
+        impactSystem.minEmitPower = 0.5;
+        impactSystem.maxEmitPower = 1.5;
+        impactSystem.gravity = new BABYLON.Vector3(0, -5, 0);
+        impactSystem.disposeOnStop = true;
+
+        impactSystem.start();
+        setTimeout(() => impactSystem.stop(), 100); // Duração curta
+    }
+
+    // Método para criar efeito visual de detritos
+    createWallDestructionEffect(position) {
+        console.log(`VIEW: Criando efeito de destruição em [${position.x}, ${position.z}]`);
+        
+        // 1. Sistema de partículas para detritos
+        const debrisSystem = new BABYLON.ParticleSystem("wallDebris", 200, this.scene);
+        debrisSystem.particleTexture = new BABYLON.Texture("textures/flare.png", this.scene);
+        debrisSystem.emitter = new BABYLON.Vector3(position.x, 2, position.z);
+        
+        // Configurações aprimoradas para partículas
+        debrisSystem.color1 = new BABYLON.Color4(0.7, 0.7, 0.7, 1.0);
+        debrisSystem.color2 = new BABYLON.Color4(0.5, 0.5, 0.5, 1.0);
+        debrisSystem.colorDead = new BABYLON.Color4(0.3, 0.3, 0.3, 0.0);
+        
+        debrisSystem.minSize = 0.2;
+        debrisSystem.maxSize = 0.7;
+        
+        debrisSystem.minLifeTime = 1;
+        debrisSystem.maxLifeTime = 3;
+        
+        debrisSystem.emitRate = 300;
+        debrisSystem.minEmitPower = 3;
+        debrisSystem.maxEmitPower = 7;
+        
+        debrisSystem.updateSpeed = 0.01;
+        debrisSystem.gravity = new BABYLON.Vector3(0, -9.81, 0);
+        
+        // 2. Efeito de poeira (partículas menores e mais lentas)
+        const dustSystem = new BABYLON.ParticleSystem("wallDust", 100, this.scene);
+        dustSystem.particleTexture = new BABYLON.Texture("textures/flare.png", this.scene);
+        dustSystem.emitter = new BABYLON.Vector3(position.x, 2, position.z);
+        
+        dustSystem.color1 = new BABYLON.Color4(0.8, 0.8, 0.8, 0.4);
+        dustSystem.color2 = new BABYLON.Color4(0.7, 0.7, 0.7, 0.2);
+        dustSystem.colorDead = new BABYLON.Color4(0.5, 0.5, 0.5, 0.0);
+        
+        dustSystem.minSize = 0.1;
+        dustSystem.maxSize = 0.3;
+        
+        dustSystem.minLifeTime = 2;
+        dustSystem.maxLifeTime = 5;
+        
+        dustSystem.emitRate = 50;
+        dustSystem.minEmitPower = 0.5;
+        dustSystem.maxEmitPower = 1.5;
+        
+        dustSystem.updateSpeed = 0.005;
+        
+        // 3. Efeito de choque (flash de luz)
+        const explosionLight = new BABYLON.PointLight("wallExplosionLight", new BABYLON.Vector3(position.x, 2, position.z), this.scene);
+        explosionLight.diffuse = new BABYLON.Color3(1, 0.7, 0.3);
+        explosionLight.specular = new BABYLON.Color3(1, 0.8, 0.3);
+        explosionLight.intensity = 20;
+        explosionLight.range = 15;
+        
+        // Iniciar os sistemas de partículas
+        debrisSystem.start();
+        dustSystem.start();
+        
+        // Programar a limpeza dos recursos
+        setTimeout(() => {
+            debrisSystem.stop();
+            
+            setTimeout(() => {
+                if (debrisSystem) debrisSystem.dispose();
+                if (explosionLight) explosionLight.dispose();
+            }, 3000);
+        }, 300);
+        
+        setTimeout(() => {
+            dustSystem.stop();
+            
+            setTimeout(() => {
+                if (dustSystem) dustSystem.dispose();
+            }, 5000);
+        }, 1000);
+        
+        console.log(`VIEW: Efeito de destruição criado em [${position.x}, ${position.z}]`);
     }
     // Retornar todos os meshes criados pelo MazeView
     getMeshes() {

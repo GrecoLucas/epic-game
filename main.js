@@ -48,6 +48,11 @@ class Game {
         // Criar jogador usando a classe Player
         this.player = new Player(this.scene);
         this.player.initialize(this.engine.getRenderingCanvas());
+        // Add player mesh to collision system
+        this.collisionSystem.addMesh(this.player.getMesh()); 
+
+        // Configurar câmera para colisões
+        this.collisionSystem.setupCameraCollisions(this.player.getCamera());
         
         // Definir a posição inicial do jogador com base na posição 'P' do labirinto
         if (playerStartPosition) {

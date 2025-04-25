@@ -18,13 +18,10 @@ class PlayerController {
         // Configurar o view com o mesh do model
         this.view.initialize(this.model.getMesh());
         
-        // Configurar controles do mouse
-        this.setupMouseControls();
-        
         // Configurar inputs do teclado
         this.setupInputHandling();
         
-        // Configurar raycast para melhorar a interação com objetos
+        // Configurar raycast para melhorar a interação com objetos e mouse click
         this.setupRaycastForInteraction();
         
         // Configurar a detecção de proximidade com botões
@@ -155,25 +152,10 @@ class PlayerController {
         });
     }
     
-    setupMouseControls() {
-        this.scene.onPointerDown = (evt) => {
-            // Verificar se é o botão esquerdo do mouse (0)
-            const isLeftClick = evt.button === 0;
-            
-            if (!this.scene.alreadyLocked) {
-                this.scene.getCameraByName("playerCamera").attachControl(document.getElementById("renderCanvas"));
-                this.lockCamera();
-            } else if (isLeftClick) {
-                // Se já bloqueado e é um clique esquerdo, verificar se temos uma arma e atirar
-                this.handleShoot();
-            }
-        };
-    }
-    
     // Novo método para configurar o raycast e melhorar a interação com objetos
     setupRaycastForInteraction() {
-        // Configurar um predicate para identificar objetos clicáveis
-        const predicate = (mesh) => {
+        // Configurar um predicate para identificar objetos clicáveis (botões)
+        const buttonPredicate = (mesh) => {
             return mesh.isPickable && mesh.name && mesh.name.includes("button");
         };
         
@@ -181,8 +163,12 @@ class PlayerController {
         this.scene.onPointerDown = (evt) => {
             // Primeiro verificar o lock da câmera
             if (!this.scene.alreadyLocked) {
-                this.scene.getCameraByName("playerCamera").attachControl(document.getElementById("renderCanvas"));
-                this.lockCamera();
+                // Use getCamera() which should return the active player camera
+                const camera = this.view.getCamera(); 
+                if (camera) {
+                    camera.attachControl(document.getElementById("renderCanvas"));
+                    this.lockCamera();
+                }
                 return;
             }
             
@@ -190,27 +176,32 @@ class PlayerController {
             const isLeftClick = evt.button === 0;
             
             if (isLeftClick) {
-                // Verificar se o jogador tem uma arma e ativar o disparo
+                // 1. Lógica de Disparo
                 this.handleShoot();
                 
-                // Realizar um raycast a partir da câmera para interação com botões
+                // 2. Lógica de Interação com Botão (via Raycast)
                 const camera = this.view.getCamera();
-                const ray = camera.getForwardRay(3); // Distância maior para facilitar a interação
-                const hit = this.scene.pickWithRay(ray, predicate);
+                if (!camera) return; // Safety check
+
+                const ray = camera.getForwardRay(this.interactionDistance); // Usar a distância de interação definida
+                const hit = this.scene.pickWithRay(ray, buttonPredicate);
                 
                 if (hit && hit.pickedMesh) {
-                    // Simulamos um clique no objeto sem precisar acertar diretamente
+                    // Ativar o botão atingido pelo raycast
                     const actionManager = hit.pickedMesh.actionManager;
                     if (actionManager) {
                         try {
+                            // Disparar animação visual de feedback
+                            this.createFeedbackAnimation(hit.pickedMesh);
                             // Dispara as ações registradas para o evento OnPickTrigger
                             actionManager.processTrigger(BABYLON.ActionManager.OnPickTrigger);
                         } catch (error) {
-                            console.log("Erro ao processar trigger:", error);
+                            console.log("Erro ao processar trigger do botão via raycast:", error);
                         }
                     }
                 }
             }
+            // Adicione aqui lógica para outros botões do mouse se necessário (e.g., evt.button === 1 for middle, evt.button === 2 for right)
         };
     }
     
