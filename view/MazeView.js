@@ -4,7 +4,8 @@ class MazeView {
         this.meshes = [];
         this.wallMaterial = null;
         this.floorMaterial = null;
-        
+        this.rampMaterial = null;
+
         // Inicializar materiais
         this.initializeMaterials();
     }
@@ -18,6 +19,12 @@ class MazeView {
         
         // Material para chão e teto
         this.floorMaterial = new BABYLON.StandardMaterial("floorMaterial", this.scene);
+
+        // Adicionar textura a rampa
+        this.rampMaterial = new BABYLON.StandardMaterial("rampMaterial", this.scene);
+        const rampTexture = new BABYLON.Texture("textures/wall.png", this.scene);
+        this.rampMaterial.diffuseTexture = rampTexture;
+        this.rampMaterial.diffuseColor = new BABYLON.Color3(0.8, 0.7, 0.6); 
     }
     
     // Renderizar o labirinto com base no modelo
@@ -37,6 +44,11 @@ class MazeView {
             this.createWalls(layout, dimensions);
         } else {
             console.error("Layout do labirinto não está disponível");
+        }
+
+        const rampPositions = mazeModel.getRampPositions();
+        if (rampPositions && rampPositions.length > 0) {
+            this.createRamps(rampPositions, dimensions);
         }
     }
     
@@ -113,6 +125,59 @@ class MazeView {
         }
     }
     
+    createRamps(rampPositions, dimensions) {
+        for (const position of rampPositions) {
+            // Criar a base da rampa
+            const ramp = BABYLON.MeshBuilder.CreateBox(
+                "ramp", 
+                {
+                    width: dimensions.cellSize,
+                    height: dimensions.wallHeight / 2,
+                    depth: dimensions.cellSize
+                }, 
+                this.scene
+            );
+            
+            // Posicionar a rampa
+            ramp.position = new BABYLON.Vector3(
+                position.x,
+                dimensions.wallHeight / 15,
+                position.z 
+            );
+            
+            // Aplicar rotação com base na direção
+            switch (position.direction) {
+                case 'north':
+                    // Inclinar para norte (frente/+Z)
+                    ramp.rotation.x = -Math.PI / 6; // -30 graus
+                    break;
+                case 'south':
+                    // Inclinar para sul (trás/-Z)
+                    ramp.rotation.x = Math.PI / 6; // 30 graus
+                    break;
+                case 'east':
+                    // Inclinar para leste (direita/+X)
+                    ramp.rotation.z = -Math.PI / 6; // -30 graus
+                    break;
+                case 'west':
+                    // Inclinar para oeste (esquerda/-X)
+                    ramp.rotation.z = Math.PI / 6; // 30 graus
+                    break;
+                default:
+                    // Direção padrão (norte)
+                    ramp.rotation.x = -Math.PI / 6;
+            }
+            
+            // Aplicar material
+            ramp.material = this.rampMaterial;
+            
+            // Habilitar colisões
+            ramp.checkCollisions = true;
+            
+            // Adicionar à lista de meshes
+            this.meshes.push(ramp);
+        }
+    }
     // Retornar todos os meshes criados pelo MazeView
     getMeshes() {
         return this.meshes;

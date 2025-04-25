@@ -8,11 +8,16 @@ class MonsterView {
         this.healthText = null; // Referência para o texto da vida
         this.textPlane = null; // Plano para a textura do texto
         this.textTexture = null; // Textura dinâmica para o texto
+        this.floatHeight = 0.1;
     }
     
     initialize(mesh) {
         this.mesh = mesh;
-        
+
+        if (this.mesh) {
+            const currentPosition = this.mesh.position;
+            this.mesh.position.y = Math.max(currentPosition.y, this.floatHeight);
+        }
         // Criar animação para quando o monstro atacar
         this.setupAttackAnimation();
         

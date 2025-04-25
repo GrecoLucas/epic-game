@@ -47,9 +47,7 @@ class MonsterController {
         if (!this.player) return;
         
         // Garantir que o monstro permaneça na altura correta
-        if (this.model.getMesh()) {
-            this.model.getMesh().position.y = this.model.position.y;
-        }
+        this.model.applyGravity(delta);
 
         // Obter a posição atual do jogador
         this.playerPosition = this.player.getPosition();

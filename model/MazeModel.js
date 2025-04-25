@@ -6,6 +6,7 @@ class MazeModel {
         this.doorPosition = null; // Nova propriedade para armazenar a posição da porta
         this.monsterPositions = []; // Lista de posições de monstros
         this.gunPositions = []; // Lista de posições de armas
+        this.rampPositions = [];
         this.cellSize = 8; // Tamanho padrão de cada célula
         this.wallHeight = 7; // Altura das paredes do labirinto
         this.mazeWidth = 0;
@@ -55,6 +56,22 @@ class MazeModel {
                         this.gunPositions.push({ row: i, col: j });
                         // Considerar essa posição como chão (0)
                         processedRow.push(0);
+                    } else if (row[j] === 'R') {
+                        // Rampa para Norte (padrão)
+                        this.rampPositions.push({ row: i, col: j, direction: 'north' });
+                        processedRow.push(0);
+                    } else if (row[j] === 'RS') {
+                        // Rampa para Sul
+                        this.rampPositions.push({ row: i, col: j, direction: 'south' });
+                        processedRow.push(0);
+                    } else if (row[j] === 'RE') {
+                        // Rampa para Leste
+                        this.rampPositions.push({ row: i, col: j, direction: 'east' });
+                        processedRow.push(0);
+                    } else if (row[j] === 'RW') {
+                        // Rampa para Oeste
+                        this.rampPositions.push({ row: i, col: j, direction: 'west' });
+                        processedRow.push(0);
                     } else {
                         // Para outros valores, converter para inteiro
                         processedRow.push(parseInt(row[j], 10));
@@ -88,11 +105,33 @@ class MazeModel {
             console.log("Posição da porta:", this.doorPosition);
             console.log("Posições dos monstros:", this.monsterPositions);
             console.log("Posições das armas:", this.gunPositions);
+
+            this.processRampPositions();
+            
+            console.log("Posições das rampas:", this.rampPositions);
             return true;
         } catch (error) {
             console.error("Erro ao carregar o arquivo do labirinto:", error);
             return false;
         }
+    }
+
+    processRampPositions() {
+        const processedPositions = [];
+        
+        for (const pos of this.rampPositions) {
+            const worldPos = this.calculateWorldPosition(pos.row, pos.col);
+            worldPos.y = 0;
+            // Incluir a direção junto com a posição
+            processedPositions.push({
+                x: worldPos.x,
+                y: worldPos.y,
+                z: worldPos.z,
+                direction: pos.direction || 'north' // Direção padrão é norte
+            });
+        }
+        
+        this.rampPositions = processedPositions;
     }
     
     // Método para processar todas as posições de monstros encontradas
@@ -233,6 +272,10 @@ class MazeModel {
     // Getter para obter todas as posições de armas
     getGunPositions() {
         return this.gunPositions;
+    }
+
+    getRampPositions() {
+        return this.rampPositions;
     }
 }
 

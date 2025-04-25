@@ -92,6 +92,9 @@ class MazeController {
     getDoor() {
         return this.door;
     }
+    getRampPositions() {
+        return this.model.getRampPositions();
+    }
 }
 
 export default MazeController;

@@ -76,6 +76,10 @@ class Maze {
     getGunPositions() {
         return this.controller.getGunPositions();
     }
+
+    getRampPositions() {
+        return this.controller.getRampPositions();
+    }
 }
 
 export default Maze;

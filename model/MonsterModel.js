@@ -14,6 +14,12 @@ class MonsterModel {
         this.attackCooldown = 2000; // Tempo entre ataques em milissegundos
         this.lastAttackTime = 0; // Timestamp do último ataque
         this.attackRange = 2; // Distância para poder atacar o jogador
+
+        // Adicionar propriedades de física
+        this.gravity = -0.01; // Força da gravidade
+        this.verticalVelocity = 0; // Velocidade vertical
+        this.isGrounded = false;
+        this.groundCheckDistance = 0.2;
     }
 
     initialize() {
@@ -196,7 +202,10 @@ class MonsterModel {
         
         // Calcular a direção para o jogador
         const direction = playerPosition.subtract(this.getPosition());
-        direction.y = 0; // Manter no mesmo plano Y
+        
+        // Preservar a componente y da direção para subir/descer rampas
+        const directionY = direction.y;
+        direction.y = 0; // Zerar Y para mover apenas no plano horizontal
         direction.normalize();
         
         // Fazer o monstro olhar para o jogador mesmo quando parado
@@ -206,9 +215,15 @@ class MonsterModel {
         const speedFactor = this.speed * (delta / 16.67); // Normalizar pela taxa de quadros padrão
         const movement = direction.scale(speedFactor);
         
-        // Aplicar movimento com colisão
+        // Se o jogador está acima ou abaixo e há uma rampa próxima, tentar subir
+        if (Math.abs(directionY) > 0.5 && this.isGrounded) {
+            // Tentar "escalar" na direção do jogador se estiver no chão
+            // Isto simula a capacidade de subir rampas
+            movement.y = Math.sign(directionY) * 0.02;
+        }
+        
+        // Aplicar movimento com colisão (gravidade é aplicada pelo método applyGravity)
         this.moveWithCollision(movement);
-        this.mesh.position.y = 0;
     }
     
     lookAt(targetPosition) {
@@ -251,15 +266,59 @@ class MonsterModel {
     moveWithCollision(movement) {
         if (!this.mesh) return;
         
-        // Guardar a altura Y atual
-        const originalY = this.mesh.position.y;
+        // Criar um vetor de movimento que mantém a velocidade vertical
+        const fullMovement = new BABYLON.Vector3(
+            movement.x, 
+            this.verticalVelocity, 
+            movement.z
+        );
         
         // Aplicar movimento com detecção de colisão
-        this.mesh.moveWithCollisions(movement);
-        
-        this.mesh.position.y = originalY;
+        this.mesh.moveWithCollisions(fullMovement);
     }
     
+    applyGravity(delta) {
+        if (!this.mesh) return;
+        
+        // Calcular o fator de tempo para o delta
+        const timeScale = delta / 16.67; // Normalizar para ~60 FPS
+        
+        // Verificar se está no chão
+        const origin = this.mesh.position.clone();
+        const direction = new BABYLON.Vector3(0, -1, 0);
+        const length = this.groundCheckDistance;
+        
+        // Ray para checar colisão com o chão
+        const ray = new BABYLON.Ray(origin, direction, length);
+        const hit = this.scene.pickWithRay(ray);
+        
+        // Atualizar flag de grounded
+        this.isGrounded = hit.hit;
+        
+        if (this.isGrounded && this.verticalVelocity <= 0) {
+            // No chão - parar a queda
+            this.verticalVelocity = 0;
+            
+            // Ajustar a altura para ficar exatamente acima do chão
+            if (hit.pickedPoint) {
+                this.mesh.position.y = hit.pickedPoint.y + 0.1; // 0.1 acima do chão
+            }
+        } else {
+            // Aplicar gravidade
+            this.verticalVelocity += this.gravity * timeScale;
+            
+            // Mover o monstro verticalmente
+            this.mesh.position.y += this.verticalVelocity * timeScale;
+            
+            // Limitar a queda máxima para evitar bugs
+            if (this.mesh.position.y < 0) {
+                this.mesh.position.y = 0.1;
+                this.verticalVelocity = 0;
+                this.isGrounded = true;
+            }
+        }
+    }
+
     // Verificar se pode atacar o jogador
     canAttackPlayer(playerPosition) {
         if (!this.mesh) return false;
