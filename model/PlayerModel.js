@@ -3,10 +3,10 @@ class PlayerModel {
         this.scene = scene;
         // Se uma posição inicial for fornecida, use-a; caso contrário, use a posição padrão
         this.position = startPosition || new BABYLON.Vector3(0, 1, 0);
-        this.moveSpeed = 0.3;
+        this.moveSpeed = 0.27;
         this.rotationSpeed = 0.04;
         this.mesh = null;
-        this.jumpForce = 0.4; // Aumentado para um pulo mais alto e perceptível
+        this.jumpForce = 0.3; // Aumentado para um pulo mais alto e perceptível
         this.isGrounded = true; // Flag para verificar se o player está no chão
         this.gravity = -0.015; // Gravidade um pouco mais forte
         this.verticalVelocity = 0; // Velocidade vertical atual

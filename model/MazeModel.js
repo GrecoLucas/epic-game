@@ -8,7 +8,7 @@ class MazeModel {
         this.gunPositions = []; // Lista de posições de armas
         this.rampPositions = [];
         this.cellSize = 8; // Tamanho padrão de cada célula
-        this.wallHeight = 7; // Altura das paredes do labirinto
+        this.wallHeight = 4; // Altura das paredes do labirinto
         this.mazeWidth = 0;
         this.mazeHeight = 0;
         this.playerPosition = { row: -1, col: -1 }; // Nova propriedade para armazenar a posição do P

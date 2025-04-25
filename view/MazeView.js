@@ -62,8 +62,8 @@ class MazeView {
         this.meshes = [];
     }
     
-    // Criar chão e teto
-        createFloor(dimensions) {
+    // Criar chão 
+    createFloor(dimensions) {
         // Criar chão exatamente do tamanho do layout do labirinto
         const floor = BABYLON.MeshBuilder.CreateGround(
             "floor", 
@@ -125,54 +125,86 @@ class MazeView {
         }
     }
     
-    createRamps(rampPositions, dimensions) {
+        createRamps(rampPositions, dimensions) {
         for (const position of rampPositions) {
-            // Criar a base da rampa
+            // Determinar a altura final (topo da parede)
+            const wallTopHeight = dimensions.wallHeight;
+            
+            // Calcular o comprimento da rampa necessário para atingir a altura da parede
+            // Com ângulo de 30 graus (Math.PI/6), usamos trigonometria
+            const rampLength = wallTopHeight / Math.sin(Math.PI / 6);
+            
+            // Criar a base da rampa com comprimento adequado
             const ramp = BABYLON.MeshBuilder.CreateBox(
                 "ramp", 
                 {
                     width: dimensions.cellSize,
-                    height: dimensions.wallHeight / 2,
-                    depth: dimensions.cellSize
+                    height: 0.5, // Espessura da rampa
+                    depth: rampLength // Comprimento calculado para atingir o topo da parede
                 }, 
                 this.scene
             );
             
             // Posicionar a rampa
-            ramp.position = new BABYLON.Vector3(
-                position.x,
-                dimensions.wallHeight / 15,
-                position.z 
-            );
+            let posX = position.x;
+            let posZ = position.z;
+            let offsetX = 0;
+            let offsetZ = 0;
             
-            // Aplicar rotação com base na direção
+            // Calcular deslocamento baseado na direção para conectar a rampa à parede
             switch (position.direction) {
                 case 'north':
-                    // Inclinar para norte (frente/+Z)
+                    // Rampa indo para norte (frente/+Z)
+                    offsetZ = rampLength / 2 - dimensions.cellSize / 2;
                     ramp.rotation.x = -Math.PI / 6; // -30 graus
                     break;
                 case 'south':
-                    // Inclinar para sul (trás/-Z)
+                    // Rampa indo para sul (trás/-Z)
+                    offsetZ = -rampLength / 2 + dimensions.cellSize / 2;
                     ramp.rotation.x = Math.PI / 6; // 30 graus
                     break;
                 case 'east':
-                    // Inclinar para leste (direita/+X)
+                    // Rampa indo para leste (direita/+X)
+                    offsetX = rampLength / 2 - dimensions.cellSize / 2;
                     ramp.rotation.z = -Math.PI / 6; // -30 graus
                     break;
                 case 'west':
-                    // Inclinar para oeste (esquerda/-X)
+                    // Rampa indo para oeste (esquerda/-X)
+                    offsetX = -rampLength / 2 + dimensions.cellSize / 2;
                     ramp.rotation.z = Math.PI / 6; // 30 graus
                     break;
                 default:
                     // Direção padrão (norte)
+                    offsetZ = rampLength / 2 - dimensions.cellSize / 2;
                     ramp.rotation.x = -Math.PI / 6;
             }
+            
+            // Posicionar a rampa com deslocamento adequado
+            ramp.position = new BABYLON.Vector3(
+                posX + offsetX,
+                wallTopHeight / 2 - 0.25, // Ajustar a altura para compensar a espessura
+                posZ + offsetZ
+            );
             
             // Aplicar material
             ramp.material = this.rampMaterial;
             
-            // Habilitar colisões
+            // Propriedades físicas importantes para subir a rampa
             ramp.checkCollisions = true;
+            ramp.ellipsoid = new BABYLON.Vector3(0.5, 0.5, 0.5); // Ajustar colisão
+            ramp.ellipsoidOffset = new BABYLON.Vector3(0, 1, 0);
+            
+            // Física especial para facilitar a subida
+            ramp.physicsImpostor = new BABYLON.PhysicsImpostor(
+                ramp, 
+                BABYLON.PhysicsImpostor.BoxImpostor, 
+                { 
+                    mass: 0, 
+                    friction: 0.5, // Fricção moderada para não escorregar
+                    restitution: 0.1 // Baixa restitution para não quicar
+                }, 
+                this.scene
+            );
             
             // Adicionar à lista de meshes
             this.meshes.push(ramp);
