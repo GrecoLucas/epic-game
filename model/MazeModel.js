@@ -15,6 +15,8 @@ class MazeModel {
         this.doorPosition = { row: -1, col: -1 }; // Nova propriedade para armazenar a posição do D
         this.wallHealth = {}; // Novo: Rastrear vida das paredes { 'wall_row_col': health }
         this.initialWallHealth = 100; // Novo: Vida inicial das paredes
+        this.rampHealth = {}; // Novo: Rastrear vida das rampas { 'ramp_row_col_direction': health }
+        this.initialRampHealth = 150; // Novo: Vida inicial das rampas (mais resistentes?)
     }
 
     // Método para carregar o layout do labirinto do arquivo maze.txt
@@ -58,10 +60,6 @@ class MazeModel {
                         this.gunPositions.push({ row: i, col: j });
                         // Considerar essa posição como chão (0)
                         processedRow.push(0);
-                    } else if (row[j] === 'R') {
-                        // Rampa para Norte (padrão)
-                        this.rampPositions.push({ row: i, col: j, direction: 'north' });
-                        processedRow.push(0);
                     } else if (row[j] === 'RS') {
                         // Rampa para Sul
                         this.rampPositions.push({ row: i, col: j, direction: 'south' });
@@ -69,10 +67,6 @@ class MazeModel {
                     } else if (row[j] === 'RE') {
                         // Rampa para Leste
                         this.rampPositions.push({ row: i, col: j, direction: 'east' });
-                        processedRow.push(0);
-                    } else if (row[j] === 'RW') {
-                        // Rampa para Oeste
-                        this.rampPositions.push({ row: i, col: j, direction: 'west' });
                         processedRow.push(0);
                     } else {
                         // Para outros valores, converter para inteiro
@@ -124,12 +118,14 @@ class MazeModel {
         for (const pos of this.rampPositions) {
             const worldPos = this.calculateWorldPosition(pos.row, pos.col);
             worldPos.y = 0;
-            // Incluir a direção junto com a posição
+            // Incluir a direção, row e col junto com a posição para identificação única
             processedPositions.push({
                 x: worldPos.x,
                 y: worldPos.y,
                 z: worldPos.z,
-                direction: pos.direction || 'north' // Direção padrão é norte
+                direction: pos.direction || 'south', // Usar 'south' como padrão se não houver
+                row: pos.row, // Manter row original
+                col: pos.col  // Manter col original
             });
         }
         
@@ -276,8 +272,7 @@ class MazeModel {
 
         // Inicializar vida se não existir (deveria existir se for uma parede válida)
         if (this.mazeLayout[gridPos.row][gridPos.col] !== 1) {
-             console.log(`MODELO: Tentativa de danificar algo que não é parede em [${gridPos.row},${gridPos.col}]`);
-             return { destroyed: false, remainingHealth: -1 };
+            return { destroyed: false, remainingHealth: -1 };
         }
 
         if (this.wallHealth[wallId] === undefined) {
@@ -289,14 +284,38 @@ class MazeModel {
         this.wallHealth[wallId] -= damageAmount;
         const remainingHealth = this.wallHealth[wallId];
 
-        console.log(`MODELO: Parede ${wallId} recebeu ${damageAmount} de dano. Vida restante: ${remainingHealth}`);
 
         // Verificar se a parede foi destruída
         if (remainingHealth <= 0) {
-            console.log(`MODELO: Parede ${wallId} destruída (vida <= 0). Atualizando layout.`);
             // Atualizar o layout para indicar que não há mais parede
             this.mazeLayout[gridPos.row][gridPos.col] = 0;
             delete this.wallHealth[wallId]; // Limpar vida
+            return { destroyed: true, remainingHealth: 0 };
+        }
+
+        return { destroyed: false, remainingHealth: remainingHealth };
+    }
+
+    // Novo método para aplicar dano a uma rampa (baseado no ID/nome da malha)
+    damageRampAt(rampId, damageAmount) {
+        // O rampId deve ser no formato 'ramp_row_col_direction'
+        
+        // Inicializar vida se não existir
+        if (this.rampHealth[rampId] === undefined) {
+            // Assume que se o ID existe, a rampa foi criada e é válida
+            this.rampHealth[rampId] = this.initialRampHealth;
+        }
+
+        // Aplicar dano
+        this.rampHealth[rampId] -= damageAmount;
+        const remainingHealth = this.rampHealth[rampId];
+
+
+        // Verificar se a rampa foi destruída
+        if (remainingHealth <= 0) {
+            // Aqui, diferente das paredes, não alteramos o layout, apenas removemos a vida.
+            // A remoção visual será feita pela View/Controller.
+            delete this.rampHealth[rampId]; 
             return { destroyed: true, remainingHealth: 0 };
         }
 
@@ -352,6 +371,11 @@ class MazeModel {
     // Novo getter para vida inicial da parede
     getInitialWallHealth() {
         return this.initialWallHealth;
+    }
+
+    // Novo getter para vida inicial da rampa
+    getInitialRampHealth() {
+        return this.initialRampHealth;
     }
 }
 

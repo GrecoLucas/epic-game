@@ -12,13 +12,13 @@ class MonsterController {
         this.isStunned = false; // Add stun state
         this.stunTimer = null;
         
-        this.lastWallCollisionCheck = 0;
-        this.wallCheckInterval = 100; // Verificar a cada 100ms
+        this.lastObstacleCollisionCheck = 0; // Renomeado de lastWallCollisionCheck
+        this.obstacleCheckInterval = 100; // Renomeado de wallCheckInterval
 
-        this.wallContactTimers = {}; // Novo: Rastrear contato com paredes { wallName: { startTime: timestamp, lastDamageTime: timestamp } }
-        this.WALL_CONTACT_DAMAGE_THRESHOLD = 1500; // ms de contato para começar a danificar
-        this.WALL_DAMAGE_AMOUNT = 20; // Dano por tick
-        this.WALL_DAMAGE_COOLDOWN = 500; // ms entre ticks de dano
+        this.obstacleContactTimers = {}; // Renomeado de wallContactTimers { obstacleName: { startTime: timestamp, lastDamageTime: timestamp } }
+        this.OBSTACLE_CONTACT_DAMAGE_THRESHOLD = 1500; // Renomeado
+        this.OBSTACLE_DAMAGE_AMOUNT = 20; // Renomeado
+        this.OBSTACLE_DAMAGE_COOLDOWN = 500; // Renomeado
     
         
         // Inicializar o controlador
@@ -41,11 +41,11 @@ class MonsterController {
             if (this.isStunned) return;
             this.update();
             
-            // Novo: Verificar colisões com paredes
+            // Novo: Verificar colisões com obstáculos (paredes e rampas)
             const currentTime = Date.now();
-            if (currentTime - this.lastWallCollisionCheck > this.wallCheckInterval) {
-                this.checkWallCollision();
-                this.lastWallCollisionCheck = currentTime;
+            if (currentTime - this.lastObstacleCollisionCheck > this.obstacleCheckInterval) {
+                this.checkObstacleCollision(); // Chamada renomeada
+                this.lastObstacleCollisionCheck = currentTime;
             }
         });
         
@@ -53,13 +53,13 @@ class MonsterController {
         this.startPatrolBehavior();
     }
     
-    // Novo método para verificar colisão com paredes
-    checkWallCollision() {
+    // Renomeado de checkWallCollision
+    checkObstacleCollision() {
         if (this.isDisposed || this.isStunned || !this.model || !this.model.getMesh()) return;
 
         const monsterPosition = this.model.getPosition();
-        const collisionRadius = 1.5;
-        // Direções para verificar (agora em 8 direções para melhor cobertura)
+        const collisionRadius = 1.5; // Manter raio de verificação
+        // Direções para verificar (8 direções)
         const directions = [
             new BABYLON.Vector3(1, 0, 0),    // direita
             new BABYLON.Vector3(-1, 0, 0),   // esquerda
@@ -73,15 +73,16 @@ class MonsterController {
         
         // Função para determinar quais objetos considerar para colisão
         const predicate = (mesh) => {
-            // Procurar por meshes individuais cujo nome começa com "wall_"
+            // Procurar por meshes cujo nome começa com "wall_" ou "ramp_"
             return mesh.isPickable &&
                    mesh.checkCollisions &&
-                   mesh.name.startsWith("wall_"); // <<-- ATUALIZADO AQUI
+                   (mesh.name.startsWith("wall_") || mesh.name.startsWith("ramp_")); // <<-- ATUALIZADO AQUI
         };
 
-        // Pegar o labirinto da cena global
+        // Pegar o labirinto da cena global (necessário para chamar damageWallAt/handleRampDamage)
         const maze = this.scene.gameInstance?.maze;
         if (!maze) return; // Precisa do labirinto para danificar paredes
+        const mazeController = maze.controller; // Obter referência ao MazeController
 
         const now = Date.now();
         const currentHits = new Set(); // Paredes atingidas nesta verificação
@@ -95,49 +96,53 @@ class MonsterController {
             const hit = this.scene.pickWithRay(ray, predicate);
             
             if (hit.hit && hit.pickedMesh) {
-                // Usar o nome do mesh atingido para confirmar que é uma parede
-                const wallName = hit.pickedMesh.name;
-                const wallCenterPosition = hit.pickedMesh.position; // Posição central da parede
-                currentHits.add(wallName); // Marcar como atingida
+                // Usar o nome do mesh atingido para identificar o obstáculo
+                const obstacleName = hit.pickedMesh.name;
+                const obstacleCenterPosition = hit.pickedMesh.position; // Posição central do obstáculo
+                currentHits.add(obstacleName); // Marcar como atingida nesta verificação
 
                 // Inicializar timer se for o primeiro contato
-                if (!this.wallContactTimers[wallName]) {
-                    this.wallContactTimers[wallName] = { startTime: now, lastDamageTime: 0 };
-                    console.log(`MONSTRO: Iniciou contato com ${wallName}`);
+                if (!this.obstacleContactTimers[obstacleName]) {
+                    this.obstacleContactTimers[obstacleName] = { startTime: now, lastDamageTime: 0 };
                 }
 
                 // Verificar se já passou tempo suficiente e se o cooldown permite
-                const contactDuration = now - this.wallContactTimers[wallName].startTime;
-                const canDamage = now - this.wallContactTimers[wallName].lastDamageTime >= this.WALL_DAMAGE_COOLDOWN;
+                const contactDuration = now - this.obstacleContactTimers[obstacleName].startTime;
+                const canDamage = now - this.obstacleContactTimers[obstacleName].lastDamageTime >= this.OBSTACLE_DAMAGE_COOLDOWN;
 
-                if (contactDuration >= this.WALL_CONTACT_DAMAGE_THRESHOLD && canDamage) {
-                    console.log(`MONSTRO: Tempo de contato suficiente com ${wallName}. Aplicando dano...`);
+                if (contactDuration >= this.OBSTACLE_CONTACT_DAMAGE_THRESHOLD && canDamage) {
 
-                    // Aplicar dano através do Maze
-                    // A função damageWallAt no Maze/MazeController cuidará de atualizar modelo e view
-                    const damageResult = maze.damageWallAt(wallCenterPosition, this.WALL_DAMAGE_AMOUNT);
+                    let damageResult = null;
+                    // Aplicar dano através do MazeController
+                    if (obstacleName.startsWith("wall_")) {
+                        damageResult = mazeController.damageWallAt(obstacleCenterPosition, this.OBSTACLE_DAMAGE_AMOUNT);
+                    } else if (obstacleName.startsWith("ramp_")) {
+                        // Passar nome, dano e posição para o MazeController
+                        // Note: handleRampDamage não retorna resultado como damageWallAt, então não armazenamos
+                        mazeController.handleRampDamage(obstacleName, this.OBSTACLE_DAMAGE_AMOUNT, obstacleCenterPosition);
+                        // Para consistência, podemos simular um resultado não destruído
+                        damageResult = { destroyed: false, remainingHealth: 1 }; // Assumir não destruído para lógica abaixo
+                    }
 
                     // Atualizar tempo do último dano
-                    this.wallContactTimers[wallName].lastDamageTime = now;
+                    this.obstacleContactTimers[obstacleName].lastDamageTime = now;
 
-                    // Se a parede foi destruída pelo dano, remover o timer
+                    // Se o obstáculo foi destruído pelo dano (aplica-se a paredes), remover o timer
                     if (damageResult && damageResult.destroyed) {
-                         console.log(`MONSTRO: Parede ${wallName} foi destruída pelo dano.`);
-                         delete this.wallContactTimers[wallName];
+                         delete this.obstacleContactTimers[obstacleName];
                     }
                 }
             }
         }
 
-        // Limpar timers de paredes que não estão mais em contato
-        for (const wallName in this.wallContactTimers) {
-            if (!currentHits.has(wallName)) {
-                console.log(`MONSTRO: Perdeu contato com ${wallName}`);
-                delete this.wallContactTimers[wallName];
+        // Limpar timers de obstáculos que não estão mais em contato
+        for (const obstacleName in this.obstacleContactTimers) {
+            if (!currentHits.has(obstacleName)) {
+                delete this.obstacleContactTimers[obstacleName];
             }
         }
     }
-    
+
     // Método para criar efeito visual de destruição da parede
     update() {
         // Calcular delta entre frames para movimento suave

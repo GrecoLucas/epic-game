@@ -27,6 +27,8 @@ class Game {
         this.scene.collisionsEnabled = true;
         this.scene.gravity = new BABYLON.Vector3(0, -9.81, 0);
         
+        this.scene.enablePhysics(new BABYLON.Vector3(0, -9.81, 0), new BABYLON.CannonJSPlugin());
+
         // Criar sistema de colisão
         this.collisionSystem = new Collision(this.scene);
         
@@ -246,7 +248,6 @@ window.addEventListener('DOMContentLoaded', async function () {
     const canvas = document.getElementById('renderCanvas');
     const engine = new BABYLON.Engine(canvas, true);
     const scene = new BABYLON.Scene(engine);
-    
     scene.clearColor = new BABYLON.Color3(0.2, 0.2, 0.2);
 
     // Luz

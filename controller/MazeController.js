@@ -72,14 +72,12 @@ class MazeController {
     
     // Novo método para lidar com dano à parede
     damageWallAt(position, damageAmount) {
-        console.log(`CONTROLLER: Processando ${damageAmount} de dano na parede em [${position.x}, ${position.z}]`);
 
         // 1. Aplicar dano ao modelo e obter resultado
         const damageResult = this.model.damageWallAt(position, damageAmount);
         const { destroyed, remainingHealth } = damageResult;
 
         if (remainingHealth === -1) {
-             console.log(`CONTROLLER: Dano ignorado (posição inválida ou não é parede).`);
              return damageResult; // Retorna o resultado { destroyed: false, remainingHealth: -1 }
         }
 
@@ -92,12 +90,10 @@ class MazeController {
 
         if (destroyed) {
             // Se destruída, remover visualmente
-            console.log(`CONTROLLER: Parede ${wallName} destruída. Removendo visualmente.`);
             // Passar a posição correta para o efeito visual
             this.view.destroyWallVisual(wallName, position); 
         } else {
             // Se apenas danificada, aplicar efeito visual de dano
-            console.log(`CONTROLLER: Parede ${wallName} danificada. Aplicando efeito visual.`);
             this.view.applyWallDamageVisual(wallName, remainingHealth, initialHealth);
         }
 
@@ -105,7 +101,6 @@ class MazeController {
     }
 
     destroyWallAt(position) {
-        console.log(`CONTROLLER: Processando destruição INSTANTÂNEA em [${position.x}, ${position.z}]`);
         // Força dano suficiente para destruir
         const initialHealth = this.model.getInitialWallHealth();
         // Certifica-se de que o dano é pelo menos 1 se a vida inicial for 0 ou negativa
@@ -136,6 +131,37 @@ class MazeController {
     }
     getRampPositions() {
         return this.model.getRampPositions();
+    }
+
+    // Novo método para lidar com dano em rampas
+    handleRampDamage(rampName, damageAmount, worldPosition) {
+        
+        // Aplicar dano ao modelo
+        const damageResult = this.model.damageRampAt(rampName, damageAmount);
+
+        if (damageResult.remainingHealth < 0) {
+            // Algo deu errado ou não era uma rampa válida
+            return;
+        }
+
+        // Verificar se a rampa foi destruída
+        if (damageResult.destroyed) {
+            // Chamar a view para remover visualmente a rampa
+            this.view.destroyRampVisual(rampName, worldPosition);
+        } else {
+            // Chamar a view para aplicar efeito visual de dano
+            const initialHealth = this.model.getInitialRampHealth();
+            this.view.applyRampDamageVisual(rampName, damageResult.remainingHealth, initialHealth);
+        }
+    }
+
+    // Getters para acesso ao modelo e view
+    getModel() {
+        return this.model;
+    }
+
+    getView() {
+        return this.view;
     }
 }
 
