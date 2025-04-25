@@ -9,6 +9,7 @@ class PlayerController {
         this.nearbyGun = null; // Referência à arma mais próxima
         this.interactionDistance = 5; // Distância máxima para interagir com botões
         this.interactionHint = null; // Elemento UI para mostrar dica de interação
+        this.groundCheckDistance = 0.5; // Aumentado para detectar o chão a uma distância maior
         
         this.initialize();
     }
@@ -31,8 +32,14 @@ class PlayerController {
         
         // Criar dica de interação
         this.createInteractionHint();
+        
+        // Registrar a verificação de chão e atualização da física a cada frame
+        this.scene.registerBeforeRender(() => {
+            this.checkIfGrounded();
+            this.model.updatePhysics();
+        });
     }
-    
+
     // Criar um elemento de UI para mostrar dica de interação com botões
     createInteractionHint() {
         // Criar uma GUI texture para adicionar elementos 2D
@@ -241,6 +248,11 @@ class PlayerController {
                         } else if (this.nearbyButton) {
                             this.activateNearbyButton();
                         }
+                    }
+                    
+                    // Verificar se é a tecla de pulo (Espaço)
+                    if (key === " ") {
+                        this.model.jump();
                     }
                 }
             )
@@ -594,6 +606,55 @@ class PlayerController {
         // Direção para a direita (perpendicular à direção da câmera no plano horizontal)
         const forward = this.getCameraDirection();
         return new BABYLON.Vector3(forward.z, 0, -forward.x).normalize();
+    }
+    
+    // Método para verificar se o jogador está no chão
+    checkIfGrounded() {
+        const playerMesh = this.model.getMesh();
+        if (!playerMesh) return;
+        
+        // Se o jogador acabou de pular, não verificamos o chão por alguns frames
+        // para permitir que ele realmente saia do chão
+        if (this.model.justJumped) {
+            this.model.jumpFrameCount++;
+            if (this.model.jumpFrameCount < 5) { // Ignorar verificação por 5 frames após o pulo
+                return;
+            } else {
+                this.model.justJumped = false;
+                this.model.jumpFrameCount = 0;
+            }
+        }
+        
+        // Posição de origem do raio (um pouco acima da base do player para evitar problemas de precisão)
+        const origin = playerMesh.position.clone();
+        origin.y += 0.1;
+        
+        // Direção do raio (para baixo)
+        const direction = new BABYLON.Vector3(0, -1, 0);
+        
+        // Criar o raio com distância de verificação maior
+        const ray = new BABYLON.Ray(origin, direction, this.groundCheckDistance + 0.1);
+        
+        // Debug visual do raio (opcional)
+        if (this._rayHelper) {
+            this._rayHelper.dispose();
+        }
+        this._rayHelper = new BABYLON.RayHelper(ray);
+        this._rayHelper.show(this.scene, new BABYLON.Color3(1, 0, 0)); // Vermelho
+        
+        // Função para determinar quais objetos são válidos para colisão
+        const predicate = (mesh) => {
+            return mesh.isPickable && mesh.checkCollisions && mesh !== playerMesh;
+        };
+        
+        // Realizar o raycast
+        const hit = this.scene.pickWithRay(ray, predicate);
+          // Se encontrou algo, o jogador está no chão
+        if (hit && hit.pickedMesh) {
+            this.model.setGrounded(true);
+        } else {
+            this.model.setGrounded(false);
+        }
     }
 }
 

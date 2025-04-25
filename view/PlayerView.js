@@ -9,21 +9,35 @@ class PlayerView {
     initialize(playerMesh) {
         // Configurar câmera
         this.camera = new BABYLON.UniversalCamera("playerCamera", new BABYLON.Vector3(0, 1.7, 0), this.scene);
-        this.camera.parent = playerMesh;
+        this.camera.parent = playerMesh; // Parenting com o mesh do jogador para mover junto
         this.camera.minZ = 0.1; // Para evitar clipping
         
         // Reduzir a sensibilidade da câmera
         this.camera.angularSensibility = 3000; 
         this.camera.inertia = 0.6; 
         
+        // Desativar a gravidade da câmera para que ela não seja afetada pela física
+        // Isso permite que ela se mova verticalmente junto com o mesh do jogador
+        this.camera.applyGravity = false;
+        
         // Configurar colisões da câmera
         this.camera.checkCollisions = true;
-        this.camera.applyGravity = true;
         this.camera.ellipsoid = new BABYLON.Vector3(0.5, 0.9, 0.5);
         this.camera.ellipsoidOffset = new BABYLON.Vector3(0, 0.9, 0);
         
         // Criar a mira (crosshair)
         this.createCrosshair();
+        
+        // Garantir que a câmera siga exatamente a posição do jogador
+        // Registramos uma função para atualizar a posição relativa da câmera a cada frame
+        this.scene.registerBeforeRender(() => {
+            // Manter a posição Y da câmera relativa ao jogador fixa (1.7 unidades acima)
+            if (this.camera && playerMesh) {
+                // A câmera já tem o playerMesh como pai, então suas coordenadas são relativas
+                // Apenas garantimos que ela esteja na altura correta
+                this.camera.position.y = 1.7;
+            }
+        });
     }
     
     getCamera() {

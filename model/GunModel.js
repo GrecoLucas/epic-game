@@ -1,5 +1,5 @@
 class GunModel {
-    constructor(type = 'pistol', damage = 10, ammo = 30, maxAmmo = 30, reloadTime = 2) {
+    constructor(type = 'pistol', damage = 50, ammo = 15, maxAmmo = 15, reloadTime = 2) { // Changed default damage to 50
         this.type = type;
         this.damage = damage;
         this.ammo = ammo;
@@ -16,20 +16,20 @@ class GunModel {
     configureGunType(type) {
         switch(type.toLowerCase()) {
             case 'shotgun':
-                this.damage = 25;
+                this.damage = 80; // Ensure shotgun also does 50 base damage
                 this.ammo = 8;
                 this.maxAmmo = 8;
                 this.reloadTime = 2.5;
                 break;
             case 'rifle':
-                this.damage = 15;
+                this.damage = 50; // Ensure rifle also does 50 base damage
                 this.ammo = 20;
                 this.maxAmmo = 20;
                 this.reloadTime = 1.8;
                 break;
             case 'pistol':
             default:
-                // Valores padrão já definidos no construtor
+                this.damage = 25; 
                 break;
         }
     }

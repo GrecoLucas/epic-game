@@ -13,9 +13,10 @@ class Player {
         this.health = 100;
         this.maxHealth = 100;
         this.healthBar = null;
+        this.ammoText = null; // Add property for ammo text
         
-        // Inicializar barra de vida
-        this.initializeHealthUI();
+        // Inicializar barra de vida e munição
+        this.initializePlayerUI(); // Rename method
     }
     
     initialize(canvas) {
@@ -72,38 +73,64 @@ class Player {
         }, 500);
     }
     
-    // Inicializar a interface de saúde
-    initializeHealthUI() {
+    // Inicializar a interface de saúde e munição
+    initializePlayerUI() { // Rename method
         // Criar GUI para a interface do jogador
         const advancedTexture = BABYLON.GUI.AdvancedDynamicTexture.CreateFullscreenUI("playerUI");
         
-        // Criar painel para a barra de vida no canto superior esquerdo
-        const healthPanel = new BABYLON.GUI.StackPanel();
-        healthPanel.width = "200px";
-        healthPanel.height = "60px";
-        healthPanel.horizontalAlignment = BABYLON.GUI.Control.HORIZONTAL_ALIGNMENT_LEFT;
-        healthPanel.verticalAlignment = BABYLON.GUI.Control.VERTICAL_ALIGNMENT_TOP;
-        healthPanel.paddingLeft = "10px";
-        healthPanel.paddingTop = "10px";
-        advancedTexture.addControl(healthPanel);
-        
-        // Texto para mostrar "Vida:"
+        // Criar painel para a barra de vida e munição no canto superior esquerdo
+        const panel = new BABYLON.GUI.StackPanel();
+        panel.width = "200px";
+        panel.height = "80px";
+        panel.horizontalAlignment = BABYLON.GUI.Control.HORIZONTAL_ALIGNMENT_LEFT;
+        panel.verticalAlignment = BABYLON.GUI.Control.VERTICAL_ALIGNMENT_TOP;
+        panel.paddingLeft = "10px";
+        panel.paddingTop = "10px";
+        advancedTexture.addControl(panel);
+
+        // Linha para Vida
+        const healthRow = new BABYLON.GUI.StackPanel();
+        healthRow.isVertical = false;
+        healthRow.height = "30px";
+        healthRow.paddingBottom = "5px";
+        panel.addControl(healthRow);
+
+        // Texto "Vida:"
         const healthText = new BABYLON.GUI.TextBlock();
         healthText.text = "Vida:";
+        healthText.width = "50px";
         healthText.height = "20px";
         healthText.color = "white";
         healthText.fontSize = 16;
-        healthPanel.addControl(healthText);
-        
+        healthText.textHorizontalAlignment = BABYLON.GUI.Control.HORIZONTAL_ALIGNMENT_LEFT;
+        healthRow.addControl(healthText);
+
         // Barra de vida
         this.healthBar = new BABYLON.GUI.Rectangle();
-        this.healthBar.width = "180px";
+        this.healthBar.width = "120px";
         this.healthBar.height = "20px";
         this.healthBar.cornerRadius = 5;
         this.healthBar.color = "white";
         this.healthBar.thickness = 1;
         this.healthBar.background = "green";
-        healthPanel.addControl(this.healthBar);
+        this.healthBar.paddingLeft = "10px";
+        healthRow.addControl(this.healthBar);
+
+        // Linha para Munição
+        const ammoRow = new BABYLON.GUI.StackPanel();
+        ammoRow.isVertical = false;
+        ammoRow.height = "30px";
+        panel.addControl(ammoRow);
+
+        // Texto "Munição:"
+        this.ammoText = new BABYLON.GUI.TextBlock();
+        this.ammoText.text = "Munição: - / -";
+        this.ammoText.width = "180px";
+        this.ammoText.height = "20px";
+        this.ammoText.color = "white";
+        this.ammoText.fontSize = 16;
+        this.ammoText.textHorizontalAlignment = BABYLON.GUI.Control.HORIZONTAL_ALIGNMENT_LEFT;
+        ammoRow.addControl(this.ammoText);
     }
     
     // Atualizar a barra de vida
@@ -121,6 +148,24 @@ class Player {
             this.healthBar.background = "yellow";
         } else {
             this.healthBar.background = "red";
+        }
+    }
+    
+    // Atualizar a exibição de munição
+    updateAmmoDisplay() {
+        if (!this.ammoText) return;
+        
+        const equippedGun = this.controller.getPlayerEquippedGun();
+        
+        if (equippedGun) {
+            const currentAmmo = equippedGun.model.ammo;
+            const maxAmmo = equippedGun.model.maxAmmo;
+            this.ammoText.text = `Munição: ${currentAmmo} / ${maxAmmo}`;
+            this.ammoText.isVisible = true;
+        } else {
+            this.ammoText.text = "Munição: - / -";
+            // Optionally hide if no gun is equipped
+            // this.ammoText.isVisible = false; 
         }
     }
 }

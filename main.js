@@ -253,6 +253,12 @@ window.addEventListener('DOMContentLoaded', async function () {
     await game.initialize();
     
     // Render loop
-    engine.runRenderLoop(() => scene.render());
+    engine.runRenderLoop(() => {
+        scene.render();
+        // Update ammo display every frame
+        if (game.player) {
+            game.player.updateAmmoDisplay();
+        }
+    });
     window.addEventListener('resize', () => engine.resize());
 });

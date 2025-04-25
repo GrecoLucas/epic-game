@@ -24,7 +24,7 @@ class GunView {
             width: 0.5,
             height: 0.2,
             depth: 1.5,
-            color: '#FF5733',
+            color: '#303030', // Changed from #234233 to dark gray/metal color
             position: this.model.position,
             rotation: { x: 0, y: 0, z: 0 }
         };
@@ -36,7 +36,7 @@ class GunView {
             width: 0.4,
             height: 0.2,
             depth: 1.2,
-            color: '#FF5733',
+            color: '#303030', // Changed from #234233 to dark gray/metal color
             position: { x: 0.5, y: -0.3, z: 0.8 },
             rotation: { x: 0, y: 0, z: 0 }
         };
@@ -94,8 +94,7 @@ class GunView {
     
         // Material com textura metálica
         const material = this.createMaterial(this.meshOnGround.color, scene, {
-            emissive: '#FF2500',
-            bumpTexture: 'textures/flare.png'  // Usar textura disponível
+            emissive: '#202020', // Changed from #234233 to a slightly darker shade
         });
     
         // Criar array com todas as partes da arma
@@ -131,7 +130,7 @@ class GunView {
                     // Destacar todas as partes ao passar o mouse sobre qualquer uma delas
                     gunParts.forEach(p => {
                         if (p.material) {
-                            p.material.emissiveColor = BABYLON.Color3.FromHexString('#FF0000');
+                            p.material.emissiveColor = BABYLON.Color3.FromHexString('#404040'); // Changed from #234233 to a lighter gray for hover effect
                         }
                     });
                     document.body.style.cursor = 'pointer';
@@ -144,7 +143,7 @@ class GunView {
                     // Restaurar todas as partes ao normal
                     gunParts.forEach(p => {
                         if (p.material) {
-                            p.material.emissiveColor = BABYLON.Color3.FromHexString('#FF2500');
+                            p.material.emissiveColor = BABYLON.Color3.FromHexString('#202020'); // Changed from #234233 to match the new emissive color
                         }
                     });
                     document.body.style.cursor = 'auto';
@@ -214,8 +213,7 @@ class GunView {
         
         // Aplicar material à arma na mão
         const handMaterial = this.createMaterial(this.meshInHand.color, scene, {
-            emissive: '#FF2500',
-            bumpTexture: 'textures/flare.png'
+            emissive: '#202020', // Changed from #234233 to a slightly darker shade
         });
         
         [handBase, handHandle, handBarrel, handScope].forEach(part => {
