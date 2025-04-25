@@ -230,14 +230,7 @@ class MonsterController {
             this.stunTimer = null;
         }
 
-        // Optional: Remove monster from the game's list after a delay
-        // This depends on how you manage monster instances in main.js
-        // Example:
-        // setTimeout(() => {
-        //     this.scene.gameInstance?.removeMonster(this); // Assuming 'this' refers to the Monster instance, might need adjustment
-        // }, 2000); // Delay to allow death animation
     }
-    
     // Obter mesh do monstro
     getMesh() {
         return this.model.getMesh();

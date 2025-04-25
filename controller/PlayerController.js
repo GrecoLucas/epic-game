@@ -368,183 +368,241 @@ class PlayerController {
     
     // Método que verifica se o jogador tem uma arma equipada e dispara
     handleShoot() {
+        // --- Validações Iniciais ---
         const equippedGun = this.getPlayerEquippedGun();
-
         if (!equippedGun) {
-            // console.log("Attempted to shoot without an equipped gun."); // Optional: Less console spam
+            console.log("Tentativa de disparo sem arma equipada.");
             return;
         }
 
-        // --- Configuração do Raycast ---
         const camera = this.view.getCamera();
         if (!camera) {
-            console.error("Player camera not found for shooting.");
+            console.error("Câmera do jogador não encontrada para disparo.");
             return;
         }
-        const rayLength = 200; // Alcance máximo do tiro (pode ser movido para config/propriedade)
-        const rayOriginOffset = 0.1; // Pequeno offset para evitar colisão com a própria câmera
-        const DEBUG_MODE = false; // Ativar para visualização e logs detalhados
 
+        // --- Configurações ---
+        const config = {
+            rayLength: 200,         // Alcance máximo do tiro em unidades
+            rayOriginOffset: 0.1,   // Offset para evitar colisão com a própria câmera
+            minObstacleDistance: 0.5, // Distância mínima para verificar monstros
+            DEBUG_MODE: false       // Ativar para visualização e logs
+        };
+
+        // --- Configuração do Ray Principal ---
         const cameraPosition = camera.globalPosition;
         const forwardDirection = camera.getForwardRay(1).direction;
+        const rayOrigin = cameraPosition.add(forwardDirection.scale(config.rayOriginOffset));
+        const ray = new BABYLON.Ray(rayOrigin, forwardDirection, config.rayLength);
 
-        // Origem ligeiramente à frente da câmera
-        const rayOrigin = cameraPosition.add(forwardDirection.scale(rayOriginOffset));
 
-        // Cria o raio principal
-        const ray = new BABYLON.Ray(rayOrigin, forwardDirection, rayLength);
 
-        // --- Debug Visual (Opcional) ---
-        if (DEBUG_MODE) {
-            this.debugShootRay(ray);
-            this.logAllHits(ray); // Loga todos os objetos que o raio *poderia* atingir
-        }
 
-        // --- Lógica de Detecção de Hit ---
+        // --- Detecção de Obstáculos e Monstros ---
+        
+        // 1. Primeiro detectamos qualquer obstáculo no caminho (incluindo monstros)
+        //    Isto determina a distância máxima que o projétil pode percorrer
+        //    Ignoramos o próprio jogador e objetos não-colidíveis
+        const obstacleFilterPredicate = (mesh) => {
+            return mesh.isPickable && 
+                   mesh.checkCollisions && 
+                   !mesh.name.includes("Player") &&
+                   !mesh.name.includes("floor");  // Opcional: ignorar o chão
+        };
+        
+        const firstObstacleHit = this.scene.pickWithRay(ray, obstacleFilterPredicate);
+        const obstacleDistance = firstObstacleHit?.pickedMesh ? firstObstacleHit.distance : config.rayLength;
 
-        // 1. Primeiro, verifica o PRIMEIRO objeto sólido atingido pelo raio (obstáculo ou monstro)
-        //    Isso determina a distância máxima que o "projétil" pode viajar.
-        //    Ignora o próprio jogador (assumindo que o mesh do jogador contém "Player" no nome).
-        const firstHit = this.scene.pickWithRay(ray, (mesh) => mesh.isPickable && !mesh.name.includes("Player"));
-        const hitDistance = firstHit && firstHit.pickedMesh ? firstHit.distance : rayLength;
-
-        // 2. Agora, verifica especificamente por PARTES DE MONSTROS, mas apenas DENTRO da distância do primeiro hit.
-        //    Isso garante que não atingimos monstros através de paredes.
-        let closestMonsterHit = null;
-        if (hitDistance > 0.1) { // Só busca monstros se o primeiro hit não for muito próximo
-            // Cria um raio limitado pela distância do primeiro obstáculo
-            const limitedRay = new BABYLON.Ray(rayOrigin, forwardDirection, hitDistance);
-
-            // Predicate para identificar partes de monstros
-            const monsterPartPredicate = (mesh) => {
-                if (!mesh.isPickable) return false;
-                // Lista de partes de monstros (pode ser otimizada/configurada)
-                const monsterPartNames = ["monsterBody", "monsterHead", "monsterRoot", "eye", "horn"];
-                let currentMesh = mesh;
-                // Verifica o mesh atual e seus pais na hierarquia
-                while (currentMesh) {
-                    if (currentMesh.name && monsterPartNames.some(part => currentMesh.name.includes(part))) {
-                        // Opcional: Armazenar referência no metadata para otimizar processMonsterHit
-                        // if (!mesh.metadata) mesh.metadata = {};
-                        // if (currentMesh.metadata?.monsterInstance) {
-                        //     mesh.metadata.monsterInstance = currentMesh.metadata.monsterInstance;
-                        // }
-                        return true;
-                    }
-                    currentMesh = currentMesh.parent;
-                }
-                return false;
-            };
-
-            // Busca por múltiplos hits de monstros dentro do alcance limitado
-            // multiPickWithRay retorna os hits ordenados por distância (mais próximo primeiro)
-            const monsterHits = this.scene.multiPickWithRay(limitedRay, monsterPartPredicate);
-
-            // Pega o hit de monstro mais próximo
-            if (monsterHits && monsterHits.length > 0) {
-                closestMonsterHit = monsterHits[0];
-            }
+        // 2. Agora procuramos especificamente por partes de monstros até a distância do primeiro obstáculo
+        //    Isso impede que atiremos em monstros através de paredes
+        let monsterHits = [];
+        
+        if (obstacleDistance > config.minObstacleDistance) {
+            // Criar um ray limitado à distância do primeiro obstáculo
+            const limitedRay = new BABYLON.Ray(rayOrigin, forwardDirection, obstacleDistance);
+            
+            // Predicate otimizado para partes de monstros
+            const monsterPartPredicate = this._createMonsterPartPredicate();
+            
+            // Encontrar todos os hits de monstros (ordenados por distância)
+            monsterHits = this.scene.multiPickWithRay(limitedRay, monsterPartPredicate);
         }
 
         // --- Processamento do Hit ---
-        let hitProcessed = false;
-        if (closestMonsterHit && closestMonsterHit.pickedMesh) {
-            // Prioridade: Acertou uma parte de monstro válida dentro do alcance
-            this.processMonsterHit(closestMonsterHit, equippedGun);
-            hitProcessed = true;
-        } else if (DEBUG_MODE && firstHit && firstHit.pickedMesh) {
-            // Se não acertou monstro, mas acertou *algo* (e estamos em debug), loga o obstáculo
-            console.log(`Hitscan hit non-monster object: '${firstHit.pickedMesh.name}' at distance ${firstHit.distance.toFixed(3)}`);
+        let hitSuccessful = false;
+        
+        // Processar o hit de monstro mais próximo (se houver)
+        if (monsterHits.length > 0 && monsterHits[0].pickedMesh) {
+            hitSuccessful = this.processMonsterHit(monsterHits[0], equippedGun);
+            
+            if (hitSuccessful && config.DEBUG_MODE) {
+                console.log(`Hit bem sucedido no monstro a ${monsterHits[0].distance.toFixed(2)} unidades.`);
+            }
+        } 
+        else if (config.DEBUG_MODE && firstObstacleHit && firstObstacleHit.pickedMesh) {
+            // Se não acertamos monstro, mas acertamos algum obstáculo e estamos em debug
+            console.log(`Tiro acertou objeto: '${firstObstacleHit.pickedMesh.name}' a ${firstObstacleHit.distance.toFixed(2)} unidades.`);
         }
 
-        // --- Efeitos do Tiro ---
-        // Chama o método shoot da arma independentemente de ter acertado algo ou não
-        // (consome munição, toca som, animação da arma, etc.)
+        // --- Efeitos do Tiro (sempre executados, independente de acertar) ---
         const shotFired = equippedGun.shoot();
-
-        // Log de feedback (opcional, pode ser removido para menos spam)
-        if (!shotFired && !hitProcessed) { // Loga falha apenas se não houve hit e o tiro falhou (sem munição/recarregando)
-             console.log("Disparo falhou (sem munição ou recarregando).");
-        } else if (shotFired && !hitProcessed && !DEBUG_MODE) {
-             // console.log("Missed!"); // Log de erro apenas se não estiver em debug
+        
+        if (!shotFired) {
+            console.log("Disparo falhou (sem munição ou recarregando).");
         }
     }
     
+
+    _createMonsterPartPredicate() {
+        return (mesh) => {
+            // Se o mesh não é pickable, ignoramos imediatamente
+            if (!mesh.isPickable) return false;
+            
+            // OPÇÃO 1: Verificação por metadata (abordagem ideal)
+            // Verificar se este mesh já está marcado como parte de monstro via metadata
+            if (mesh.metadata?.isMonsterPart === true) return true;
+            
+            // OPÇÃO 2: Verificação por nome (fallback)
+            // Lista de keywords para identificar partes de monstros
+            const monsterPartNames = ["monsterBody", "monsterHead", "monsterRoot", "eye", "horn", "monster"];
+            
+            // Verificar o mesh atual e sua hierarquia de pais
+            let currentMesh = mesh;
+            while (currentMesh) {
+                // Se encontrarmos metadata em qualquer nível, usamos
+                if (currentMesh.metadata?.isMonsterPart === true) {
+                    // Opcionalmente, propagar a metadata para o mesh atual para otimizar futuros hits
+                    if (!mesh.metadata) mesh.metadata = {};
+                    mesh.metadata.isMonsterPart = true;
+                    return true;
+                }
+                
+                // Verificação por nome como fallback
+                if (currentMesh.name) {
+                    const nameLower = currentMesh.name.toLowerCase();
+                    if (monsterPartNames.some(part => nameLower.includes(part.toLowerCase()))) {
+                        // Opcionalmente, adicionar metadata para otimizar futuros hits
+                        if (!mesh.metadata) mesh.metadata = {};
+                        mesh.metadata.isMonsterPart = true;
+                        return true;
+                    }
+                }
+                
+                // Subir na hierarquia
+                currentMesh = currentMesh.parent;
+            }
+            
+            return false;
+        };
+    }
+
+
     // Método auxiliar para processamento de hits em monstros
     processMonsterHit(hit, equippedGun) {
-        console.log("Hit monster part:", hit.pickedMesh.name, "at distance", hit.distance.toFixed(3));
-
-        // Busca otimizada pelo monstro - Tenta obter do metadata primeiro
-        // (Assume que a instância do monstro foi adicionada ao metadata do mesh raiz ou partes importantes)
-        let hitMonster = hit.pickedMesh.metadata?.monsterInstance;
-        let searchMesh = hit.pickedMesh;
-
-        // Se não encontrou no metadata do mesh atingido, sobe na hierarquia procurando
-        while (!hitMonster && searchMesh.parent) {
-            searchMesh = searchMesh.parent;
-            hitMonster = searchMesh.metadata?.monsterInstance;
+        if (!hit || !hit.pickedMesh) return false;
+        
+        const hitMesh = hit.pickedMesh;
+        console.log(`Hit em parte de monstro: ${hitMesh.name} a ${hit.distance.toFixed(2)} unidades`);
+        
+        // 1. Busca Otimizada: Primeiro tentamos encontrar o monstro via metadata
+        let hitMonster = null;
+        
+        // Verificar metadata do próprio mesh
+        if (hitMesh.metadata?.monsterInstance) {
+            hitMonster = hitMesh.metadata.monsterInstance;
+        } 
+        // Verificar hierarquia de pais se não encontrado no mesh atual
+        else {
+            let currentMesh = hitMesh.parent;
+            while (currentMesh && !hitMonster) {
+                if (currentMesh.metadata?.monsterInstance) {
+                    hitMonster = currentMesh.metadata.monsterInstance;
+                    
+                    // Propagar a referência para o mesh atual para otimizar futuros hits
+                    if (!hitMesh.metadata) hitMesh.metadata = {};
+                    hitMesh.metadata.monsterInstance = hitMonster;
+                    hitMesh.metadata.isMonsterPart = true;
+                }
+                currentMesh = currentMesh.parent;
+            }
         }
-
-        // Fallback: Busca manual na lista de monstros se metadata não estiver disponível/configurado
+        
+        // 2. Fallback: Se não encontrado via metadata, buscar na lista global
         if (!hitMonster) {
-            console.warn("Metadata lookup failed, falling back to list search for monster.");
             const monstersList = this.scene.gameInstance?.getMonsters() || [];
+            
             for (const monster of monstersList) {
-                const monsterMeshRoot = monster.getMesh(); // Assume que getMesh() retorna o root/collider principal
-                if (!monsterMeshRoot) continue;
-
-                // Verifica se o mesh atingido é o mesh principal ou um descendente
-                if (hit.pickedMesh === monsterMeshRoot || hit.pickedMesh.isDescendantOf(monsterMeshRoot)) {
+                const rootMesh = monster.getMesh();
+                if (!rootMesh) continue;
+                
+                // Verificar se o mesh é o próprio monstro ou um descendente
+                if (hitMesh === rootMesh || hitMesh.isDescendantOf(rootMesh)) {
                     hitMonster = monster;
-                    // Opcional: Armazenar referência no metadata para futuras buscas mais rápidas
-                    // if (!hit.pickedMesh.metadata) hit.pickedMesh.metadata = {};
-                    // hit.pickedMesh.metadata.monsterInstance = monster;
+                    
+                    // Armazenar referência no metadata para otimizar futuros hits
+                    if (!hitMesh.metadata) hitMesh.metadata = {};
+                    hitMesh.metadata.monsterInstance = monster;
+                    hitMesh.metadata.isMonsterPart = true;
+                    
+                    // Propagar para o mesh raiz também
+                    if (rootMesh && !rootMesh.metadata) rootMesh.metadata = {};
+                    if (rootMesh) {
+                        rootMesh.metadata.monsterInstance = monster;
+                        rootMesh.metadata.isMonsterPart = true;
+                    }
+                    
                     break;
                 }
             }
         }
-
-
+        
+        // 3. Aplicar Dano (se encontrou o monstro)
         if (hitMonster) {
             const monsterController = hitMonster.getController();
-            if (monsterController && !monsterController.isDisposed) {
-                const baseDamage = equippedGun.model.getDamage();
-
-                // Calcula multiplicador de dano baseado na parte atingida
-                let damageMultiplier = 1.0;
-                const hitName = hit.pickedMesh.name.toLowerCase(); // Normaliza para minúsculas
-
-                // Simplifica a verificação de headshot
-                if (hitName.includes("head") || hitName.includes("eye")) {
-                    damageMultiplier = 2.0; // Dano crítico para cabeça/olho
-                    console.log("CRITICAL HIT! Headshot x2 damage");
-                }
-                // Poderia adicionar outras partes aqui (e.g., pernas = 0.5x)
-                // else if (hitName.includes("leg") || hitName.includes("arm")) {
-                //    damageMultiplier = 0.75; // Dano reduzido para membros
-                //    console.log("Limb shot! 0.75x damage");
-                // }
-
-                const finalDamage = Math.round(baseDamage * damageMultiplier);
-                console.log(`Applying ${finalDamage} damage to monster.`);
-
-                // Aplica dano e stun
-                monsterController.takeDamage(finalDamage);
-                monsterController.stun(2000); // Stun de 2 segundos (pode ser configurável)
-
-                // Cria efeito visual no ponto de impacto
-                this.createHitEffect(hit.pickedPoint);
-            } else {
-                 console.warn(`Found monster instance for ${hit.pickedMesh.name} but its controller is disposed or missing.`);
+            if (!monsterController || monsterController.isDisposed) {
+                console.warn(`Controlador do monstro não encontrado ou inválido para ${hitMesh.name}.`);
+                return false;
             }
+            
+            // Obter dano base da arma
+            const baseDamage = equippedGun.model.getDamage();
+            
+            // Calcular multiplicador de dano baseado na parte atingida
+            let damageMultiplier = 1.0;
+            const hitNameLower = hitMesh.name.toLowerCase();
+            
+            // Headshot = dano crítico (2x)
+            const isHeadshot = 
+                hitNameLower.includes("head") || 
+                hitNameLower.includes("eye") ||
+                (hitMesh.metadata?.bodyPart === "head"); // Usar metadata se disponível
+                
+            if (isHeadshot) {
+                damageMultiplier = 2.0;
+                console.log("ACERTO CRÍTICO! Headshot com x2 dano");
+            }
+            
+            // Aplicar dano final
+            const finalDamage = Math.round(baseDamage * damageMultiplier);
+            console.log(`Aplicando ${finalDamage} de dano ao monstro.`);
+            
+            monsterController.takeDamage(finalDamage);
+            
+            // Aplicar stun (tempo poderia ser baseado na arma/dano)
+            monsterController.stun(2000);
+            
+            // Criar efeito visual no ponto de impacto
+            this.createHitEffect(hit.pickedPoint);
+            
+            return true; // Hit processado com sucesso
         } else {
-            // Isso pode acontecer se o predicate identificar uma parte de monstro, mas a lógica de busca falhar
-            console.error(`Hit mesh '${hit.pickedMesh.name}' identified as monster part, but failed to associate it with a Monster instance.`);
+            console.error(`Não foi possível associar o mesh '${hitMesh.name}' a uma instância de Monster.`);
+            return false; // Falha no processamento do hit
         }
     }
     
     // Método auxiliar para logging de hits (apenas para debug)
-    logAllHits(ray) {
+    logAllHits(ray) {   
         const allHits = this.scene.multiPickWithRay(ray);
         
         if (allHits && allHits.length > 0) {
@@ -560,15 +618,28 @@ class PlayerController {
     
     // Método para criar efeito visual no ponto de impacto
     createHitEffect(position) {
-        // Partículas ou decal no ponto de impacto
-        const hitMarker = BABYLON.MeshBuilder.CreateSphere("hitMarker", { diameter: 0.1 }, this.scene);
+        // Criar uma esfera vermelha no ponto de impacto
+        const hitMarker = BABYLON.MeshBuilder.CreateSphere("hitMarker", { 
+            diameter: 0.15, // Tamanho um pouco maior para melhor visibilidade
+            segments: 8     // Menos segmentos para performance
+        }, this.scene);
+        
         hitMarker.position = position;
         hitMarker.material = new BABYLON.StandardMaterial("hitMarkerMat", this.scene);
-        hitMarker.material.emissiveColor = new BABYLON.Color3(1, 0, 0);
+        hitMarker.material.emissiveColor = new BABYLON.Color3(1, 0, 0); // Vermelho brilhante
+        hitMarker.material.disableLighting = true; // Para garantir que seja bem visível
+        hitMarker.isPickable = false; // Não deve interferir com raycasts futuros
         
-        // Auto-destruição após 300ms
+        // Opcional: Adicionar uma pequena animação de pulso
+        const initialScale = hitMarker.scaling.clone();
+        BABYLON.Animation.CreateAndStartAnimation("hitMarkerPulse", hitMarker, "scaling", 30, 10, 
+            initialScale, initialScale.scale(1.5), BABYLON.Animation.ANIMATIONLOOPMODE_CONSTANT);
+        
+        // Auto-destruição após tempo curto
         setTimeout(() => {
-            hitMarker.dispose();
+            if (hitMarker && !hitMarker.isDisposed()) {
+                hitMarker.dispose();
+            }
         }, 300);
     }
     
