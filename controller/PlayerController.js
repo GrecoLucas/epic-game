@@ -367,140 +367,179 @@ class PlayerController {
     }
     
     // Método que verifica se o jogador tem uma arma equipada e dispara
-        handleShoot() {
+    handleShoot() {
         const equippedGun = this.getPlayerEquippedGun();
-        
+
         if (!equippedGun) {
-            console.log("Attempted to shoot without an equipped gun.");
+            // console.log("Attempted to shoot without an equipped gun."); // Optional: Less console spam
             return;
         }
-        
-        // Configuração do raio a partir da câmera
+
+        // --- Configuração do Raycast ---
         const camera = this.view.getCamera();
+        if (!camera) {
+            console.error("Player camera not found for shooting.");
+            return;
+        }
+        const rayLength = 200; // Alcance máximo do tiro (pode ser movido para config/propriedade)
+        const rayOriginOffset = 0.1; // Pequeno offset para evitar colisão com a própria câmera
+        const DEBUG_MODE = false; // Ativar para visualização e logs detalhados
+
         const cameraPosition = camera.globalPosition;
         const forwardDirection = camera.getForwardRay(1).direction;
-        
-        // Ajuste da origem do raio (ligeiramente à frente da câmera)
-        const rayOriginOffset = 0.1;
+
+        // Origem ligeiramente à frente da câmera
         const rayOrigin = cameraPosition.add(forwardDirection.scale(rayOriginOffset));
-        const rayLength = 200; // Alcance máximo do tiro
-        
-        // Cria o raio com a origem ajustada
+
+        // Cria o raio principal
         const ray = new BABYLON.Ray(rayOrigin, forwardDirection, rayLength);
-        
-        // Ativa visualização de debug apenas se necessário
-        const DEBUG_MODE = false; // Pode ser ativado com uma variável de configuração
-        
+
+        // --- Debug Visual (Opcional) ---
         if (DEBUG_MODE) {
-            // Visualização do raio
-            this.scene.getMeshByName("rayVisualizer")?.dispose();
-            const rayHelper = new BABYLON.RayHelper(ray);
-            rayHelper.show(this.scene, new BABYLON.Color3(1, 1, 0));
-            const visualizer = this.scene.getMeshByName("rayLine");
-            if(visualizer) visualizer.name = "rayVisualizer";
-            
-            // Cleanup de visualizadores de boundingbox
-            this.scene.meshes.filter(m => m.name === "bboxVisualizer").forEach(m => m.dispose());
-            
-            // Detecta e registra todos os hits (para debug)
-            this.logAllHits(ray);
+            this.debugShootRay(ray);
+            this.logAllHits(ray); // Loga todos os objetos que o raio *poderia* atingir
         }
-        
-        // Definição otimizada do predicate para filtrar apenas partes de monstros
-        const monsterPartPredicate = (mesh) => {
-            if (!mesh.isPickable) return false;
-            
-            // Lista de partes de monstros para verificar
-            const monsterPartNames = ["monsterBody", "monsterHead", "monsterRoot", "eye", "horn"];
-            
-            // Verifica o mesh atual e toda sua hierarquia de pais
-            let currentMesh = mesh;
-            while (currentMesh) {
-                if (currentMesh.name) {
-                    // Verifica se o nome inclui alguma das partes de monstro
-                    if (monsterPartNames.some(part => currentMesh.name.includes(part))) {
+
+        // --- Lógica de Detecção de Hit ---
+
+        // 1. Primeiro, verifica o PRIMEIRO objeto sólido atingido pelo raio (obstáculo ou monstro)
+        //    Isso determina a distância máxima que o "projétil" pode viajar.
+        //    Ignora o próprio jogador (assumindo que o mesh do jogador contém "Player" no nome).
+        const firstHit = this.scene.pickWithRay(ray, (mesh) => mesh.isPickable && !mesh.name.includes("Player"));
+        const hitDistance = firstHit && firstHit.pickedMesh ? firstHit.distance : rayLength;
+
+        // 2. Agora, verifica especificamente por PARTES DE MONSTROS, mas apenas DENTRO da distância do primeiro hit.
+        //    Isso garante que não atingimos monstros através de paredes.
+        let closestMonsterHit = null;
+        if (hitDistance > 0.1) { // Só busca monstros se o primeiro hit não for muito próximo
+            // Cria um raio limitado pela distância do primeiro obstáculo
+            const limitedRay = new BABYLON.Ray(rayOrigin, forwardDirection, hitDistance);
+
+            // Predicate para identificar partes de monstros
+            const monsterPartPredicate = (mesh) => {
+                if (!mesh.isPickable) return false;
+                // Lista de partes de monstros (pode ser otimizada/configurada)
+                const monsterPartNames = ["monsterBody", "monsterHead", "monsterRoot", "eye", "horn"];
+                let currentMesh = mesh;
+                // Verifica o mesh atual e seus pais na hierarquia
+                while (currentMesh) {
+                    if (currentMesh.name && monsterPartNames.some(part => currentMesh.name.includes(part))) {
+                        // Opcional: Armazenar referência no metadata para otimizar processMonsterHit
+                        // if (!mesh.metadata) mesh.metadata = {};
+                        // if (currentMesh.metadata?.monsterInstance) {
+                        //     mesh.metadata.monsterInstance = currentMesh.metadata.monsterInstance;
+                        // }
                         return true;
                     }
+                    currentMesh = currentMesh.parent;
                 }
-                currentMesh = currentMesh.parent;
+                return false;
+            };
+
+            // Busca por múltiplos hits de monstros dentro do alcance limitado
+            // multiPickWithRay retorna os hits ordenados por distância (mais próximo primeiro)
+            const monsterHits = this.scene.multiPickWithRay(limitedRay, monsterPartPredicate);
+
+            // Pega o hit de monstro mais próximo
+            if (monsterHits && monsterHits.length > 0) {
+                closestMonsterHit = monsterHits[0];
             }
-            return false;
-        };
-        
-        // Primeiro: checar se há obstáculos no caminho (paredes, etc)
-        const rawHit = this.scene.pickWithRay(ray);
-        const obstacleDistance = rawHit && rawHit.pickedMesh ? rawHit.distance : rayLength;
-        
-        // Verifica hits de monstros, mas apenas até o primeiro obstáculo
-        let validHits = [];
-        
-        // Otimização: Verifica monstros apenas se não houver obstáculos muito próximos
-        if (obstacleDistance > 0.5) {
-            // Limita o ray para o primeiro obstáculo
-            const limitedRay = new BABYLON.Ray(rayOrigin, forwardDirection, obstacleDistance);
-            validHits = this.scene.multiPickWithRay(limitedRay, monsterPartPredicate);
         }
-        
-        // Processa o hit mais próximo
-        const closestHit = validHits.length > 0 ? validHits[0] : null;
-        
-        if (closestHit && closestHit.pickedMesh) {
-            // Processamento do hit no monstro
-            this.processMonsterHit(closestHit, equippedGun);
-        } else if (DEBUG_MODE && rawHit && rawHit.pickedMesh) {
-            console.log(`Hitscan hit non-monster object: '${rawHit.pickedMesh.name}' at distance ${rawHit.distance.toFixed(3)}`);
+
+        // --- Processamento do Hit ---
+        let hitProcessed = false;
+        if (closestMonsterHit && closestMonsterHit.pickedMesh) {
+            // Prioridade: Acertou uma parte de monstro válida dentro do alcance
+            this.processMonsterHit(closestMonsterHit, equippedGun);
+            hitProcessed = true;
+        } else if (DEBUG_MODE && firstHit && firstHit.pickedMesh) {
+            // Se não acertou monstro, mas acertou *algo* (e estamos em debug), loga o obstáculo
+            console.log(`Hitscan hit non-monster object: '${firstHit.pickedMesh.name}' at distance ${firstHit.distance.toFixed(3)}`);
         }
-        
-        // Efeito de tiro (som, animação, etc)
+
+        // --- Efeitos do Tiro ---
+        // Chama o método shoot da arma independentemente de ter acertado algo ou não
+        // (consome munição, toca som, animação da arma, etc.)
         const shotFired = equippedGun.shoot();
-        if (shotFired) {
-            console.log("Disparo efetuado (ammo/effects)!");
-        } else {
-            console.log("Disparo falhou (sem munição ou recarregando).");
+
+        // Log de feedback (opcional, pode ser removido para menos spam)
+        if (!shotFired && !hitProcessed) { // Loga falha apenas se não houve hit e o tiro falhou (sem munição/recarregando)
+             console.log("Disparo falhou (sem munição ou recarregando).");
+        } else if (shotFired && !hitProcessed && !DEBUG_MODE) {
+             // console.log("Missed!"); // Log de erro apenas se não estiver em debug
         }
     }
     
     // Método auxiliar para processamento de hits em monstros
     processMonsterHit(hit, equippedGun) {
         console.log("Hit monster part:", hit.pickedMesh.name, "at distance", hit.distance.toFixed(3));
-        
-        const monstersList = this.scene.gameInstance?.getMonsters() || [];
-        let hitMonster = null;
-        
-        // Encontra o monstro baseado no mesh atingido
-        for (const monster of monstersList) {
-            const monsterMesh = monster.getMesh();
-            if (!monsterMesh) continue;
-            
-            if (hit.pickedMesh === monsterMesh || hit.pickedMesh.isDescendantOf(monsterMesh)) {
-                hitMonster = monster;
-                break;
+
+        // Busca otimizada pelo monstro - Tenta obter do metadata primeiro
+        // (Assume que a instância do monstro foi adicionada ao metadata do mesh raiz ou partes importantes)
+        let hitMonster = hit.pickedMesh.metadata?.monsterInstance;
+        let searchMesh = hit.pickedMesh;
+
+        // Se não encontrou no metadata do mesh atingido, sobe na hierarquia procurando
+        while (!hitMonster && searchMesh.parent) {
+            searchMesh = searchMesh.parent;
+            hitMonster = searchMesh.metadata?.monsterInstance;
+        }
+
+        // Fallback: Busca manual na lista de monstros se metadata não estiver disponível/configurado
+        if (!hitMonster) {
+            console.warn("Metadata lookup failed, falling back to list search for monster.");
+            const monstersList = this.scene.gameInstance?.getMonsters() || [];
+            for (const monster of monstersList) {
+                const monsterMeshRoot = monster.getMesh(); // Assume que getMesh() retorna o root/collider principal
+                if (!monsterMeshRoot) continue;
+
+                // Verifica se o mesh atingido é o mesh principal ou um descendente
+                if (hit.pickedMesh === monsterMeshRoot || hit.pickedMesh.isDescendantOf(monsterMeshRoot)) {
+                    hitMonster = monster;
+                    // Opcional: Armazenar referência no metadata para futuras buscas mais rápidas
+                    // if (!hit.pickedMesh.metadata) hit.pickedMesh.metadata = {};
+                    // hit.pickedMesh.metadata.monsterInstance = monster;
+                    break;
+                }
             }
         }
-        
+
+
         if (hitMonster) {
             const monsterController = hitMonster.getController();
             if (monsterController && !monsterController.isDisposed) {
-                const damage = equippedGun.model.getDamage();
-                
-                // Adiciona variação de dano baseada na parte atingida
+                const baseDamage = equippedGun.model.getDamage();
+
+                // Calcula multiplicador de dano baseado na parte atingida
                 let damageMultiplier = 1.0;
-                if (hit.pickedMesh.name.includes("Head") || hit.pickedMesh.name.includes("eye")) {
-                    damageMultiplier = 2.0; // Dano crítico para cabeça
+                const hitName = hit.pickedMesh.name.toLowerCase(); // Normaliza para minúsculas
+
+                // Simplifica a verificação de headshot
+                if (hitName.includes("head") || hitName.includes("eye")) {
+                    damageMultiplier = 2.0; // Dano crítico para cabeça/olho
                     console.log("CRITICAL HIT! Headshot x2 damage");
                 }
-                
-                const finalDamage = Math.round(damage * damageMultiplier);
-                console.log(`Applying ${finalDamage} damage and stunning monster.`);
-                
+                // Poderia adicionar outras partes aqui (e.g., pernas = 0.5x)
+                // else if (hitName.includes("leg") || hitName.includes("arm")) {
+                //    damageMultiplier = 0.75; // Dano reduzido para membros
+                //    console.log("Limb shot! 0.75x damage");
+                // }
+
+                const finalDamage = Math.round(baseDamage * damageMultiplier);
+                console.log(`Applying ${finalDamage} damage to monster.`);
+
+                // Aplica dano e stun
                 monsterController.takeDamage(finalDamage);
-                monsterController.stun(2000);
-                
-                // Efeito visual de hit
+                monsterController.stun(2000); // Stun de 2 segundos (pode ser configurável)
+
+                // Cria efeito visual no ponto de impacto
                 this.createHitEffect(hit.pickedPoint);
+            } else {
+                 console.warn(`Found monster instance for ${hit.pickedMesh.name} but its controller is disposed or missing.`);
             }
         } else {
-            console.log("Hit monster mesh part, but couldn't find associated Monster instance.");
+            // Isso pode acontecer se o predicate identificar uma parte de monstro, mas a lógica de busca falhar
+            console.error(`Hit mesh '${hit.pickedMesh.name}' identified as monster part, but failed to associate it with a Monster instance.`);
         }
     }
     

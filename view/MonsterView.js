@@ -5,6 +5,9 @@ class MonsterView {
         this.detectionVisual = null;
         this.attackAnimation = null;
         this.scene = scene; // Armazenar referência à cena
+        this.healthText = null; // Referência para o texto da vida
+        this.textPlane = null; // Plano para a textura do texto
+        this.textTexture = null; // Textura dinâmica para o texto
     }
     
     initialize(mesh) {
@@ -13,7 +16,53 @@ class MonsterView {
         // Criar animação para quando o monstro atacar
         this.setupAttackAnimation();
         
+        // Criar o texto da vida
+        this.createHealthText();
+        
         return this.mesh;
+    }
+    
+    // Criar o texto da vida do monstro
+    createHealthText() {
+        if (!this.mesh) return;
+        
+        // Criar um plano para a textura do texto
+        this.textPlane = BABYLON.MeshBuilder.CreatePlane("healthTextPlane", {
+            width: 5.5, // Largura ajustada para o texto
+            height: 4.5 // Altura ajustada para o texto
+        }, this.scene);
+        this.textPlane.parent = this.mesh;
+        this.textPlane.position = new BABYLON.Vector3(0, 3.0, 0); // Posicionar acima do monstro
+        this.textPlane.billboardMode = BABYLON.Mesh.BILLBOARDMODE_ALL; // Sempre voltado para a câmera
+        this.textPlane.isPickable = false; // Não pode ser clicado
+        
+        // Criar uma textura dinâmica para o texto
+        this.textTexture = BABYLON.GUI.AdvancedDynamicTexture.CreateForMesh(this.textPlane);
+        
+        // Adicionar o texto
+        this.healthText = new BABYLON.GUI.TextBlock("healthText");
+        this.healthText.text = "100"; // Valor inicial
+        this.healthText.color = "white";
+        this.healthText.fontSize = 100; // Aumentado de 40 para 100
+        this.healthText.fontFamily = "Arial";
+        this.healthText.fontWeight = "bold";
+        this.healthText.outlineWidth = 4; // Aumentado contorno
+        this.healthText.outlineColor = "black";
+        
+        // Centralizar o texto
+        this.healthText.textHorizontalAlignment = BABYLON.GUI.Control.HORIZONTAL_ALIGNMENT_CENTER;
+        this.healthText.textVerticalAlignment = BABYLON.GUI.Control.VERTICAL_ALIGNMENT_CENTER;
+        
+        // Adicionar o texto à textura
+        this.textTexture.addControl(this.healthText);
+    }
+    
+    // Atualizar o texto da vida
+    updateHealthText(currentHealth) {
+        if (!this.healthText) return;
+        
+        // Atualizar o texto com a vida atual arredondada
+        this.healthText.text = `${Math.max(0, Math.round(currentHealth))}`;
     }
     
     // Configurar animação de ataque
@@ -136,11 +185,21 @@ class MonsterView {
             });
         }, 150); // Slightly longer flash
     }
-// ...existi
     
     // Mostrar efeito quando o monstro está morrendo
     showDeathEffect() {
         if (!this.mesh) return;
+        
+        // Esconder o texto da vida
+        if (this.textPlane) {
+            this.textPlane.dispose();
+            this.textPlane = null;
+        }
+        if (this.textTexture) {
+            this.textTexture.dispose();
+            this.textTexture = null;
+        }
+        this.healthText = null; // Limpar referência
         
         // Animação de desaparecimento
         const frameRate = 30;

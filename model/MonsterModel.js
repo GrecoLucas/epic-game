@@ -29,7 +29,7 @@ class MonsterModel {
             height: 2.6,
             depth: 0.8
         }, this.scene);
-        body.position.y = 1.3; // Center the body vertically relative to the root's origin (0,0,0)
+        body.position.y = 0; // Center the body vertically relative to the root's origin (0,0,0)
         body.parent = root; // Parent body to the root
         body.isPickable = true; // Make body pickable
 

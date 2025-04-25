@@ -16,9 +16,13 @@ class MonsterController {
         this.initialize();
     }
     
+    // Inicializar a vida do monstro quando ele é criado
     initialize() {
         // Configurar o view com o mesh do model
         this.view.initialize(this.model.getMesh());
+        
+        // Inicializar o texto de vida com a vida inicial do monstro
+        this.updateHealthText();
         
         // Registrar para atualização a cada frame
         this.scene.registerBeforeRender(() => {
@@ -172,6 +176,13 @@ class MonsterController {
         }, duration);
     }
     
+    // Método para atualizar o texto da vida do monstro
+    updateHealthText() {
+        if (this.view && this.model) {
+            this.view.updateHealthText(this.model.health);
+        }
+    }
+    
     // Tomar dano
     takeDamage(amount) {
         if (this.isDisposed) return false; // Check if already disposed
@@ -182,7 +193,9 @@ class MonsterController {
         // Aplicar dano ao modelo
         const isDead = this.model.takeDamage(amount);
         console.log(`Monster took ${amount} damage. Health: ${this.model.health}`);
-
+        
+        // Atualizar o texto da vida
+        this.updateHealthText();
 
         // Se o monstro morreu, mostrar animação de morte
         if (isDead) {
