@@ -46,7 +46,8 @@ class MonsterView {
         
         // Adicionar o texto
         this.healthText = new BABYLON.GUI.TextBlock("healthText");
-        this.healthText.text = "100"; // Valor inicial
+        // Usar uma string padrão inicialmente, o valor correto será definido pelo controller
+        this.healthText.text = "100"; // Valor padrão que será atualizado pelo updateHealthText
         this.healthText.color = "white";
         this.healthText.fontSize = 100; // Aumentado de 40 para 100
         this.healthText.fontFamily = "Arial";

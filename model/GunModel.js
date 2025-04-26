@@ -4,7 +4,7 @@ class GunModel {
         this.damage = damage;
         this.ammo = ammo;
         this.maxAmmo = maxAmmo;
-        this.totalAmmo = maxAmmo * 4; // Quantidade de munição total (4 pentes extras por padrão)
+        this.totalAmmo = maxAmmo; // Quantidade de munição total 
         this.reloadTime = reloadTime;
         this.isPickedUp = false;
         this.position = { x: 0, y: 0, z: 0 };
@@ -30,7 +30,10 @@ class GunModel {
                 break;
             case 'pistol':
             default:
-                this.damage = 25; 
+                this.damage = 20; 
+                this.ammo = 15;
+                this.maxAmmo = 15;
+                this.reloadTime = 2;
                 break;
         }
     }

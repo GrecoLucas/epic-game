@@ -150,6 +150,12 @@ class ZombieSController {
             return;
         }
 
+        // Calcular os atributos dos monstros para esta horda
+        const monsterHealth = this.model.calculateMonsterHealth();
+        const monsterSpeed = this.model.calculateMonsterSpeed();
+        
+        console.log(`Horda #${this.model.currentHorde}: Monstros com ${monsterHealth} de vida e velocidade ${monsterSpeed.toFixed(2)}`);
+
         for (let i = 0; i < count; i++) {
             // Selecionar posição de spawn aleatória
             const randomIndex = Math.floor(Math.random() * this.spawnPositions.length);
@@ -167,10 +173,47 @@ class ZombieSController {
             
             // Spawnar o monstro com pequeno atraso entre cada um
             setTimeout(() => {
-                // Usar o método addMonster do Game para criar um novo monstro
-                this.game.addMonster(finalPosition);
+                // Adicionar o monstro com os atributos específicos para esta horda
+                const monster = this.game.addMonster(finalPosition);
+                
+                // Aplicar os atributos da horda atual ao monstro
+                this.applyHordeAttributesToMonster(monster, monsterHealth, monsterSpeed);
+                
                 console.log(`Monstro spawnou na posição [${finalPosition.x.toFixed(2)}, ${finalPosition.y.toFixed(2)}, ${finalPosition.z.toFixed(2)}]`);
             }, i * 500); // 500ms de atraso entre cada spawn
+        }
+    }
+    
+    // Aplicar atributos da horda atual a um monstro
+    applyHordeAttributesToMonster(monster, health, speed) {
+        if (!monster) return;
+        
+        // Obter o controlador do monstro
+        const controller = monster.getController();
+        if (!controller || !controller.model) return;
+        
+        // Aplicar atributos da horda atual
+        controller.model.health = health;
+        controller.model.speed = speed;
+        
+        // Atualizar o texto de vida para mostrar o valor correto
+        controller.updateHealthText();
+        
+        // Ajustar visual do monstro com base na horda (opcional)
+        const monsterMesh = monster.getMesh();
+        if (monsterMesh) {
+            // Ajustar o tamanho do monstro com base na vida
+            // Quanto mais vida, maior o monstro (visual feedback)
+            const healthScale = 1 + ((health - 100) / 400); // Aumenta 25% de tamanho a cada 100 de vida acima de 100
+            const scaleValue = Math.min(healthScale, 1.75); // Limite máximo de 75% maior
+            
+            // Aplicar escala aos filhos diretos do monstro para um visual mais interessante
+            if (monsterMesh.getChildMeshes) {
+                const childMeshes = monsterMesh.getChildMeshes();
+                for (const childMesh of childMeshes) {
+                    childMesh.scaling = new BABYLON.Vector3(scaleValue, scaleValue, scaleValue);
+                }
+            }
         }
     }
 
