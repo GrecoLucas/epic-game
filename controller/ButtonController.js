@@ -177,7 +177,7 @@ class ButtonController {
                     this.showSuccessNotification("Kit de Barricadas comprado!", "blue");
                     // Exibir mensagem de ajuda
                     setTimeout(() => {
-                        this.showSuccessNotification("Pressione B para entrar no modo de construção", "yellow");
+                        this.showSuccessNotification("B para construir", "yellow");
                     }, 2000);
                 } else {
                     // Jogador não tem dinheiro suficiente
@@ -192,7 +192,7 @@ class ButtonController {
         const advancedTexture = BABYLON.GUI.AdvancedDynamicTexture.CreateFullscreenUI("notificationUI", true);
         
         const notification = new BABYLON.GUI.Rectangle();
-        notification.width = "300px";
+        notification.width = "350px";
         notification.height = "50px";
         notification.cornerRadius = 10;
         notification.color = "white";
@@ -301,7 +301,7 @@ class ButtonController {
         // Criar painel GUI para texto 3D
         const advancedTexture = BABYLON.GUI.AdvancedDynamicTexture.CreateFullscreenUI("buttonProximityUI_" + buttonId);
         const rect = new BABYLON.GUI.Rectangle();
-        rect.width = "150px";
+        rect.width = "200px";
         rect.height = "40px";
         rect.cornerRadius = 10;
         rect.color = "white";
