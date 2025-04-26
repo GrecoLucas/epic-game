@@ -15,6 +15,10 @@ class Player {
         this.healthBar = null;
         this.ammoText = null; // Add property for ammo text
         
+        // Sistema monetário
+        this.money = 0;
+        this.moneyText = null;
+        
         // Inicializar barra de vida e munição
         this.initializePlayerUI(); // Rename method
     }
@@ -55,8 +59,8 @@ class Player {
     }
     
     // Método para curar o jogador
-    heal(amount) {
-        this.health = Math.min(this.maxHealth, this.health + amount);
+    heal() {
+        this.health = 100;
         
         // Atualizar barra de vida
         this.updateHealthBar();
@@ -81,7 +85,7 @@ class Player {
         // Criar painel para a barra de vida e munição no canto superior esquerdo
         const panel = new BABYLON.GUI.StackPanel();
         panel.width = "200px";
-        panel.height = "80px";
+        panel.height = "120px"; // Aumentado para acomodar a linha de dinheiro
         panel.horizontalAlignment = BABYLON.GUI.Control.HORIZONTAL_ALIGNMENT_LEFT;
         panel.verticalAlignment = BABYLON.GUI.Control.VERTICAL_ALIGNMENT_TOP;
         panel.paddingLeft = "10px";
@@ -97,7 +101,7 @@ class Player {
 
         // Texto "Vida:"
         const healthText = new BABYLON.GUI.TextBlock();
-        healthText.text = "Vida:";
+        healthText.text = "Health:";
         healthText.width = "50px";
         healthText.height = "20px";
         healthText.color = "white";
@@ -120,6 +124,7 @@ class Player {
         const ammoRow = new BABYLON.GUI.StackPanel();
         ammoRow.isVertical = false;
         ammoRow.height = "30px";
+        ammoRow.paddingBottom = "5px";
         panel.addControl(ammoRow);
 
         // Texto "Munição:"
@@ -131,6 +136,37 @@ class Player {
         this.ammoText.fontSize = 16;
         this.ammoText.textHorizontalAlignment = BABYLON.GUI.Control.HORIZONTAL_ALIGNMENT_LEFT;
         ammoRow.addControl(this.ammoText);
+        
+        // Linha para Dinheiro
+        const moneyRow = new BABYLON.GUI.StackPanel();
+        moneyRow.isVertical = false;
+        moneyRow.height = "30px";
+        panel.addControl(moneyRow);
+        
+        // Ícone de dinheiro (símbolo $)
+        const moneyIcon = new BABYLON.GUI.TextBlock();
+        moneyIcon.text = "$";
+        moneyIcon.width = "20px";
+        moneyIcon.height = "20px";
+        moneyIcon.color = "gold";
+        moneyIcon.fontSize = 18;
+        moneyIcon.fontWeight = "bold";
+        moneyIcon.textHorizontalAlignment = BABYLON.GUI.Control.HORIZONTAL_ALIGNMENT_LEFT;
+        moneyRow.addControl(moneyIcon);
+        
+        // Texto de dinheiro
+        this.moneyText = new BABYLON.GUI.TextBlock();
+        this.moneyText.text = "0";
+        this.moneyText.width = "150px";
+        this.moneyText.height = "20px";
+        this.moneyText.color = "gold";
+        this.moneyText.fontSize = 16;
+        this.moneyText.paddingLeft = "5px";
+        this.moneyText.textHorizontalAlignment = BABYLON.GUI.Control.HORIZONTAL_ALIGNMENT_LEFT;
+        moneyRow.addControl(this.moneyText);
+        
+        // Inicializar a exibição de dinheiro
+        this.updateMoneyDisplay();
     }
     
     // Atualizar a barra de vida
@@ -160,13 +196,50 @@ class Player {
         if (equippedGun) {
             const currentAmmo = equippedGun.model.ammo;
             const maxAmmo = equippedGun.model.maxAmmo;
-            this.ammoText.text = `Munição: ${currentAmmo} / ${maxAmmo}`;
+            const totalAmmo = equippedGun.model.getTotalAmmo();
+            this.ammoText.text = `Munição: ${currentAmmo}/${maxAmmo} ${totalAmmo}`;
             this.ammoText.isVisible = true;
         } else {
-            this.ammoText.text = "Munição: - / -";
+            this.ammoText.text = "Munição: - / - -";
             // Optionally hide if no gun is equipped
             // this.ammoText.isVisible = false; 
         }
+    }
+    
+    // Atualizar exibição de dinheiro
+    updateMoneyDisplay() {
+        if (!this.moneyText) return;
+        this.moneyText.text = String(this.money);
+    }
+    
+    // Adicionar dinheiro ao jogador
+    addMoney(amount) {
+        this.money += amount;
+        this.updateMoneyDisplay();
+        
+        // Efeito visual de moeda adicionada
+        this.showMoneyEffect();
+        
+        return this.money;
+    }
+    
+    // Efeito visual quando ganha dinheiro
+    showMoneyEffect() {
+        if (!this.moneyText) return;
+        
+        // Salvar estado original
+        const originalColor = this.moneyText.color;
+        const originalSize = this.moneyText.fontSize;
+        
+        // Efeito de destaque
+        this.moneyText.color = "white";
+        this.moneyText.fontSize = originalSize * 1.3;
+        
+        // Retornar ao normal após um tempo
+        setTimeout(() => {
+            this.moneyText.color = originalColor;
+            this.moneyText.fontSize = originalSize;
+        }, 300);
     }
 }
 

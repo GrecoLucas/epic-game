@@ -18,6 +18,12 @@ class BuildingController {
         // Access wallHeight via mazeView (assuming it's set correctly there)
         this.wallHeight = this.mazeView.wallMaterial?.wallHeight || 4; // Use default if needed
 
+        // Sistema de materiais disponíveis
+        this.availableMaterials = {
+            wall: 0,
+            ramp: 0
+        };
+
         this.previewMaterialValid = null;
         this.previewMaterialInvalid = null;
         this._createPreviewMaterials();
@@ -28,12 +34,118 @@ class BuildingController {
         // Adicionar direção da rampa (east ou south)
         this.rampDirection = 'east'; // Padrão: east
 
+        // Interface do modo de construção
+        this.buildModeUI = null;
+        this._createBuildModeUI();
+
         // Add a check for camera validity during initialization
         if (!this.camera) {
             console.error("BuildingController initialized with an invalid camera!");
         } else {
             console.log("BuildingController initialized successfully.");
         }
+    }
+
+    // Criar a interface do modo de construção
+    _createBuildModeUI() {
+        // Criar uma UI fullscreen para mostrar informações do modo de construção
+        const advancedTexture = BABYLON.GUI.AdvancedDynamicTexture.CreateFullscreenUI("buildModeUI");
+        
+        // Criar um painel para a parte inferior da tela
+        const panel = new BABYLON.GUI.StackPanel();
+        panel.width = "400px";
+        panel.height = "150px"; // Aumentei a altura para acomodar melhor os elementos
+        panel.horizontalAlignment = BABYLON.GUI.Control.HORIZONTAL_ALIGNMENT_CENTER;
+        panel.verticalAlignment = BABYLON.GUI.Control.VERTICAL_ALIGNMENT_BOTTOM;
+        panel.paddingBottom = "20px";
+        panel.isVisible = false; // Inicialmente invisível
+        advancedTexture.addControl(panel);
+        
+        // Fundo do painel (retângulo semi-transparente)
+        const background = new BABYLON.GUI.Rectangle();
+        background.width = "400px";
+        background.height = "120px"; // Aumentei a altura do fundo
+        background.cornerRadius = 10;
+        background.color = "white";
+        background.thickness = 2;
+        background.background = "black";
+        background.alpha = 0.7;
+        panel.addControl(background);
+        
+        // Criando um container para organizar os elementos verticalmente
+        const contentContainer = new BABYLON.GUI.StackPanel();
+        contentContainer.verticalAlignment = BABYLON.GUI.Control.VERTICAL_ALIGNMENT_TOP;
+        contentContainer.paddingTop = "10px"; // Espaçamento do topo
+        background.addControl(contentContainer);
+        
+        // Texto de título (Modo Construção)
+        const titleText = new BABYLON.GUI.TextBlock();
+        titleText.text = "MODO CONSTRUÇÃO";
+        titleText.color = "white";
+        titleText.fontSize = 20;
+        titleText.height = "30px";
+        contentContainer.addControl(titleText);
+        
+        // Painel de informações de materiais
+        const materialsPanel = new BABYLON.GUI.StackPanel();
+        materialsPanel.isVertical = false;
+        materialsPanel.height = "40px";
+        materialsPanel.paddingTop = "10px"; // Espaçamento após o título
+        contentContainer.addControl(materialsPanel);
+        
+        // Texto para blocos
+        const wallText = new BABYLON.GUI.TextBlock();
+        wallText.text = "Blocos: 0";
+        wallText.color = "white";
+        wallText.fontSize = 16;
+        wallText.width = "150px";
+        wallText.paddingLeft = "30px";
+        wallText.textHorizontalAlignment = BABYLON.GUI.Control.HORIZONTAL_ALIGNMENT_LEFT;
+        materialsPanel.addControl(wallText);
+        
+        // Texto para rampas
+        const rampText = new BABYLON.GUI.TextBlock();
+        rampText.text = "Rampas: 0";
+        rampText.color = "white";
+        rampText.fontSize = 16;
+        rampText.width = "150px";
+        rampText.textHorizontalAlignment = BABYLON.GUI.Control.HORIZONTAL_ALIGNMENT_LEFT;
+        materialsPanel.addControl(rampText);
+        
+        // Dicas de controle (na parte inferior)
+        const controlsText = new BABYLON.GUI.TextBlock();
+        controlsText.text = "1: Bloco | 2: Rampa | B: Alternar | Botão Direito: Rotacionar";
+        controlsText.color = "yellow";
+        controlsText.fontSize = 12;
+        controlsText.height = "30px";
+        controlsText.paddingTop = "15px"; // Espaçamento antes das instruções
+        contentContainer.addControl(controlsText);
+        
+        // Armazenar referências para atualização
+        this.buildModeUI = {
+            panel: panel,
+            wallText: wallText,
+            rampText: rampText
+        };
+    }
+    
+    // Adicionar materiais ao inventário do jogador
+    addMaterials(wallCount, rampCount) {
+        this.availableMaterials.wall += wallCount;
+        this.availableMaterials.ramp += rampCount;
+        this._updateBuildModeUI();
+    }
+    
+    // Atualizar a UI do modo de construção
+    _updateBuildModeUI() {
+        if (!this.buildModeUI) return;
+        
+        // Atualizar textos com contagens atuais
+        this.buildModeUI.wallText.text = `Blocos: ${this.availableMaterials.wall}`;
+        this.buildModeUI.rampText.text = `Rampas: ${this.availableMaterials.ramp}`;
+        
+        // Atualizar visibilidade da UI
+        this.buildModeUI.panel.isVisible = this.isEnabled;
     }
 
     _createPreviewMaterials() {
@@ -51,6 +163,7 @@ class BuildingController {
         this.isEnabled = true;
         console.log("Build Mode Enabled. Selected:", this.selectedItem);
         // Adicionar lógica de UI se necessário
+        this._updateBuildModeUI();
     }
 
     disable() {
@@ -64,6 +177,7 @@ class BuildingController {
         this.currentPlacementPosition = null;
         console.log("Build Mode Disabled.");
         // Adicionar lógica de UI se necessário
+        this._updateBuildModeUI();
     }
 
     toggle() {
@@ -108,7 +222,22 @@ class BuildingController {
     placeItem() {
         if (!this.isEnabled || !this.currentPlacementValid || !this.currentPlacementPosition) {
             console.log("Cannot place item: Invalid position or not in build mode.");
-            return;
+            return false;
+        }
+        
+        // Verificar se o jogador tem materiais suficientes
+        if (this.selectedItem === 'wall' && this.availableMaterials.wall <= 0) {
+            console.log("Sem blocos disponíveis!");
+            // Mostrar notificação de erro para o jogador
+            this._showNotification("Sem blocos disponíveis!", "red");
+            return false;
+        }
+        
+        if (this.selectedItem === 'ramp' && this.availableMaterials.ramp <= 0) {
+            console.log("Sem rampas disponíveis!");
+            // Mostrar notificação de erro para o jogador
+            this._showNotification("Sem rampas disponíveis!", "red");
+            return false;
         }
 
         console.log(`Attempting to place ${this.selectedItem} at ${this.currentPlacementPosition}`);
@@ -132,13 +261,79 @@ class BuildingController {
             this.collisionSystem.addMesh(newMesh);
             console.log(`Item placed successfully: ${this.selectedItem} - Direction: ${this.rampDirection}`);
 
-            // Opcional: Adicionar a uma lista de objetos construídos na instância do jogo
-            // this.scene.gameInstance.addBuiltObject(newMesh);
-
-            // Opcional: Consumir recursos do jogador
+            // Consumir o material do inventário
+            if (this.selectedItem === 'wall') {
+                this.availableMaterials.wall--;
+            } else if (this.selectedItem === 'ramp') {
+                this.availableMaterials.ramp--;
+            }
+            
+            // Atualizar a UI
+            this._updateBuildModeUI();
+            
+            // Mostrar notificação de sucesso
+            this._showNotification(`${this.selectedItem === 'wall' ? 'Bloco' : 'Rampa'} construído com sucesso!`, "green");
+            
+            return true;
         } else {
             console.error("Failed to create build item mesh.");
+            return false;
         }
+    }
+    
+    // Mostrar notificação temporária
+    _showNotification(message, color = "white") {
+        // Criar uma notificação na tela
+        const advancedTexture = BABYLON.GUI.AdvancedDynamicTexture.CreateFullscreenUI("buildNotificationUI", true);
+        
+        // Criar um retângulo para o fundo
+        const rect = new BABYLON.GUI.Rectangle();
+        rect.width = "300px";
+        rect.height = "50px";
+        rect.cornerRadius = 10;
+        rect.color = "white";
+        rect.thickness = 1;
+        rect.background = color === "red" ? "darkred" : (color === "green" ? "darkgreen" : "black");
+        rect.alpha = 0.8;
+        rect.horizontalAlignment = BABYLON.GUI.Control.HORIZONTAL_ALIGNMENT_CENTER;
+        rect.verticalAlignment = BABYLON.GUI.Control.VERTICAL_ALIGNMENT_TOP;
+        rect.top = "100px";
+        advancedTexture.addControl(rect);
+        
+        // Criar o texto da notificação
+        const text = new BABYLON.GUI.TextBlock();
+        text.text = message;
+        text.color = "white";
+        text.fontSize = 18;
+        rect.addControl(text);
+        
+        // Animar a notificação (fade in/out)
+        rect.alpha = 0;
+        let alpha = 0;
+        
+        // Animação de fade in
+        const fadeInInterval = setInterval(() => {
+            alpha += 0.1;
+            rect.alpha = alpha;
+            
+            if (alpha >= 0.8) {
+                clearInterval(fadeInInterval);
+                
+                // Manter visível por um tempo
+                setTimeout(() => {
+                    // Animação de fade out
+                    const fadeOutInterval = setInterval(() => {
+                        alpha -= 0.1;
+                        rect.alpha = alpha;
+                        
+                        if (alpha <= 0) {
+                            clearInterval(fadeOutInterval);
+                            advancedTexture.dispose();
+                        }
+                    }, 50);
+                }, 2000);
+            }
+        }, 50);
     }
 
     // Calcula a posição na grade baseada no raycast a partir do centro da tela (crosshair)

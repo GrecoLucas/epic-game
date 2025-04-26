@@ -7,6 +7,25 @@ class ButtonModel {
         this.originalColor = color;
         this.pressed = false;
         this.mesh = null;
+        
+        // Texto informativo do botão baseado no ID
+        switch(this.id) {
+            case 2:
+                this.infoText = "MedKit 20$";
+                break;
+            case 3:
+                this.infoText = "50 Ammo 40$";
+                break;
+            case 4:
+                this.infoText = "Barricade 60$";
+                break;
+            default:
+                this.infoText = "Botão de ação";
+        }
+        
+        // Propriedades para reset automático
+        this.resetTimeout = null;
+        this.resetDelay = 200; // 200ms delay para resetar
     }
 
     initialize(scene) {
@@ -32,20 +51,34 @@ class ButtonModel {
     }
 
     press() {
-        if (!this.pressed) {
-            this.pressed = true;
-            // Adicionar animação de pressionar (mover para baixo)
-            this.mesh.position.y -= 0.2;
-            return true; // Indica que o estado mudou
+        // Resetar qualquer timer existente para evitar conflitos
+        if (this.resetTimeout) {
+            clearTimeout(this.resetTimeout);
+            this.resetTimeout = null;
         }
-        return false; // Estado não mudou
+        
+        this.pressed = true;
+        
+        // Não modifica mais a posição do botão, apenas o estado
+        // Agora o visual será tratado pelo ButtonView, que mudará apenas a cor
+        
+        // Configurar o reset automático após o delay
+        this.resetTimeout = setTimeout(() => {
+            this.reset();
+        }, this.resetDelay);
+        
+        return true; // Sempre retorna true para indicar que o botão foi pressionado
     }
 
     reset() {
         this.pressed = false;
-        // Restaurar posição original quando resetar
-        if (this.mesh) {
-            this.mesh.position.y = this.position.y;
+        
+        // Não precisa mais restaurar posição, apenas o estado
+        
+        // Limpar o timeout se existir
+        if (this.resetTimeout) {
+            clearTimeout(this.resetTimeout);
+            this.resetTimeout = null;
         }
     }
 
@@ -59,6 +92,10 @@ class ButtonModel {
 
     getMesh() {
         return this.mesh;
+    }
+
+    getInfoText() {
+        return this.infoText;
     }
 }
 

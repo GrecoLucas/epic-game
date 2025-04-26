@@ -44,7 +44,7 @@ class MonsterController {
             // Novo: Verificar colisões com obstáculos (paredes e rampas)
             const currentTime = Date.now();
             if (currentTime - this.lastObstacleCollisionCheck > this.obstacleCheckInterval) {
-                this.checkObstacleCollision(); // Chamada renomeada
+                this.checkObstacle_collision(); // Chamada renomeada
                 this.lastObstacleCollisionCheck = currentTime;
             }
         });
@@ -54,7 +54,7 @@ class MonsterController {
     }
     
     // Renomeado de checkWallCollision
-    checkObstacleCollision() {
+    checkObstacle_collision() {
         if (this.isDisposed || this.isStunned || !this.model || !this.model.getMesh()) return;
 
         const monsterPosition = this.model.getPosition();
@@ -286,6 +286,13 @@ class MonsterController {
 
         // Marcar como disposto PRIMEIRO para evitar race conditions
         this.isDisposed = true;
+
+        // Adicionar dinheiro ao jogador quando um monstro morre
+        if (this.player && typeof this.player.addMoney === 'function') {
+            // Recompensa aleatória entre 25 e 75 moedas
+            const moneyReward = Math.floor(25 + Math.random() * 50);
+            this.player.addMoney(moneyReward);
+        }
 
         // Mostrar efeito de morte
         this.view.showDeathEffect();
