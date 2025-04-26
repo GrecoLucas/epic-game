@@ -380,9 +380,11 @@ class BuildingController {
             const groundY = hit.pickedMesh.name === "floor" ? 0 : hit.pickedMesh.position.y + hitMeshBB.extendSizeWorld.y;
             let buildY = groundY;
             
+            // Ajustar a altura para ambos os tipos (bloco ou rampa)
             if (this.selectedItem === 'wall') {
                 buildY += this.wallHeight / 2;
             }
+            // Não mudamos a altura para a rampa, pois ela deve ficar na superfície
 
             const position = new BABYLON.Vector3(gridX, buildY, gridZ);
             return { position: position };
@@ -404,8 +406,8 @@ class BuildingController {
             if (this.selectedItem === 'wall') {
                 buildY = Math.max(0, Math.round(buildY - (this.wallHeight / 2)) + (this.wallHeight / 2));
             } else {
-                // Para rampas, arredondar para a grade mais próxima
-                buildY = Math.max(0, Math.round(buildY / this.cellSize) * this.cellSize);
+                // Para rampas, arredondar para a grade mais próxima, mas manter na superfície
+                buildY = Math.max(0, Math.floor(buildY));
             }
             
             const position = new BABYLON.Vector3(gridX, buildY, gridZ);
@@ -417,26 +419,116 @@ class BuildingController {
     _isValidPlacement(position) {
         if (!position) return false;
 
-        // Lógica de validação:
-        // 1. Verificar colisões com uma pequena caixa invisível na posição alvo
-        //    contra outros meshes (jogador, monstros, paredes existentes, etc.)
-        // 2. Verificar regras específicas (ex: parede precisa de chão embaixo?)
-
-        // Exemplo simples (precisa ser mais robusto):
-        // Verificar se já existe algo muito próximo no mesmo centro da célula
-        const meshesInCell = this.scene.getMeshesByTags(`cell_${position.x}_${position.z}`, (mesh) => mesh.checkCollisions);
-        if (meshesInCell.length > 0) {
-             // Verificar se a colisão é apenas com o chão (permitido)
-             const nonFloorCollisions = meshesInCell.filter(m => m.name !== 'floor');
-             if(nonFloorCollisions.length > 0) {
-                 console.log("Placement invalid: Cell occupied.");
-                 return false;
-             }
+        // Adicionando verificação de sanidade (debugging)
+        console.log(`Verificando posição: ${position.x}, ${position.y}, ${position.z}`);
+        
+        // Verificar colisões usando uma caixa de colisão temporária
+        const testBox = BABYLON.MeshBuilder.CreateBox(
+            "placementTestBox", 
+            {
+                width: this.cellSize * 0.95, // Ligeiramente menor para permitir colocação próxima
+                height: this.selectedItem === 'wall' ? this.wallHeight * 0.95 : 0.2,
+                depth: this.cellSize * 0.95
+            },
+            this.scene
+        );
+        testBox.position = position.clone();
+        testBox.isVisible = false;
+        testBox.isPickable = false;
+        
+        // Checar colisões manuais com todas as malhas relevantes
+        const collisions = this.scene.meshes.filter(mesh => {
+            // Ignorar o próprio testBox, o chão e previews
+            if (mesh === testBox || 
+                mesh.name === "floor" || 
+                mesh.name.startsWith("preview_") || 
+                !mesh.checkCollisions) {
+                return false;
+            }
+            
+            // Verificar se o objeto está na mesma posição
+            const dx = Math.abs(mesh.position.x - position.x);
+            const dz = Math.abs(mesh.position.z - position.z);
+            
+            // Ajustar limites baseado no tamanho da célula (permitir construção lado a lado)
+            const xzThreshold = this.cellSize * 0.1; // 10% do tamanho da célula de tolerância
+            
+            // Para construção no mesmo X,Z mas em altura diferente (empilhamento)
+            if (dx < xzThreshold && dz < xzThreshold) {
+                // Tratamento especial para rampas: se estamos colocando uma rampa em cima de um bloco,
+                // vamos permitir desde que o bloco esteja imediatamente abaixo
+                if (this.selectedItem === 'ramp' && mesh.name.startsWith("playerWall_")) {
+                    // Obter a altura do bloco abaixo
+                    const meshHeight = mesh.getBoundingInfo().boundingBox.extendSizeWorld.y;
+                    const meshTop = mesh.position.y + meshHeight;
+                    
+                    // Se a base da rampa está aproximadamente no topo do bloco, permitir a colocação
+                    // Tolerância pequena para ajustar imprecisões numéricas
+                    const isOnTop = Math.abs(position.y - meshTop) < 0.2;
+                    
+                    if (isOnTop) {
+                        console.log("Rampa colocada sobre bloco, permitindo colocação");
+                        return false; // Não é uma colisão, é um suporte válido
+                    }
+                }
+                
+                // Para outros casos, verificar sobreposição em Y normalmente
+                const meshHeight = mesh.getBoundingInfo().boundingBox.extendSizeWorld.y;
+                const testBoxHeight = testBox.getBoundingInfo().boundingBox.extendSizeWorld.y;
+                
+                const meshTop = mesh.position.y + meshHeight;
+                const meshBottom = mesh.position.y - meshHeight;
+                const testBoxTop = position.y + testBoxHeight;
+                const testBoxBottom = position.y - testBoxHeight;
+                
+                // Se não há sobreposição em Y, então não há colisão
+                const overlapY = !(testBoxBottom >= meshTop || testBoxTop <= meshBottom);
+                
+                if (overlapY) {
+                    console.log(`Colisão detectada com ${mesh.name} na mesma posição`);
+                    return true;
+                }
+            }
+            
+            return false;
+        });
+        
+        // Limpar o mesh de teste
+        testBox.dispose();
+        
+        // Se houver colisões, não é válido
+        if (collisions.length > 0) {
+            return false;
         }
-
-        // Adicionar mais verificações aqui (distância do jogador, etc.)
-
-        return true; // Placeholder
+        
+        // Verificar se há suporte abaixo (exceto para o chão)
+        if (position.y > this.wallHeight / 4) { // Se não está praticamente no chão
+            const rayStart = position.clone();
+            rayStart.y -= (this.selectedItem === 'wall' ? this.wallHeight / 2 : 0.1);
+            
+            const ray = new BABYLON.Ray(
+                rayStart, 
+                new BABYLON.Vector3(0, -1, 0), // Direção para baixo
+                this.cellSize / 2 // Distância máxima do raio
+            );
+            
+            const hit = this.scene.pickWithRay(ray, mesh => 
+                mesh.name === "floor" || 
+                (mesh.checkCollisions && 
+                 !mesh.name.startsWith("preview_") && 
+                 (mesh.name.startsWith("playerWall_") || 
+                  mesh.name.startsWith("playerRamp_") || 
+                  mesh.name.startsWith("wall_")))
+            );
+            
+            if (!hit.pickedMesh) {
+                console.log("Posição inválida: Sem suporte abaixo");
+                return false;
+            }
+        }
+        
+        // Se passou por todas as verificações, é válido
+        return true;
     }
 
     // Cria ou atualiza o mesh de pré-visualização

@@ -352,6 +352,40 @@ class MazeView {
         const wallMesh = this.scene.getMeshByName(wallName);
 
         if (wallMesh) {
+            // Verificar se há blocos dependentes que precisam ser destruídos primeiro
+            if (wallMesh.metadata && wallMesh.metadata.dependentBlocks && wallMesh.metadata.dependentBlocks.length > 0) {
+                console.log(`${wallName} tem ${wallMesh.metadata.dependentBlocks.length} blocos dependentes que serão destruídos em cascata`);
+                
+                // Criar uma cópia da lista de dependentes para evitar problemas durante a iteração
+                const dependentBlocks = [...wallMesh.metadata.dependentBlocks];
+                
+                // Destruir cada bloco dependente
+                for (const dependentBlockName of dependentBlocks) {
+                    const dependentMesh = this.scene.getMeshByName(dependentBlockName);
+                    if (dependentMesh) {
+                        // Determinar o tipo de estrutura para chamar o método correto
+                        if (dependentBlockName.startsWith("playerWall_")) {
+                            this.destroyWallVisual(dependentBlockName, dependentMesh.position);
+                        } else if (dependentBlockName.startsWith("playerRamp_")) {
+                            this.destroyRampVisual(dependentBlockName, dependentMesh.position);
+                        }
+                    }
+                }
+            }
+            
+            // Remover a referência deste bloco do seu suporte, se houver
+            if (wallMesh.metadata && wallMesh.metadata.supportingBlock) {
+                const supportingMesh = this.scene.getMeshByName(wallMesh.metadata.supportingBlock);
+                if (supportingMesh && supportingMesh.metadata && supportingMesh.metadata.dependentBlocks) {
+                    // Remover este bloco da lista de dependentes do suporte
+                    const index = supportingMesh.metadata.dependentBlocks.indexOf(wallName);
+                    if (index !== -1) {
+                        supportingMesh.metadata.dependentBlocks.splice(index, 1);
+                        console.log(`Removida referência de ${wallName} da lista de dependentes de ${wallMesh.metadata.supportingBlock}`);
+                    }
+                }
+            }
+
             // Efeito visual de destruição final
             this.createWallDestructionEffect(position); // Usar a posição do evento
 
@@ -374,6 +408,40 @@ class MazeView {
         const rampMesh = this.scene.getMeshByName(rampName);
 
         if (rampMesh) {
+            // Verificar se há blocos dependentes que precisam ser destruídos primeiro
+            if (rampMesh.metadata && rampMesh.metadata.dependentBlocks && rampMesh.metadata.dependentBlocks.length > 0) {
+                console.log(`${rampName} tem ${rampMesh.metadata.dependentBlocks.length} blocos dependentes que serão destruídos em cascata`);
+                
+                // Criar uma cópia da lista de dependentes para evitar problemas durante a iteração
+                const dependentBlocks = [...rampMesh.metadata.dependentBlocks];
+                
+                // Destruir cada bloco dependente
+                for (const dependentBlockName of dependentBlocks) {
+                    const dependentMesh = this.scene.getMeshByName(dependentBlockName);
+                    if (dependentMesh) {
+                        // Determinar o tipo de estrutura para chamar o método correto
+                        if (dependentBlockName.startsWith("playerWall_")) {
+                            this.destroyWallVisual(dependentBlockName, dependentMesh.position);
+                        } else if (dependentBlockName.startsWith("playerRamp_")) {
+                            this.destroyRampVisual(dependentBlockName, dependentMesh.position);
+                        }
+                    }
+                }
+            }
+            
+            // Remover a referência desta rampa do seu suporte, se houver
+            if (rampMesh.metadata && rampMesh.metadata.supportingBlock) {
+                const supportingMesh = this.scene.getMeshByName(rampMesh.metadata.supportingBlock);
+                if (supportingMesh && supportingMesh.metadata && supportingMesh.metadata.dependentBlocks) {
+                    // Remover esta rampa da lista de dependentes do suporte
+                    const index = supportingMesh.metadata.dependentBlocks.indexOf(rampName);
+                    if (index !== -1) {
+                        supportingMesh.metadata.dependentBlocks.splice(index, 1);
+                        console.log(`Removida referência de ${rampName} da lista de dependentes de ${rampMesh.metadata.supportingBlock}`);
+                    }
+                }
+            }
+
             // Efeito visual de destruição (pode ser similar ao da parede)
             this.createWallDestructionEffect(position); // Reutilizar efeito
 
@@ -571,6 +639,37 @@ class MazeView {
         wall.metadata.initialHealth = initialHealth || 100; // Garantir um valor padrão
         wall.metadata.health = initialHealth || 100; // Garantir um valor padrão
         
+        // Novo: Adicionar metadados para rastreamento de dependências
+        wall.metadata.supportingBlock = null; // Bloco que está abaixo (suporte)
+        wall.metadata.dependentBlocks = []; // Blocos que estão acima (dependentes)
+        
+        // Novo: Verificar se há um bloco abaixo para registrar as dependências
+        const supportCheckPosition = position.clone();
+        supportCheckPosition.y -= (this.wallMaterial?.wallHeight || 4) / 2; // Metade da altura para baixo
+        
+        // Verificar se há algo abaixo para registrar como suporte
+        const ray = new BABYLON.Ray(
+            supportCheckPosition,
+            new BABYLON.Vector3(0, -1, 0), // Direção para baixo
+            0.1 // Pequena distância
+        );
+        
+        const hit = this.scene.pickWithRay(ray, mesh => 
+            mesh.isPickable && 
+            (mesh.name.startsWith("playerWall_") || mesh.name.startsWith("playerRamp_"))
+        );
+        
+        if (hit && hit.pickedMesh) {
+            // Registrar o bloco abaixo como suporte
+            wall.metadata.supportingBlock = hit.pickedMesh.name;
+            
+            // Registrar este bloco como dependente no bloco abaixo
+            if (hit.pickedMesh.metadata && Array.isArray(hit.pickedMesh.metadata.dependentBlocks)) {
+                hit.pickedMesh.metadata.dependentBlocks.push(wall.name);
+                console.log(`${wall.name} está apoiado em ${hit.pickedMesh.name}`);
+            }
+        }
+        
         console.log(`Created player wall with metadata:`, wall.metadata);
     
         // Adicionar física se necessário (exemplo básico)
@@ -742,9 +841,42 @@ class MazeView {
         ramp.metadata.initialHealth = initialHealth || 150; // Garantir um valor padrão
         ramp.metadata.health = initialHealth || 150; // Garantir um valor padrão
         
+        // Novo: Adicionar metadados para rastreamento de dependências
+        ramp.metadata.supportingBlock = null; // Bloco que está abaixo (suporte)
+        ramp.metadata.dependentBlocks = []; // Blocos que estão acima (dependentes)
+        
+        // Novo: Verificar se há um bloco abaixo para registrar as dependências
+        const supportCheckPosition = position.clone();
+        supportCheckPosition.y -= 0.1; // Pequena distância para baixo a partir da base da rampa
+        
+        // Verificar se há algo abaixo para registrar como suporte
+        const ray = new BABYLON.Ray(
+            supportCheckPosition,
+            new BABYLON.Vector3(0, -1, 0), // Direção para baixo
+            0.5 // Aumentar a distância de detecção para pegar blocos abaixo
+        );
+        
+        const hit = this.scene.pickWithRay(ray, mesh => 
+            mesh.isPickable && 
+            (mesh.name.startsWith("playerWall_") || mesh.name.startsWith("playerRamp_") || mesh.name === "floor")
+        );
+        
+        if (hit && hit.pickedMesh) {
+            // Registrar o bloco abaixo como suporte (exceto se for o chão)
+            if (hit.pickedMesh.name !== "floor") {
+                ramp.metadata.supportingBlock = hit.pickedMesh.name;
+                
+                // Registrar esta rampa como dependente no bloco abaixo
+                if (hit.pickedMesh.metadata && Array.isArray(hit.pickedMesh.metadata.dependentBlocks)) {
+                    hit.pickedMesh.metadata.dependentBlocks.push(ramp.name);
+                    console.log(`${ramp.name} está apoiado em ${hit.pickedMesh.name}`);
+                }
+            }
+        }
+        
         console.log(`Created player ramp with metadata:`, ramp.metadata);
         
-        // Posicionar a rampa
+        // Posicionar a rampa na posição exata passada
         ramp.position = position.clone();
         
         // Aplicar rotação (permite ajuste fino além da geometria da direção)
