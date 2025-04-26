@@ -249,37 +249,6 @@ class MonsterController {
         this.model.moveWithCollision(movement);
     }
 
-    stun(duration) {
-        if (this.isStunned || this.isDisposed) return; // Don't stun if already stunned or disposed
-
-        console.log("Monster stunned!");
-        this.isStunned = true;
-        this.view.showDamageEffect(); // Use damage effect as visual stun indicator
-
-        // Clear any existing stun timer
-        if (this.stunTimer) {
-            clearTimeout(this.stunTimer);
-        }
-
-        // Stop current actions immediately (optional, but good for responsiveness)
-        if (this.model.chaseTimeout) clearTimeout(this.model.chaseTimeout);
-        if (this.model.moveTimeout) clearTimeout(this.model.moveTimeout);
-        this.model.chaseTimeout = null;
-        this.model.moveTimeout = null;
-        this.model.stopChasing(); // Ensure chasing state is reset if stunned while chasing
-        this.view.updateVisualState(false); // Update visual state if needed
-
-
-        // Set a timer to remove the stun effect
-        this.stunTimer = setTimeout(() => {
-            if (this.isDisposed) return; // Check again in case disposed during stun
-            this.isStunned = false;
-            this.stunTimer = null;
-            console.log("Monster unstunned.");
-            // Restart patrol behavior after stun wears off
-            this.startPatrolBehavior();
-        }, duration);
-    }
     
     // Método para atualizar o texto da vida do monstro
     updateHealthText() {

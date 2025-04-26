@@ -194,7 +194,7 @@ class MonsterView {
     // Mostrar efeito quando o monstro está morrendo
     showDeathEffect() {
         if (!this.mesh) return;
-        
+    
         // Esconder o texto da vida
         if (this.textPlane) {
             this.textPlane.dispose();
@@ -205,43 +205,52 @@ class MonsterView {
             this.textTexture = null;
         }
         this.healthText = null; // Limpar referência
+    
+        // Salvar posição atual para criar o efeito de partículas
+        const position = this.mesh.position.clone();
         
-        // Animação de desaparecimento
-        const frameRate = 30;
-        const fadeAnimation = new BABYLON.Animation(
-            "monsterDeathAnimation",
-            "visibility",
-            frameRate,
-            BABYLON.Animation.ANIMATIONTYPE_FLOAT,
-            BABYLON.Animation.ANIMATIONLOOPMODE_CONSTANT
-        );
+        // Criar sistema de partículas para explosão
+        const explosion = new BABYLON.ParticleSystem("explosion", 100, this.scene);
+        explosion.particleTexture = new BABYLON.Texture("textures/flare.png", this.scene);
+        explosion.emitter = position;
+        explosion.minEmitBox = new BABYLON.Vector3(-1, 0, -1);
+        explosion.maxEmitBox = new BABYLON.Vector3(1, 2, 1);
         
-        // Keyframes de desaparecimento
-        const keyFrames = [
-            { frame: 0, value: 1 },
-            { frame: 30, value: 0 }
-        ];
+        // Configuração de partículas
+        explosion.color1 = new BABYLON.Color4(1, 0.5, 0, 1);
+        explosion.color2 = new BABYLON.Color4(1, 0.2, 0, 1);
+        explosion.colorDead = new BABYLON.Color4(0, 0, 0, 0);
         
-        fadeAnimation.setKeys(keyFrames);
-        
-        // Adicionar e executar a animação
-        this.mesh.animations = [fadeAnimation];
-        
-        // Usar this.scene em vez de this.mesh.scene
-        let animationControl = null;
-        if (this.scene) {
-            animationControl = this.scene.beginAnimation(this.mesh, 0, 30, false);
-            
-            // Remover o mesh após a animação
-            if (animationControl) {
-                animationControl.onAnimationEnd = () => {
-                    if (this.mesh) {
-                        this.mesh.dispose();
-                        this.mesh = null;
-                    }
-                };
-            }
+        explosion.minSize = 0.5;
+        explosion.maxSize = 1.5;
+        explosion.minLifeTime = 0.3;
+        explosion.maxLifeTime = 1.0;
+                
+        // Som de explosão (se disponível)
+        if (BABYLON.Sound) {
+            const deathSound = new BABYLON.Sound("monsterDeathSound", "sounds/explosion.mp3", this.scene, null, {
+                volume: 0.5,
+                spatialSound: true,
+                maxDistance: 50
+            });
+            deathSound.setPosition(position);
+            deathSound.play();
         }
+        
+        // Remover o mesh imediatamente
+        if (this.mesh) {
+            this.mesh.dispose();
+            this.mesh = null;
+        }
+        
+        // Iniciar sistema de partículas
+        explosion.start();
+        
+        // Parar e liberar partículas após 2 segundos
+        setTimeout(() => {
+            explosion.stop();
+            setTimeout(() => explosion.dispose(), 2000);
+        }, 500);
     }
 }
 

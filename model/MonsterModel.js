@@ -5,7 +5,7 @@ class MonsterModel {
         this.position = startPosition;
         this.mesh = null;
         this.speed = 0.2; // Velocidade de movimento do monstro
-        this.detectionRadius = 50   ; // Raio de detecção do jogador
+        this.detectionRadius = 5000   ; // Raio de detecção do jogador
         this.isChasing = false; // Se está perseguindo o jogador
         this.chaseTimeout = null; // Tempo de perseguição
         this.moveTimeout = null; // Tempo de movimento aleatório
@@ -14,12 +14,16 @@ class MonsterModel {
         this.attackCooldown = 2000; // Tempo entre ataques em milissegundos
         this.lastAttackTime = 0; // Timestamp do último ataque
         this.attackRange = 2; // Distância para poder atacar o jogador
+        this.id = Math.random().toString(36).substring(2, 9); // ID único para cada monstro
 
         // Adicionar propriedades de física
         this.gravity = -0.01; // Força da gravidade
         this.verticalVelocity = 0; // Velocidade vertical
         this.isGrounded = false;
         this.groundCheckDistance = 0.2;
+        
+        // Propriedades para evitar sobreposição entre monstros
+        this.monsterAvoidanceRadius = 1.5; // Distância mínima entre monstros
     }
 
     initialize() {
@@ -213,7 +217,24 @@ class MonsterModel {
         
         // Calcular nova posição
         const speedFactor = this.speed * (delta / 16.67); // Normalizar pela taxa de quadros padrão
-        const movement = direction.scale(speedFactor);
+        
+        // Evitar sobreposição entre monstros
+        const avoidanceDirection = this.calculateMonsterAvoidance();
+        
+        // Combinar a direção para o jogador com a direção de evitação de outros monstros
+        // Se avoidanceDirection não for nulo, ajustar a direção
+        let finalDirection = direction.clone();
+        if (avoidanceDirection) {
+            // Peso da força de evitação (0.5 = 50% evitação, 50% perseguição)
+            const avoidanceWeight = 0.5;
+            
+            // Combinar as direções (perseguição ao jogador + evitar outros monstros)
+            finalDirection = direction.scale(1 - avoidanceWeight).add(avoidanceDirection.scale(avoidanceWeight));
+            finalDirection.normalize(); // Normalizar para manter velocidade consistente
+        }
+        
+        // Calculamos o movimento com base na direção final
+        const movement = finalDirection.scale(speedFactor);
         
         // Se o jogador está acima ou abaixo e há uma rampa próxima, tentar subir
         if (Math.abs(directionY) > 0.5 && this.isGrounded) {
@@ -224,6 +245,59 @@ class MonsterModel {
         
         // Aplicar movimento com colisão (gravidade é aplicada pelo método applyGravity)
         this.moveWithCollision(movement);
+    }
+    
+    // Método para calcular a direção para evitar outros monstros próximos
+    calculateMonsterAvoidance() {
+        if (!this.mesh) return null;
+        
+        // Obter todos os monstros da cena
+        const monsters = this.scene.gameInstance?.getMonsters() || [];
+        
+        if (monsters.length <= 1) return null; // Se só tem um monstro (este), não fazer nada
+        
+        let avoidanceDirection = new BABYLON.Vector3(0, 0, 0);
+        let hasNearbyMonsters = false;
+        
+        const currentPosition = this.getPosition();
+        
+        // Verificar todos os outros monstros para calcular direção de evitação
+        for (const otherMonster of monsters) {
+            const otherController = otherMonster.getController();
+            if (!otherController || otherController.isDisposed) continue;
+            
+            // Pular a si mesmo
+            const otherModel = otherController.model;
+            if (!otherModel || otherModel.id === this.id) continue;
+            
+            const otherPosition = otherModel.getPosition();
+            if (!otherPosition) continue;
+            
+            // Calcular distância e direção ao outro monstro
+            const distance = BABYLON.Vector3.Distance(currentPosition, otherPosition);
+            
+            // Se está dentro do raio de evitação
+            if (distance < this.monsterAvoidanceRadius) {
+                // Calcular vetor de direção PARA LONGE do outro monstro
+                const awayDirection = currentPosition.subtract(otherPosition);
+                
+                // Normalizar e escalar inversamente à distância (quanto mais perto, mais forte a evitação)
+                awayDirection.normalize();
+                const strength = (this.monsterAvoidanceRadius - distance) / this.monsterAvoidanceRadius;
+                
+                // Adicionar ao vetor de evitação total
+                avoidanceDirection.addInPlace(awayDirection.scale(strength));
+                hasNearbyMonsters = true;
+            }
+        }
+        
+        // Se temos monstros próximos, normalizar a direção de evitação
+        if (hasNearbyMonsters) {
+            avoidanceDirection.normalize();
+            return avoidanceDirection;
+        }
+        
+        return null; // Nenhum monstro próximo, sem necessidade de evitação
     }
     
     lookAt(targetPosition) {

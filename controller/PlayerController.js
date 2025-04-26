@@ -434,10 +434,6 @@ class PlayerController {
         const rayOrigin = cameraPosition.add(forwardDirection.scale(config.rayOriginOffset));
         const ray = new BABYLON.Ray(rayOrigin, forwardDirection, config.rayLength);
 
-
-
-
-
         // --- Detecção de Obstáculos e Monstros ---
         
         // 1. Primeiro detectamos qualquer obstáculo no caminho (incluindo monstros)
@@ -466,7 +462,7 @@ class PlayerController {
             
             // Encontrar todos os hits de monstros (ordenados por distância)
             monsterHits = this.scene.multiPickWithRay(limitedRay, monsterPartPredicate);
-        }
+                    }
 
         // --- Processamento do Hit ---
         let hitSuccessful = false;
@@ -492,7 +488,7 @@ class PlayerController {
         }
     }
     
-
+        
     _createMonsterPartPredicate() {
         return (mesh) => {
             // Se o mesh não é pickable, ignoramos imediatamente
@@ -627,9 +623,6 @@ class PlayerController {
             console.log(`Aplicando ${finalDamage} de dano ao monstro.`);
             
             monsterController.takeDamage(finalDamage);
-            
-            // Aplicar stun (tempo poderia ser baseado na arma/dano)
-            monsterController.stun(2000);
             
             // Criar efeito visual no ponto de impacto
             this.createHitEffect(hit.pickedPoint);
