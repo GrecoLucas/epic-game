@@ -6,9 +6,9 @@ class PlayerModel {
         this.moveSpeed = 0.27;
         this.rotationSpeed = 0.04;
         this.mesh = null;
-        this.jumpForce = 0.3; // Aumentado para um pulo mais alto e perceptível
+        this.jumpForce = 0.34; // Aumentado para um pulo mais alto e perceptível
         this.isGrounded = true; // Flag para verificar se o player está no chão
-        this.gravity = -0.025; // Gravidade um pouco mais forte
+        this.gravity = -0.02; // Gravidade um pouco mais forte
         this.verticalVelocity = 0; // Velocidade vertical atual
         this.justJumped = false; // Flag para indicar que acabou de pular
         this.jumpFrameCount = 0; // Contador de frames para controlar delay após pulo

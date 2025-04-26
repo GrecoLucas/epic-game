@@ -4,6 +4,7 @@ import Buttons from './objects/Buttons.js';
 import Maze from './objects/Maze.js'; 
 import Monster from './Monster.js'; 
 import GunLoader from './GunLoader.js'; 
+import ZombieS from './objects/ZombieS.js'; // Importando o Zombie Spawner
 
 class Game {
     constructor(engine, scene) {
@@ -17,6 +18,7 @@ class Game {
         this.door = null; // Adicionar referência à porta
         this.monsters = []; // Lista de monstros em vez de referência única
         this.gunLoader = null; // Referência ao carregador de armas
+        this.zombieSpawner = null; // Referência ao sistema de hordas
         
         // Armazenar referência ao Game na cena para acesso pelo DoorController
         this.scene.gameInstance = this;
@@ -111,6 +113,22 @@ class Game {
         
         // Criar e inicializar os monstros
         this.createMonstersFromMaze();
+        
+        // Inicializar o sistema de hordas de zumbis
+        this.initializeZombieSpawner();
+    }
+    
+    // Inicializar o sistema de hordas de zumbis
+    initializeZombieSpawner() {
+        // Criar o gerenciador de hordas
+        this.zombieSpawner = new ZombieS(this.scene, this);
+        this.zombieSpawner.initialize();
+        
+        // Iniciar o sistema de hordas após um pequeno atraso para garantir que tudo carregou
+        setTimeout(() => {
+            this.zombieSpawner.startHordeSystem();
+            console.log("Sistema de hordas de zumbis iniciado!");
+        }, 5000); // 5 segundos de atraso inicial
     }
     
     // Método para criar monstros baseados no labirinto
