@@ -239,41 +239,49 @@ class BuildingController {
             this._showNotification("Sem rampas disponíveis!", "red");
             return false;
         }
-
+        
         console.log(`Attempting to place ${this.selectedItem} at ${this.currentPlacementPosition}`);
         let newMesh = null;
-
+        
+        // Definir valores de saúde inicial
+        const wallInitialHealth = 100;
+        const rampInitialHealth = 150;
+    
         if (this.selectedItem === 'wall') {
-            // Passar o cellSize para garantir que o tamanho seja consistente
-            newMesh = this.mazeView.createPlayerWall(this.currentPlacementPosition, this.cellSize);
+            // Passar o cellSize e saúde inicial para garantir que o tamanho seja consistente
+            newMesh = this.mazeView.createPlayerWall(
+                this.currentPlacementPosition, 
+                this.cellSize,
+                wallInitialHealth
+            );
         } else if (this.selectedItem === 'ramp') {
-            // Passar o cellSize, rotação e a direção da rampa
+            // Passar o cellSize, rotação, direção da rampa e saúde inicial
             newMesh = this.mazeView.createPlayerRamp(
                 this.currentPlacementPosition, 
                 this.currentPlacementRotation, 
                 this.cellSize, 
-                this.rampDirection // Passar a direção da rampa (east ou south)
+                this.rampDirection,
+                rampInitialHealth
             );
         }
-
+    
         if (newMesh) {
             // Adicionar ao sistema de colisão
             this.collisionSystem.addMesh(newMesh);
-            console.log(`Item placed successfully: ${this.selectedItem} - Direction: ${this.rampDirection}`);
-
+    
             // Consumir o material do inventário
             if (this.selectedItem === 'wall') {
                 this.availableMaterials.wall--;
             } else if (this.selectedItem === 'ramp') {
                 this.availableMaterials.ramp--;
             }
-            
+    
             // Atualizar a UI
             this._updateBuildModeUI();
-            
+    
             // Mostrar notificação de sucesso
             this._showNotification(`${this.selectedItem === 'wall' ? 'Bloco' : 'Rampa'} construído com sucesso!`, "green");
-            
+    
             return true;
         } else {
             console.error("Failed to create build item mesh.");

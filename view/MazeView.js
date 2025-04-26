@@ -542,7 +542,7 @@ class MazeView {
      * @param {number} cellSize O tamanho da célula da grade.
      * @returns {BABYLON.Mesh} O mesh da parede criada.
      */
-    createPlayerWall(position, cellSize) {
+    createPlayerWall(position, cellSize, initialHealth = 100) {
         // Use cellSize if provided, otherwise use default from the constructor
         const wallWidth = cellSize || this.cellSize || 4;
         
@@ -551,21 +551,28 @@ class MazeView {
             height: this.wallMaterial?.wallHeight || 4, // Use optional chaining and default
             depth: wallWidth
         }, this.scene);
-
+    
         wall.position = position;
         // Clone material safely
         wall.material = this.wallMaterial ? this.wallMaterial.clone(`playerWallMat_${wall.uniqueId}`) : 
                          new BABYLON.StandardMaterial(`playerWallMat_${wall.uniqueId}`, this.scene);
         wall.checkCollisions = true;
         wall.isPickable = true;
-
+    
         // Adicionar tag para identificação e grid snapping
         BABYLON.Tags.AddTagsTo(wall, `cell_${position.x}_${position.z}`);
+        
+        // Inicializar a metadata como um objeto vazio se ainda não existir
+        wall.metadata = wall.metadata || {};
+        
         // Adicionar metadata para indicar que é uma superfície construível
-        if (!wall.metadata) wall.metadata = {};
         wall.metadata.isBuildableSurface = true;
         wall.metadata.isPlayerBuilt = true;
-
+        wall.metadata.initialHealth = initialHealth || 100; // Garantir um valor padrão
+        wall.metadata.health = initialHealth || 100; // Garantir um valor padrão
+        
+        console.log(`Created player wall with metadata:`, wall.metadata);
+    
         // Adicionar física se necessário (exemplo básico)
         if (this.scene.getPhysicsEngine()?.getPhysicsPlugin()) {
             wall.physicsImpostor = new BABYLON.PhysicsImpostor(wall, BABYLON.PhysicsImpostor.BoxImpostor, 
@@ -573,8 +580,9 @@ class MazeView {
         } else {
              console.warn("Physics not enabled, skipping impostor for player wall.");
         }
-
-        console.log(`Created player wall at ${position}`);
+    
+        console.log(`Created player wall at ${position} with health ${initialHealth}`);
+        this.meshes.push(wall);
         return wall;
     }
 
@@ -584,9 +592,10 @@ class MazeView {
      * @param {number} rotationY Rotação em radianos no eixo Y.
      * @param {number} cellSize O tamanho da célula da grade.
      * @param {string} direction A direção da rampa ('east' ou 'south').
+     * @param {number} initialHealth A vida inicial da rampa.
      * @returns {BABYLON.Mesh} O mesh da rampa criada.
      */
-    createPlayerRamp(position, rotationY, cellSize, direction = 'east') {
+    createPlayerRamp(position, rotationY, cellSize, direction = 'east', initialHealth = 150) {
         // Use cellSize if provided, otherwise fallback
         const rampWidth = cellSize || this.cellSize || 4;
         const rampHeight = this.wallMaterial?.wallHeight || 4;
@@ -709,16 +718,31 @@ class MazeView {
             uvs.push(u, v);
         }
 
-        // Criar a malha da rampa
-        const ramp = new BABYLON.Mesh(rampName, this.scene);
-        
-        // Aplicar os dados da geometria à malha
+        // Criar a vertexData e aplicar à malha
         const vertexData = new BABYLON.VertexData();
         vertexData.positions = positions;
         vertexData.indices = indices;
         vertexData.normals = normals;
         vertexData.uvs = uvs;
+
+        // Criar a malha da rampa
+        const ramp = new BABYLON.Mesh(rampName, this.scene);
+        
+        // Aplicar vertexData à malha
         vertexData.applyToMesh(ramp);
+        
+        // Inicializar a metadata como um objeto vazio
+        ramp.metadata = {};
+
+        // Adicionar propriedades à metadata
+        ramp.metadata.isBuildableSurface = true;
+        ramp.metadata.isPlayerBuilt = true;
+        ramp.metadata.isRamp = true;
+        ramp.metadata.rampDirection = direction;
+        ramp.metadata.initialHealth = initialHealth || 150; // Garantir um valor padrão
+        ramp.metadata.health = initialHealth || 150; // Garantir um valor padrão
+        
+        console.log(`Created player ramp with metadata:`, ramp.metadata);
         
         // Posicionar a rampa
         ramp.position = position.clone();
@@ -744,13 +768,6 @@ class MazeView {
         // Adicionar tag para identificação e grid snapping
         BABYLON.Tags.AddTagsTo(ramp, `cell_${position.x}_${position.z}`);
         
-        // Adicionar metadata
-        if (!ramp.metadata) ramp.metadata = {};
-        ramp.metadata.isBuildableSurface = true;
-        ramp.metadata.isPlayerBuilt = true;
-        ramp.metadata.isRamp = true;
-        ramp.metadata.rampDirection = direction;
-
         // Adicionar física se disponível
         if (this.scene.getPhysicsEngine()?.getPhysicsPlugin()) {
             ramp.physicsImpostor = new BABYLON.PhysicsImpostor(
@@ -763,7 +780,8 @@ class MazeView {
             console.warn("Physics not enabled, skipping impostor for player ramp.");
         }
 
-        console.log(`Created player ramp (${direction}) at ${position} with rotation ${rotationY}`);
+        console.log(`Created player ramp (${direction}) at ${position} with health ${initialHealth}`);
+        this.meshes.push(ramp);
         return ramp;
     }
     // Retornar todos os meshes criados pelo MazeView
