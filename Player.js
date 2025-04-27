@@ -45,7 +45,7 @@ class Player {
     
     // Método para o jogador receber dano
     takeDamage(amount) {
-        this.health = Math.max(0, this.health - amount * 4);
+        this.health = Math.max(0, this.health - amount);
         
         // Atualizar barra de vida
         this.updateHealthBar();
@@ -60,7 +60,7 @@ class Player {
     
     // Método para curar o jogador
     heal() {
-        this.health = 100;
+        this.health = this.maxHealth;
         
         // Atualizar barra de vida
         this.updateHealthBar();
@@ -109,16 +109,27 @@ class Player {
         healthText.textHorizontalAlignment = BABYLON.GUI.Control.HORIZONTAL_ALIGNMENT_LEFT;
         healthRow.addControl(healthText);
 
-        // Barra de vida
+        // Container da barra de vida (moldura)
+        this.healthBarContainer = new BABYLON.GUI.Rectangle();
+        this.healthBarContainer.width = "120px";
+        this.healthBarContainer.height = "20px";
+        this.healthBarContainer.cornerRadius = 5;
+        this.healthBarContainer.color = "white";
+        this.healthBarContainer.thickness = 1;
+        this.healthBarContainer.background = "black";
+        this.healthBarContainer.paddingLeft = "10px";
+        healthRow.addControl(this.healthBarContainer);
+        
+        // Barra de vida interna (preenchimento)
         this.healthBar = new BABYLON.GUI.Rectangle();
-        this.healthBar.width = "120px";
-        this.healthBar.height = "20px";
-        this.healthBar.cornerRadius = 5;
-        this.healthBar.color = "white";
-        this.healthBar.thickness = 1;
+        this.healthBar.width = "100%";
+        this.healthBar.height = "100%";
+        this.healthBar.cornerRadius = 4;
+        this.healthBar.color = "transparent";
         this.healthBar.background = "green";
-        this.healthBar.paddingLeft = "10px";
-        healthRow.addControl(this.healthBar);
+        this.healthBar.horizontalAlignment = BABYLON.GUI.Control.HORIZONTAL_ALIGNMENT_LEFT;
+        this.healthBar.left = 0;
+        this.healthBarContainer.addControl(this.healthBar);
 
         // Linha para Munição
         const ammoRow = new BABYLON.GUI.StackPanel();
@@ -167,15 +178,20 @@ class Player {
         
         // Inicializar a exibição de dinheiro
         this.updateMoneyDisplay();
+        
+        // Atualizar a barra de vida com o valor inicial
+        this.updateHealthBar();
     }
     
     // Atualizar a barra de vida
     updateHealthBar() {
-        if (!this.healthBar) return;
+        if (!this.healthBar || !this.healthBarContainer) return;
         
-        // Atualizar o tamanho da barra de acordo com a porcentagem de vida
+        // Calcular a porcentagem de vida
         const healthPercent = this.health / this.maxHealth;
-        this.healthBar.width = (180 * healthPercent) + "px";
+        
+        // Definir a width para uma porcentagem baseada na quantidade de vida
+        this.healthBar.width = (healthPercent * 100) + "%";
         
         // Mudar cor baseado na quantidade de vida
         if (healthPercent > 0.7) {
@@ -201,8 +217,7 @@ class Player {
             this.ammoText.isVisible = true;
         } else {
             this.ammoText.text = "Munição: - / - -";
-            // Optionally hide if no gun is equipped
-            // this.ammoText.isVisible = false; 
+            this.ammoText.isVisible = false; 
         }
     }
     

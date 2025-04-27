@@ -3,7 +3,6 @@ class MazeModel {
         this.mazeLayout = [];
         this.buttonPositions = [];
         this.playerStartPosition = null;
-        this.doorPosition = null; // Nova propriedade para armazenar a posição da porta
         this.monsterPositions = []; // Lista de posições de monstros
         this.gunPositions = []; // Lista de posições de armas
         this.rampPositions = [];
@@ -12,7 +11,6 @@ class MazeModel {
         this.mazeWidth = 0;
         this.mazeHeight = 0;
         this.playerPosition = { row: -1, col: -1 }; // Nova propriedade para armazenar a posição do P
-        this.doorPosition = { row: -1, col: -1 }; // Nova propriedade para armazenar a posição do D
         this.wallHealth = {}; // Novo: Rastrear vida das paredes { 'wall_row_col': health }
         this.initialWallHealth = 100; // Novo: Vida inicial das paredes
         this.rampHealth = {}; // Novo: Rastrear vida das rampas { 'ramp_row_col_direction': health }
@@ -43,11 +41,6 @@ class MazeModel {
                     if (row[j] === 'P') {
                         // Armazenar a posição (linha, coluna) do jogador para processar posteriormente
                         this.playerPosition = { row: i, col: j };
-                        // Considerar essa posição como chão (0)
-                        processedRow.push(0);
-                    } else if (row[j] === 'D') {
-                        // Armazenar a posição da porta
-                        this.doorPosition = { row: i, col: j };
                         // Considerar essa posição como chão (0)
                         processedRow.push(0);
                     } else if (row[j] === 'M') {
@@ -85,10 +78,6 @@ class MazeModel {
                 this.detectPlayerPosition(this.playerPosition.row, this.playerPosition.col);
             }
             
-            // Calcular a posição da porta se encontrada
-            if (this.doorPosition.row >= 0 && this.doorPosition.col >= 0) {
-                this.detectDoorPosition(this.doorPosition.row, this.doorPosition.col);
-            }
             
             // Calcular as posições dos monstros
             this.processMonsterPositions();
@@ -98,7 +87,6 @@ class MazeModel {
             
             console.log("Layout do labirinto carregado com sucesso:", this.mazeLayout);
             console.log("Posição inicial do jogador:", this.playerStartPosition);
-            console.log("Posição da porta:", this.doorPosition);
             console.log("Posições dos monstros:", this.monsterPositions);
             console.log("Posições das armas:", this.gunPositions);
 
@@ -180,13 +168,6 @@ class MazeModel {
         console.log(`Posição do jogador calculada: Matriz[${row},${col}] => Mundo[${this.playerStartPosition.x},1,${this.playerStartPosition.z}]`);
     }
     
-    // Novo método para detectar a posição da porta
-    detectDoorPosition(row, col) {
-        const worldPos = this.calculateWorldPosition(row, col);
-        worldPos.y = 0; // Porta no nível do chão
-        this.doorPosition = worldPos;
-        console.log(`Posição da porta calculada: Matriz[${row},${col}] => Mundo[${worldPos.x},0,${worldPos.z}]`);
-    }
     
     // Calcular dimensões do labirinto com base no layout
     calculateMazeDimensions() {
@@ -344,11 +325,7 @@ class MazeModel {
         return this.playerStartPosition;
     }
     
-    // Getter para a posição da porta
-    getDoorPosition() {
-        return this.doorPosition;
-    }
-    
+      
     // Getter para obter todas as posições de monstros
     getMonsterPositions() {
         return this.monsterPositions;

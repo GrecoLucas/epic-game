@@ -61,21 +61,6 @@ class Maze {
         return this.controller.getButtonPositions();
     }
     
-    // Novo método para obter a porta
-    getDoor() {
-        return this.controller.getDoor();
-    }
-    
-    // Novo método para abrir a porta
-    openDoor() {
-        return this.controller.openDoor();
-    }
-    
-    // Novo método para configurar callback de vitória na porta
-    setDoorWinCallback(callback) {
-        return this.controller.setDoorWinCallback(callback);
-    }
-    
     // Método para obter a posição do monstro (compatibilidade com código anterior)
     getMonsterPosition() {
         return this.model.getMonsterPosition();

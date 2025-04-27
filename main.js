@@ -15,12 +15,11 @@ class Game {
         this.player = null;
         this.buttonsManager = null;
         this.maze = null; 
-        this.door = null; // Adicionar referência à porta
         this.monsters = []; // Lista de monstros em vez de referência única
         this.gunLoader = null; // Referência ao carregador de armas
         this.zombieSpawner = null; // Referência ao sistema de hordas
         
-        // Armazenar referência ao Game na cena para acesso pelo DoorController
+        // Armazenar referência ao Game na cena
         this.scene.gameInstance = this;
     }
 
@@ -68,18 +67,6 @@ class Game {
             this.player.setPosition(new BABYLON.Vector3(0, 1, 0));
         }
         
-        // Obter a referência da porta do labirinto
-        this.door = this.maze.getDoor();
-        
-        // Se a porta existir, configurar o jogador para a detecção de vitória
-        if (this.door) {
-            this.door.setPlayer(this.player);
-            
-            // Configurar o callback para quando o jogador passar pela porta
-            this.door.onPlayerWin(() => {
-                alert('Parabéns! Você passou pela porta e escapou do labirinto!');
-            });
-        }
         
         // Criar botões usando a estrutura MVC
         this.buttonsManager = new Buttons(this.scene);
@@ -99,18 +86,7 @@ class Game {
         // Configurar o raycasting para melhorar a detecção de clique nos botões
         const camera = this.player.getCamera();
         camera.minZ = 0.1; // Distância mínima de renderização pequena para facilitar interação
-        
-        // Configurar o callback para quando todos os botões forem pressionados
-        this.buttonsManager.onAllButtonsPressed(() => {
-            // Abrir a porta quando todos os botões forem pressionados
-            if (this.door) {
-                this.door.openDoor();
-                console.log("Todos os botões pressionados! Porta aberta!");
-            } else {
-                alert('Parabéns! Você encontrou todos os botões no labirinto!');
-            }
-        });
-        
+                
         // Criar e inicializar os monstros
         this.createMonstersFromMaze();
         
@@ -256,7 +232,7 @@ class Game {
         return this.player.getCamera();
     }
     
-    // Método para obter o player - usado pelo DoorController
+    // Método para obter o player 
     getPlayer() {
         return this.player;
     }
