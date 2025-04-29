@@ -271,6 +271,17 @@ class PlayerController {
                              this.model.jump();
                         }
                     }
+                    // Tecla R para recarregar a arma equipada
+                    if (key === "r") {
+                        const equippedGun = this.getPlayerEquippedGun();
+                        if (equippedGun) {
+                            equippedGun.reload();
+                            // Atualizar exibição de munição
+                            if (this.scene.gameInstance && this.scene.gameInstance.player) {
+                                this.scene.gameInstance.player.updateAmmoDisplay();
+                            }
+                        }
+                    }
 
                     // --- Inputs do Modo Construção ---
                     if (this.buildingController) {
@@ -306,9 +317,6 @@ class PlayerController {
                 }
             )
         );
-
-        // Atualizar movimento a cada frame (já estava no initialize, remover duplicação se houver)
-        // this.scene.registerBeforeRender(() => this.updateMovement()); // Movido para initialize
     }
     
     // Ativar o botão mais próximo

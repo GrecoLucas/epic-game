@@ -352,6 +352,12 @@ class MazeView {
         const wallMesh = this.scene.getMeshByName(wallName);
 
         if (wallMesh) {
+            if (wallMesh.metadata && wallMesh.metadata.isBeingDestroyed) {
+                return true; // Já está sendo destruído, evitar loop recursivo
+            }
+            if (wallMesh.metadata) {
+                wallMesh.metadata.isBeingDestroyed = true;
+            }
             // Verificar se há blocos dependentes que precisam ser destruídos primeiro
             if (wallMesh.metadata && wallMesh.metadata.dependentBlocks && wallMesh.metadata.dependentBlocks.length > 0) {
                 console.log(`${wallName} tem ${wallMesh.metadata.dependentBlocks.length} blocos dependentes que serão destruídos em cascata`);
@@ -408,6 +414,14 @@ class MazeView {
         const rampMesh = this.scene.getMeshByName(rampName);
 
         if (rampMesh) {
+            if (rampMesh.metadata && rampMesh.metadata.isBeingDestroyed) {
+                return true; // Já está sendo destruído, evitar loop recursivo
+            }
+            
+            // Marcar este mesh como "em processo de destruição"
+            if (rampMesh.metadata) {
+                rampMesh.metadata.isBeingDestroyed = true;
+            }
             // Verificar se há blocos dependentes que precisam ser destruídos primeiro
             if (rampMesh.metadata && rampMesh.metadata.dependentBlocks && rampMesh.metadata.dependentBlocks.length > 0) {
                 console.log(`${rampName} tem ${rampMesh.metadata.dependentBlocks.length} blocos dependentes que serão destruídos em cascata`);

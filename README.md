@@ -22,3 +22,13 @@ O código está estruturado para facilitar modificações e expansões. Para adi
 ---
 
 Desenvolvido com Babylon.js e JavaScript.
+
+
+# Futura implementação
+
+-- Placas para sinalizar onde estao os botoes
+-- Sons 
+-- Melhorar a iluminação
+-- Melhorar o desing da arma
+-- Melhorar o desing do cenário
+-- Fazer uma skybox3

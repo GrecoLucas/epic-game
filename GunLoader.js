@@ -11,7 +11,7 @@ class GunLoader {
         const gun = new Gun(this.scene, type, x, y, z);
         
         // Criar meshes físicos para a arma
-        gun.createPhysicalMesh();
+        gun.view.createPhysicalMeshes(this.scene);
         
         // Adicionar à lista de armas
         this.guns.push(gun);
