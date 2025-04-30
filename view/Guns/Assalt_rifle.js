@@ -14,71 +14,72 @@ class AssaultRifle extends GunView {
         // --- ARMA NO CHÃO ---
         const groundRoot = new BABYLON.TransformNode("gun_ground_root", scene);
 
-        // Corpo principal
+        // Corpo principal (mais fino e longo)
         const base = BABYLON.MeshBuilder.CreateBox("gun_ground_base", {
-            width: 0.15, height: 0.2, depth: 1.2
+            width: 0.07, height: 0.12, depth: 1.35
         }, scene);
         base.parent = groundRoot;
-        base.position.y = 0.1;
+        base.position.y = 0.07;
 
-        // Recebedor Superior
+        // Recebedor Superior (mais fino)
         const upperReceiver = BABYLON.MeshBuilder.CreateBox("gun_ground_upper_receiver", {
-            width: 0.14, height: 0.12, depth: 0.8
+            width: 0.06, height: 0.07, depth: 0.9
         }, scene);
         upperReceiver.parent = base;
-        upperReceiver.position = new BABYLON.Vector3(0, 0.12, -0.1);
+        upperReceiver.position = new BABYLON.Vector3(0, 0.09, -0.1);
 
-        // Cano
+        // Cano (mais fino e um pouco mais longo)
         const barrel = BABYLON.MeshBuilder.CreateCylinder("gun_ground_barrel", {
             height: 1.0, diameter: 0.05
         }, scene);
         barrel.parent = groundRoot;
         barrel.rotation.x = Math.PI / 2;
-        barrel.position = new BABYLON.Vector3(0, 0.12, 0.8);
+        barrel.position = new BABYLON.Vector3(0, 0.09, 0.85);
 
-        // Coronha
+        // Coronha (mais fina e curta)
         const stock = BABYLON.MeshBuilder.CreateBox("gun_ground_stock", {
-            width: 0.1, height: 0.18, depth: 0.6
+            width: 0.05, height: 0.09, depth: 0.45
         }, scene);
         stock.parent = groundRoot;
-        stock.position = new BABYLON.Vector3(0, 0.1, -0.7);
+        stock.position = new BABYLON.Vector3(0, 0.07, -0.75);
 
-        // Punho
+        // Punho (mais fino)
         const handle = BABYLON.MeshBuilder.CreateBox("gun_ground_handle", {
-            width: 0.12, height: 0.4, depth: 0.15
+            width: 0.06, height: 0.22, depth: 0.09
         }, scene);
         handle.parent = groundRoot;
-        handle.position = new BABYLON.Vector3(0, -0.15, -0.2);
+        handle.position = new BABYLON.Vector3(0, -0.09, -0.22);
         handle.rotation.x = -0.2;
 
-        // Carregador
+        // Carregador (mais fino e menor)
         const magazine = BABYLON.MeshBuilder.CreateBox("gun_ground_magazine", {
-            width: 0.1, height: 0.3, depth: 0.15
+            width: 0.045, height: 0.16, depth: 0.08
         }, scene);
         magazine.parent = groundRoot;
-        magazine.position = new BABYLON.Vector3(0, -0.3, 0);
+        // Ajuste: encostar o carregador no corpo principal
+        magazine.position = new BABYLON.Vector3(0, -0.05, 0);
         magazine.rotation.x = 0.1;
 
-        // Rail tático
+        // Rail tático (mais fino)
         const rail = BABYLON.MeshBuilder.CreateBox("gun_ground_rail", {
-            width: 0.16, height: 0.05, depth: 0.8
+            width: 0.07, height: 0.025, depth: 0.85
         }, scene);
         rail.parent = upperReceiver;
-        rail.position = new BABYLON.Vector3(0, 0.08, 0);
+        rail.position = new BABYLON.Vector3(0, 0.045, 0);
 
-        // Mira frontal
+        // Mira frontal (menor)
         const frontSight = BABYLON.MeshBuilder.CreateBox("gun_ground_front_sight", {
-            width: 0.03, height: 0.06, depth: 0.03
+            width: 0.015, height: 0.03, depth: 0.018
         }, scene);
         frontSight.parent = rail;
-        frontSight.position = new BABYLON.Vector3(0, 0.06, 0.35);
+        frontSight.position = new BABYLON.Vector3(0, 0.03, 0.36);
 
-        // Mira traseira
+        // Mira traseira (menor)
         const rearSight = BABYLON.MeshBuilder.CreateBox("gun_ground_rear_sight", {
-            width: 0.08, height: 0.05, depth: 0.04
+            width: 0.035, height: 0.025, depth: 0.02
         }, scene);
         rearSight.parent = rail;
-        rearSight.position = new BABYLON.Vector3(0, 0.05, -0.3);
+        rearSight.position = new BABYLON.Vector3(0, 0.025, -0.32);
 
         // --- Materiais ---
         const baseColor = '#303030'; // Cor padrão para o corpo
@@ -173,8 +174,6 @@ class AssaultRifle extends GunView {
         // --- ARMA NA MÃO (POV) ---
         const handRoot = new BABYLON.TransformNode("gun_hand_root", scene);
         handRoot.parent = scene.activeCamera;
-        
-        // Posição da arma na mão
         handRoot.position = new BABYLON.Vector3(0.4, -0.3, 1.1);
         handRoot.rotation = new BABYLON.Vector3(0, -0.1, 0);
 
@@ -238,7 +237,6 @@ class AssaultRifle extends GunView {
         this.physicalMeshes.push(muzzle);
 
         this.updateVisibility();
-
         return this.physicalMeshes;
     }
 
