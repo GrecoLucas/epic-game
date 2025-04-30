@@ -5,6 +5,8 @@ import Maze from './objects/Maze.js';
 import Monster from './Monster.js'; 
 import GunLoader from './GunLoader.js'; 
 import ZombieS from './objects/ZombieS.js'; 
+import SkySphere from "./objects/SkySphere.js";
+import SkySphereController from "./controller/SkySphereController.js";
 
 class Game {
     constructor(engine, scene) {
@@ -18,6 +20,7 @@ class Game {
         this.monsters = []; // Lista de monstros em vez de referência única
         this.gunLoader = null; // Referência ao carregador de armas
         this.zombieSpawner = null; // Referência ao sistema de hordas
+        this.skySphereController = null; // Controlador da SkySphere
         
         // Armazenar referência ao Game na cena
         this.scene.gameInstance = this;
@@ -67,6 +70,8 @@ class Game {
             this.player.setPosition(new BABYLON.Vector3(0, 1, 0));
         }
         
+        // Inicializar SkySphere APÓS a câmera ter sido criada
+        this._initializeSkySphere();
         
         // Criar botões usando a estrutura MVC
         this.buttonsManager = new Buttons(this.scene);
@@ -86,7 +91,7 @@ class Game {
         // Configurar o raycasting para melhorar a detecção de clique nos botões
         const camera = this.player.getCamera();
         camera.minZ = 0.1; // Distância mínima de renderização pequena para facilitar interação
-                
+                        
         // Criar e inicializar os monstros
         this.createMonstersFromMaze();
         
@@ -242,9 +247,33 @@ class Game {
     getPlayer() {
         return this.player;
     }
+    
+    // Inicializar a SkySphere após a câmera estar disponível
+    _initializeSkySphere() {
+        // Criar a SkySphere
+        const skySphere = new SkySphere(this.scene);
+        
+        // Criar e configurar o controlador
+        this.skySphereController = new SkySphereController(this.scene);
+        this.skySphereController.initialize(skySphere);
+        
+        // Tentar criar a SkySphere
+        if (this.skySphereController.createSkySphere()) {
+            console.log("SkySphere criada com sucesso após inicialização do player");
+        } else {
+            // Se falhar, tentar novamente depois de um pequeno delay
+            setTimeout(() => {
+                if (this.skySphereController.createSkySphere()) {
+                    console.log("SkySphere criada com sucesso após delay");
+                } else {
+                    console.error("Falha ao criar SkySphere mesmo após delay");
+                }
+            }, 1000);
+        }
+    }
 }
 
-window.addEventListener('DOMContentLoaded', async function () {
+window.addEventListener('DOMContentLoaded', function() {
     const canvas = document.getElementById('renderCanvas');
     const engine = new BABYLON.Engine(canvas, true);
     const scene = new BABYLON.Scene(engine);
@@ -256,15 +285,27 @@ window.addEventListener('DOMContentLoaded', async function () {
     
     // Game
     const game = new Game(engine, scene);
-    await game.initialize();
     
-    // Render loop
-    engine.runRenderLoop(() => {
-        scene.render();
-        // Update ammo display every frame
-        if (game.player) {
-            game.player.updateAmmoDisplay();
-        }
+    // IMPORTANTE: NÃO iniciar o render loop até o jogo estar inicializado
+    game.initialize().then(() => {
+        console.log("Jogo inicializado com sucesso!");
+        
+        // Iniciar o render loop SOMENTE após a inicialização completa
+        engine.runRenderLoop(() => {
+            // Verificar se temos câmera antes de renderizar
+            if (scene.activeCamera) {
+                scene.render();
+                // Update ammo display every frame
+                if (game.player) {
+                    game.player.updateAmmoDisplay();
+                }
+            } else {
+                console.warn("Tentativa de renderização sem câmera ativa");
+            }
+        });
+    }).catch(error => {
+        console.error("Erro ao inicializar o jogo:", error);
     });
+    
     window.addEventListener('resize', () => engine.resize());
 });
