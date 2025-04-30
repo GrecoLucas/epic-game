@@ -91,7 +91,7 @@ class GunView {
         
         // Criar sistema de partículas para efeito de "brilho" ao pegar a arma
         const particleSystem = new BABYLON.ParticleSystem("pickupParticles", 50, this.scene);
-        particleSystem.particleTexture = new BABYLON.Texture("textures/flare.png", this.scene);
+        particleSystem.particleTexture = new BABYLON.Texture("textures/smoke.png", this.scene);
         particleSystem.emitter = gunMesh.position.clone(); // Posição atual da arma
         
         // Configuração das partículas
@@ -134,16 +134,31 @@ class GunView {
         
         if (!handBarrel && !muzzlePoint) return;
         
-        // Posição de saída do tiro (ponta do cano)
-        const emitterPosition = muzzlePoint ? muzzlePoint.getAbsolutePosition() : 
-                               handBarrel.getAbsolutePosition().add(new BABYLON.Vector3(0, 0, 0.4));
+        // Criar um emissor fixo que será parent de todos os efeitos visuais
+        const emitterNode = new BABYLON.TransformNode("muzzleEmitter", this.scene);
         
-        // Flash no cano
+        // Anexar o emissor ao ponto correto (muzzlePoint ou ponta do cano)
+        if (muzzlePoint) {
+            emitterNode.parent = muzzlePoint.parent;
+            emitterNode.position = muzzlePoint.position.clone();
+        } else {
+            emitterNode.parent = this.handMesh;
+            // Posicionar na ponta do cano
+            const barrelEnd = handBarrel.getAbsolutePosition().subtract(this.handMesh.getAbsolutePosition());
+            emitterNode.position = new BABYLON.Vector3(
+                barrelEnd.x,
+                barrelEnd.y,
+                barrelEnd.z + handBarrel.scaling.y * 0.25
+            );
+        }
+        
+        // Flash no cano - agora usando o mesmo emissor como referência
         const flash = BABYLON.MeshBuilder.CreateDisc("muzzleFlash", {
             radius: 0.1,
             tessellation: 12
         }, this.scene);
         
+        // Adicionar material ao flash para torná-lo visível
         const flashMaterial = new BABYLON.StandardMaterial("flashMaterial", this.scene);
         flashMaterial.emissiveColor = new BABYLON.Color3(1, 0.7, 0);
         flashMaterial.diffuseColor = new BABYLON.Color3(1, 0.7, 0);
@@ -151,38 +166,49 @@ class GunView {
         flashMaterial.backFaceCulling = false;
         flash.material = flashMaterial;
         
-        flash.position = emitterPosition;
-        flash.rotation = new BABYLON.Vector3(0, 0, 0);
         // Orientar o flash para ficar perpendicular ao cano
-        if (this.handMesh) {
-            flash.rotation.x = Math.PI / 2;
-            flash.parent = this.handMesh;
-        }
+        flash.parent = emitterNode;
+        flash.rotation.x = Math.PI / 2;
+        flash.position = new BABYLON.Vector3(0, 0, 0); // Centralizado no emissor
         
-        // Criar sistema de partículas para o disparo
-        const particleSystem = new BABYLON.ParticleSystem("shootParticles", 30, this.scene);
-        particleSystem.particleTexture = new BABYLON.Texture("textures/flare.png", this.scene);
-        particleSystem.emitter = emitterPosition;
+        // SISTEMA DE PARTÍCULAS DE FUMAÇA - usando o mesmo emissor (reduzido)
+        const smokeSystem = new BABYLON.ParticleSystem("muzzleSmoke", 30, this.scene); // Reduzido para 30 partículas
+        smokeSystem.particleTexture = new BABYLON.Texture("textures/smoke.png", this.scene);
+        smokeSystem.emitter = emitterNode; // Usar o nó emissor como fonte das partículas
         
-        // Configurações das partículas
-        particleSystem.color1 = new BABYLON.Color4(1, 0.7, 0, 1);
-        particleSystem.color2 = new BABYLON.Color4(1, 0.5, 0, 1);
-        particleSystem.colorDead = new BABYLON.Color4(0.5, 0.5, 0.5, 0);
+        // Configurar partículas de fumaça com cores cinza mais sutis
+        smokeSystem.color1 = new BABYLON.Color4(0.8, 0.8, 0.8, 0.6); // Mais transparente
+        smokeSystem.color2 = new BABYLON.Color4(0.7, 0.7, 0.7, 0.4); // Mais transparente
+        smokeSystem.colorDead = new BABYLON.Color4(0.5, 0.5, 0.5, 0); // Desaparece no final
         
-        particleSystem.minSize = 0.05;
-        particleSystem.maxSize = 0.1;
+        // Partículas menores para fumaça mais sutil
+        smokeSystem.minSize = 0.1;
+        smokeSystem.maxSize = 0.2;
         
-        particleSystem.minLifeTime = 0.05;
-        particleSystem.maxLifeTime = 0.2;
+        // Menor duração para a fumaça
+        smokeSystem.minLifeTime = 0.5;
+        smokeSystem.maxLifeTime = 1.0;
         
-        particleSystem.emitRate = 300;
-        particleSystem.direction1 = new BABYLON.Vector3(0, 0, 1);
-        particleSystem.direction2 = new BABYLON.Vector3(0, 0, 1);
+        // Emitir menos partículas
+        smokeSystem.emitRate = 50;
         
-        particleSystem.minEmitPower = 3;
-        particleSystem.maxEmitPower = 5;
+        // Direcionar a fumaça na direção do cano com leve variação
+        smokeSystem.direction1 = new BABYLON.Vector3(0, 0.1, 1);
+        smokeSystem.direction2 = new BABYLON.Vector3(0, 0.2, 1);
         
-        particleSystem.updateSpeed = 0.01;
+        // Velocidade reduzida para fumaça mais sutil
+        smokeSystem.minEmitPower = 0.5;
+        smokeSystem.maxEmitPower = 1.5;
+        
+        // Gravidade positiva para a fumaça subir
+        smokeSystem.gravity = new BABYLON.Vector3(0, 0.1, 0);
+        
+        // Rotação para movimento natural
+        smokeSystem.minAngularSpeed = -0.2;
+        smokeSystem.maxAngularSpeed = 0.2;
+        
+        // Propriedades de blending para fumaça
+        smokeSystem.blendMode = BABYLON.ParticleSystem.BLENDMODE_STANDARD;
         
         // Efeito de recuo da arma
         if (this.handMesh) {
@@ -208,23 +234,26 @@ class GunView {
             }, 50);
         }
         
-        // Iniciar efeitos e depois limpar
-        particleSystem.start();
+        // Iniciar o sistema de partículas
+        smokeSystem.start();
         
-        // Remover o flash e partículas após um curto período
+        // Gerenciamento de recursos: remover o flash rapidamente
         setTimeout(() => {
             flash.dispose();
-            particleSystem.stop();
+            
+            // Continuar a emissão de fumaça por menos tempo
             setTimeout(() => {
-                particleSystem.dispose();
-            }, 200);
-        }, 100);
+                smokeSystem.stop(); // Parar fumaça depois de 100ms
+                
+                // Limpar todos os recursos após todas partículas terminarem
+                setTimeout(() => {
+                    smokeSystem.dispose();
+                    emitterNode.dispose();
+                }, 1000); // Tempo reduzido para que todas as partículas desapareçam
+            }, 100);
+        }, 50);
     }
-    
-    // Método para mostrar efeito de recarga - pode ser sobrescrito por subclasses
-    playReloadEffect() {
-        console.warn("playReloadEffect should be implemented by subclasses");
-    }
+
     
     // Método para definir o callback de pickup
     setPickupCallback(callback) {

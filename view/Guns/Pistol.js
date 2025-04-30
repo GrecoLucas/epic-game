@@ -88,7 +88,6 @@ class Pistol extends GunView {
                     if (this.onPickupCallback) {
                         console.log(`Pickup acionado na parte: ${part.name}`);
                         this.onPickupCallback();
-                        this.playPickupEffect(groundRoot);
                     }
                 }
             ));
@@ -217,25 +216,7 @@ class Pistol extends GunView {
         const originalHandlePosition = handHandle.position.clone();
         const originalSlidePosition = handSlide.position.clone();
         
-        // Criar efeito de partículas para a recarga
-        const particleSystem = new BABYLON.ParticleSystem("reloadParticles", 30, this.scene);
-        particleSystem.particleTexture = new BABYLON.Texture("textures/flare.png", this.scene);
-        particleSystem.emitter = handHandle.getAbsolutePosition();
-        
-        // Configurar partículas
-        particleSystem.color1 = new BABYLON.Color4(0.8, 0.8, 0.8, 0.6); // Branco/prateado
-        particleSystem.color2 = new BABYLON.Color4(0.5, 0.5, 0.5, 0.3);
-        particleSystem.colorDead = new BABYLON.Color4(0.1, 0.1, 0.1, 0);
-        
-        particleSystem.minSize = 0.05;
-        particleSystem.maxSize = 0.1;
-        particleSystem.minLifeTime = 0.5;
-        particleSystem.maxLifeTime = 1.0;
-        particleSystem.emitRate = 30;
-        particleSystem.minEmitPower = 0.5;
-        particleSystem.maxEmitPower = 1;
-        particleSystem.updateSpeed = 0.01;
-        
+
         // Animação de remoção do carregador
         const frames = 15;
         let frame = 0;
@@ -290,14 +271,8 @@ class Pistol extends GunView {
         };
         
         // Iniciar animação de recarga e efeitos
-        particleSystem.start();
         animateOut();
         
-        // Limpar sistema de partículas após a animação
-        setTimeout(() => {
-            particleSystem.stop();
-            setTimeout(() => particleSystem.dispose(), 1000);
-        }, 1500);
     }
     
     // Método auxiliar para animar o slide da arma
