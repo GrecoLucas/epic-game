@@ -223,7 +223,11 @@ class Player {
     updateAmmoDisplay() {
         if (!this.ammoText) return;
         
-        const equippedGun = this.controller.getPlayerEquippedGun();
+        // Get the equipped gun using the correct method from the scene's gunLoader
+        let equippedGun = null;
+        if (this.scene.gameInstance && this.scene.gameInstance.gunLoader) {
+            equippedGun = this.scene.gameInstance.gunLoader.getPlayerGun();
+        }
         
         if (equippedGun) {
             const currentAmmo = equippedGun.model.ammo;

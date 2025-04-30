@@ -75,13 +75,14 @@ class MonsterController {
         
         // Função para determinar quais objetos considerar para colisão
         const predicate = (mesh) => {
-            // Procurar por meshes cujo nome começa com "wall_", "ramp_", "playerWall_" ou "playerRamp_"
+            // Procurar por meshes cujo nome começa com "wall_", "ramp_", "playerWall_", "playerRamp_" ou "playerBarricade_"
             const isValid = mesh.isPickable &&
                    mesh.checkCollisions &&
                    (mesh.name.startsWith("wall_") || 
                     mesh.name.startsWith("ramp_") || 
                     mesh.name.startsWith("playerWall_") || 
-                    mesh.name.startsWith("playerRamp_"));
+                    mesh.name.startsWith("playerRamp_") ||
+                    mesh.name.startsWith("playerBarricade_"));
             
             return isValid;
         };
@@ -134,7 +135,7 @@ class MonsterController {
                     let wasDestroyed = false;
     
                     // Verificar se é uma estrutura construída pelo jogador
-                    if (obstacleName.startsWith("playerWall_") || obstacleName.startsWith("playerRamp_")) {
+                    if (obstacleName.startsWith("playerWall_") || obstacleName.startsWith("playerRamp_") || obstacleName.startsWith("playerBarricade_")) {
                            
                         // Verificação segura antes de acessar as propriedades
                         if (!obstacleMesh) {
@@ -176,6 +177,13 @@ class MonsterController {
                                         // Fallback para modo Open World - remover o mesh diretamente
                                         obstacleMesh.dispose();
                                     }
+                                } else if (obstacleName.startsWith("playerBarricade_")) {
+                                    if (mazeController) {
+                                        mazeController.getView().destroyBarricadeVisual(obstacleName, obstacleCenterPosition);
+                                    } else {
+                                        // Fallback para modo Open World - remover o mesh diretamente
+                                        obstacleMesh.dispose();
+                                    }
                                 }
                                 
                                 // Remover do sistema de colisão se necessário
@@ -196,6 +204,12 @@ class MonsterController {
                                             obstacleName, 
                                             obstacleMesh.metadata.health, 
                                             obstacleMesh.metadata.initialHealth || 100
+                                        );
+                                    } else if (obstacleName.startsWith("playerBarricade_")) {
+                                        mazeController.getView().applyBarricadeDamageVisual(
+                                            obstacleName,
+                                            obstacleMesh.metadata.health,
+                                            obstacleMesh.metadata.initialHealth || 75
                                         );
                                     }
                                 } else {
