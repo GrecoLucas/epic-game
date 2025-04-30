@@ -5,16 +5,122 @@
     <title>Escape Room 3D - Babylon.js</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <style>
-        html, body { width: 100%; height: 100%; margin: 0; overflow: hidden; }
-        #renderCanvas { width: 100vw; height: 100vh; display: block; }
+        html, body { 
+            width: 100%; 
+            height: 100%; 
+            margin: 0; 
+            padding: 0;
+            overflow: hidden; 
+            font-family: Arial, Helvetica, sans-serif;
+            background-color: #111;
+        }
+        #renderCanvas { 
+            width: 100vw; 
+            height: 100vh; 
+            display: block; 
+            touch-action: none;
+        }
+        #loadingScreen {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            background-color: #000000;
+            color: white;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+        #loadingScreen img {
+            width: 300px;
+            margin-bottom: 20px;
+        }
+        #loadingText {
+            font-size: 24px;
+            margin-bottom: 20px;
+            text-align: center;
+            text-shadow: 0 0 10px rgba(0, 100, 255, 0.8);
+        }
+        #progressContainer {
+            width: 300px;
+            height: 30px;
+            border: 2px solid white;
+            border-radius: 15px;
+            overflow: hidden;
+        }
+        #progressBar {
+            width: 0%;
+            height: 100%;
+            background: linear-gradient(90deg, #0066cc, #00ccff);
+            transition: width 0.3s ease-in-out;
+        }
     </style>
 </head>
 <body>
+    <!-- Tela de carregamento -->
+    <div id="loadingScreen">
+        <img src="textures/logo.png" alt="Escape Room 3D Logo">
+        <div id="loadingText">Carregando jogo...</div>
+        <div id="progressContainer">
+            <div id="progressBar"></div>
+        </div>
+    </div>
+    
+    <!-- Canvas para renderização do jogo -->
     <canvas id="renderCanvas"></canvas>
+    
+    <!-- Bibliotecas externas -->
     <script src="https://cdn.babylonjs.com/babylon.js"></script>
-    <!-- Adicionar a biblioteca GUI do Babylon.js -->
     <script src="https://cdn.babylonjs.com/gui/babylon.gui.min.js"></script>
     <script src="https://cdn.babylonjs.com/cannon.js"></script>
-    <script type="module" src="main.js"></script>
+    <script src="https://cdn.babylonjs.com/loaders/babylonjs.loaders.min.js"></script>
+    <script src="https://cdn.babylonjs.com/materialsLibrary/babylonjs.materials.min.js"></script>
+    
+    <!-- Scripts personalizados -->
+    <script type="module" src="MenuLoader.js"></script>
+    
+    <script>
+        // Função para atualizar a barra de progresso
+        function updateProgress(progress) {
+            const progressBar = document.getElementById('progressBar');
+            if (progressBar) {
+                progressBar.style.width = Math.min(100, Math.max(0, progress)) + '%';
+            }
+        }
+        
+        // Função para ocultar a tela de carregamento
+        function hideLoadingScreen() {
+            const loadingScreen = document.getElementById('loadingScreen');
+            if (loadingScreen) {
+                loadingScreen.style.opacity = '0';
+                loadingScreen.style.transition = 'opacity 1s ease';
+                setTimeout(() => {
+                    loadingScreen.style.display = 'none';
+                }, 1000);
+            }
+        }
+        
+        // Simular progresso de carregamento (será substituído por carregamento real)
+        let progress = 0;
+        const interval = setInterval(() => {
+            progress += 5;
+            updateProgress(progress);
+            
+            if (progress >= 100) {
+                clearInterval(interval);
+                setTimeout(() => {
+                    // Ocultar tela de carregamento após um pequeno atraso
+                    hideLoadingScreen();
+                }, 500);
+            }
+        }, 100);
+        
+        // Detectar quando o documento estiver completamente carregado
+        window.addEventListener('DOMContentLoaded', function() {
+            // Iniciar o carregamento do menu
+            console.log("DOM carregado, iniciando o jogo...");
+        });
+    </script>
 </body>
 </html>

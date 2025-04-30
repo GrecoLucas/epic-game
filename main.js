@@ -1,3 +1,4 @@
+// main.js - Módulo principal do jogo, modificado para suportar o sistema de menu e múltiplos modos
 import Player from './Player.js';
 import Collision from './utils/Collision.js';
 import Buttons from './objects/Buttons.js';
@@ -24,9 +25,19 @@ class Game {
         
         // Armazenar referência ao Game na cena
         this.scene.gameInstance = this;
+        
+        // Flag para rastrear se o jogo foi inicializado
+        this.isInitialized = false;
+        
+        // Para compatibilidade com o novo sistema
+        this.gameMode = 'maze'; // Identifica este como o modo labirinto
     }
 
     async initialize() {
+        if (this.isInitialized) return true;
+        
+        console.log("Inicializando modo Labirinto...");
+        
         // Configurar física
         this.scene.collisionsEnabled = true;
         this.scene.gravity = new BABYLON.Vector3(0, -9.81, 0);
@@ -97,9 +108,19 @@ class Game {
         
         // Inicializar o sistema de hordas de zumbis
         this.initializeZombieSpawner();
+        
+        // Marcar o jogo como inicializado
+        this.isInitialized = true;
+        
+        // Configurar inputs de teclado para possível retorno ao menu principal
+        this.setupKeyboardInputs();
+        
+        console.log("Modo Labirinto inicializado com sucesso!");
+        
+        return true;
     }
     
-    // Inicializar o sistema de hordas de zumbis
+    // Método para inicializar o sistema de hordas de zumbis
     initializeZombieSpawner() {
         // Criar o gerenciador de hordas
         this.zombieSpawner = new ZombieS(this.scene, this);
@@ -143,7 +164,7 @@ class Game {
         
         // Registrar mesh do monstro para colisão
         if (monsterMesh) {
-            this.collisionSystem.addMeshes([monsterMesh]);
+            this.collisionSystem.addMesh(monsterMesh);
         }
         
         // Adicionar à lista de monstros
@@ -240,7 +261,7 @@ class Game {
     
     // Métodos auxiliares para acesso às propriedades do player
     getPlayerCamera() {
-        return this.player.getCamera();
+        return this.player?.getCamera();
     }
     
     // Método para obter o player 
@@ -271,41 +292,171 @@ class Game {
             }, 1000);
         }
     }
-}
-
-window.addEventListener('DOMContentLoaded', function() {
-    const canvas = document.getElementById('renderCanvas');
-    const engine = new BABYLON.Engine(canvas, true);
-    const scene = new BABYLON.Scene(engine);
-    scene.clearColor = new BABYLON.Color3(0.2, 0.2, 0.2);
-
-    // Luz
-    const light = new BABYLON.HemisphericLight('light', new BABYLON.Vector3(0, 1, 0), scene);
-    light.intensity = 0.7;
     
-    // Game
-    const game = new Game(engine, scene);
-    
-    // IMPORTANTE: NÃO iniciar o render loop até o jogo estar inicializado
-    game.initialize().then(() => {
-        console.log("Jogo inicializado com sucesso!");
+    // Configurar inputs de teclado para voltar ao menu
+    setupKeyboardInputs() {
+        // Verificar se o ActionManager está disponível
+        if (!this.scene.actionManager) {
+            this.scene.actionManager = new BABYLON.ActionManager(this.scene);
+        }
         
-        // Iniciar o render loop SOMENTE após a inicialização completa
-        engine.runRenderLoop(() => {
-            // Verificar se temos câmera antes de renderizar
-            if (scene.activeCamera) {
-                scene.render();
-                // Update ammo display every frame
-                if (game.player) {
-                    game.player.updateAmmoDisplay();
+        // Adicionar ação para a tecla ESC para voltar ao menu
+        this.scene.actionManager.registerAction(
+            new BABYLON.ExecuteCodeAction(
+                BABYLON.ActionManager.OnKeyUpTrigger,
+                (evt) => {
+                    if (evt.sourceEvent.key === "Escape") {
+                        this.showPauseMenu();
+                    }
                 }
-            } else {
-                console.warn("Tentativa de renderização sem câmera ativa");
+            )
+        );
+    }
+    
+    // Método para exibir o menu de pausa
+    showPauseMenu() {
+        // Verificar se já existe um menu de pausa
+        if (this.pauseMenuUI) {
+            return;
+        }
+        
+        // Pausar o jogo
+        this.scene.paused = true;
+        
+        // Criar um menu de pausa
+        this.pauseMenuUI = BABYLON.GUI.AdvancedDynamicTexture.CreateFullscreenUI("pauseMenu");
+        
+        // Painel de fundo semi-transparente
+        const background = new BABYLON.GUI.Rectangle();
+        background.width = "100%";
+        background.height = "100%";
+        background.color = "transparent";
+        background.thickness = 0;
+        background.background = "rgba(0, 0, 0, 0.7)";
+        this.pauseMenuUI.addControl(background);
+        
+        // Título do menu
+        const title = new BABYLON.GUI.TextBlock();
+        title.text = "JOGO PAUSADO";
+        title.color = "white";
+        title.fontSize = 48;
+        title.height = "80px";
+        title.top = "-200px";
+        background.addControl(title);
+        
+        // Botão para continuar
+        const continueButton = BABYLON.GUI.Button.CreateSimpleButton("continueBtn", "CONTINUAR");
+        continueButton.width = "300px";
+        continueButton.height = "60px";
+        continueButton.color = "white";
+        continueButton.cornerRadius = 10;
+        continueButton.background = "rgba(0, 100, 200, 0.8)";
+        continueButton.top = "-50px";
+        continueButton.onPointerUpObservable.add(() => {
+            this.closePauseMenu();
+        });
+        background.addControl(continueButton);
+        
+        // Botão para retornar ao menu principal
+        const menuButton = BABYLON.GUI.Button.CreateSimpleButton("menuBtn", "VOLTAR AO MENU");
+        menuButton.width = "300px";
+        menuButton.height = "60px";
+        menuButton.color = "white";
+        menuButton.cornerRadius = 10;
+        menuButton.background = "rgba(200, 50, 50, 0.8)";
+        menuButton.top = "50px";
+        menuButton.onPointerUpObservable.add(() => {
+            this.returnToMainMenu();
+        });
+        background.addControl(menuButton);
+        
+        // Desabilitar controles do player durante a pausa
+        if (this.player && this.player.controller) {
+            this.player.controller.enabled = false;
+        }
+        
+        // Exibir cursor do mouse
+        document.body.style.cursor = "default";
+    }
+    
+    // Método para fechar o menu de pausa
+    closePauseMenu() {
+        if (this.pauseMenuUI) {
+            this.pauseMenuUI.dispose();
+            this.pauseMenuUI = null;
+            
+            // Retomar o jogo
+            this.scene.paused = false;
+            
+            // Reabilitar controles do player
+            if (this.player && this.player.controller) {
+                this.player.controller.enabled = true;
+            }
+            
+            // Ocultar cursor do mouse
+            document.body.style.cursor = "none";
+        }
+    }
+    
+    // Método para retornar ao menu principal
+    returnToMainMenu() {
+        // Limpar recursos e dispose da cena atual
+        this.dispose();
+        
+        // Recarregar a página para voltar ao menu principal
+        // Isso é uma solução simples, em uma implementação mais robusta
+        // você iria para o menu sem recarregar a página
+        window.location.reload();
+    }
+    
+    // Método para limpar recursos e memória
+    dispose() {
+        // Parar o sistema de hordas
+        if (this.zombieSpawner) {
+            this.zombieSpawner.stopHordeSystem();
+        }
+        
+        // Dispose de todos os monstros
+        this.monsters.forEach(monster => {
+            const monsterMesh = monster.getMesh();
+            if (monsterMesh) {
+                monsterMesh.dispose();
             }
         });
-    }).catch(error => {
-        console.error("Erro ao inicializar o jogo:", error);
-    });
-    
-    window.addEventListener('resize', () => engine.resize());
-});
+        this.monsters = [];
+        
+        // Dispose do labirinto
+        if (this.maze) {
+            const mazeMeshes = this.maze.getMeshes();
+            if (mazeMeshes) {
+                mazeMeshes.forEach(mesh => {
+                    if (mesh) mesh.dispose();
+                });
+            }
+        }
+        
+        // Dispose do jogador
+        if (this.player) {
+            const playerMesh = this.player.getMesh();
+            if (playerMesh) {
+                playerMesh.dispose();
+            }
+        }
+        
+        // Limpar referências
+        this.collisionSystem = null;
+        this.player = null;
+        this.buttonsManager = null;
+        this.maze = null;
+        this.monsters = [];
+        this.gunLoader = null;
+        this.zombieSpawner = null;
+        this.skySphereController = null;
+        
+        // Marcar como não inicializado
+        this.isInitialized = false;
+    }
+}
+
+// Exportar a classe Game para uso no GameLoader
+export default Game;

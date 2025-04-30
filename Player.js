@@ -57,7 +57,23 @@ class Player {
         
         return this.health;
     }
-    
+    // Adicionar à classe Player
+    updateUI() {
+        // Atualizar a exibição de munição se disponível
+        if (typeof this.updateAmmoDisplay === 'function') {
+            this.updateAmmoDisplay();
+        }
+        
+        // Atualizar a barra de vida se disponível
+        if (typeof this.updateHealthBar === 'function') {
+            this.updateHealthBar();
+        }
+        
+        // Atualizar a exibição de dinheiro se disponível
+        if (typeof this.updateMoneyDisplay === 'function') {
+            this.updateMoneyDisplay();
+        }
+}
     // Método para curar o jogador
     heal() {
         this.health = this.maxHealth;

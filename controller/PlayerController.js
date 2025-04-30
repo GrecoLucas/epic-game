@@ -57,6 +57,61 @@ class PlayerController {
             console.error("Falha ao inicializar BuildingController: Dependências (collisionSystem, mazeView, mazeModel) não encontradas na cena.");
             // this.buildingController remains null
         }
+        setTimeout(() => {
+            this.initializeBuildingController();
+        }, 2000); // Atraso de 2 segundos para garantir que o jogo foi inicializado
+    }
+
+    // Adicionando um novo método para inicializar o BuildingController com segurança
+    initializeBuildingController() {
+        // Verificar se já existe um buildingController
+        if (this.buildingController) {
+            return;
+        }
+        
+        console.log("Tentando inicializar BuildingController...");
+        
+        // Obter referências para o mundo aberto se for o modo escolhido
+        if (this.scene.gameInstance && this.scene.gameInstance.gameMode === 'openworld') {
+            if (this.scene.gameInstance.collisionSystem) {
+                // Criar um BuildingController simplificado sem dependências do maze
+                this.buildingController = new BuildingController(
+                    this.scene,
+                    this.view.getCamera(),
+                    this.scene.gameInstance.collisionSystem,
+                    null, // mazeView não necessário no modo mundo aberto
+                    null  // mazeModel não necessário no modo mundo aberto
+                );
+                
+                // Configurar valores padrão que seriam fornecidos pelo maze
+                this.buildingController.cellSize = this.scene.gameInstance.chunkSize || 16;
+                this.buildingController.wallHeight = 4;
+                
+                // Adicionar materiais iniciais
+                this.buildingController.addMaterials(10, 5); // 10 blocos, 5 rampas
+                
+                console.log("BuildingController inicializado com sucesso no modo mundo aberto!");
+            } else {
+                console.error("collisionSystem não disponível para inicializar BuildingController");
+            }
+        } 
+        // Modo labirinto - usar a implementação original
+        else if (this.scene.gameInstance && this.scene.gameInstance.maze?.view && this.scene.gameInstance.maze?.model) {
+            this.buildingController = new BuildingController(
+                this.scene,
+                this.view.getCamera(),
+                this.scene.gameInstance.collisionSystem,
+                this.scene.gameInstance.maze.view,
+                this.scene.gameInstance.maze.model
+            );
+            console.log("BuildingController inicializado com sucesso no modo labirinto!");
+        } else {
+            // Caso ainda não tenha as dependências necessárias, tentar novamente mais tarde
+            console.warn("Dependências para BuildingController ainda não disponíveis, reagendando...");
+            setTimeout(() => {
+                this.initializeBuildingController();
+            }, 2000);
+        }
     }
 
     // Criar um elemento de UI para mostrar dica de interação com botões
@@ -259,19 +314,48 @@ class PlayerController {
             }
         };
     }
-    
+
+    // Modifique o lockCamera para resolver o problema do Pointer Lock
     lockCamera() {
-        document.getElementById("renderCanvas").requestPointerLock = 
-            document.getElementById("renderCanvas").requestPointerLock || 
-            document.getElementById("renderCanvas").msRequestPointerLock || 
-            document.getElementById("renderCanvas").mozRequestPointerLock || 
-            document.getElementById("renderCanvas").webkitRequestPointerLock;
+        try {
+            const canvas = document.getElementById("renderCanvas");
+            if (!canvas) {
+                console.error("Canvas não encontrado");
+                return;
+            }
             
-        if (document.getElementById("renderCanvas").requestPointerLock) {
-            document.getElementById("renderCanvas").requestPointerLock();
+            canvas.requestPointerLock = 
+                canvas.requestPointerLock || 
+                canvas.msRequestPointerLock || 
+                canvas.mozRequestPointerLock || 
+                canvas.webkitRequestPointerLock;
+                
+            // Solicitar o Pointer Lock apenas se o evento for acionado por um gesto do usuário
+            // (geralmente será chamado a partir de um evento de clique ou tecla)
+            if (canvas.requestPointerLock && !this.scene.alreadyLocked) {
+                // Envolver em um try-catch para lidar com possíveis exceções
+                try {
+                    // Adicionar um ouvinte para capturar erros de Pointer Lock
+                    const lockErrorCallback = (e) => {
+                        console.log("Erro ao solicitar Pointer Lock:", e);
+                        document.removeEventListener('pointerlockerror', lockErrorCallback);
+                    };
+                    document.addEventListener('pointerlockerror', lockErrorCallback);
+                    
+                    canvas.requestPointerLock();
+                    this.scene.alreadyLocked = true;
+                    console.log("Pointer Lock solicitado com sucesso");
+                } catch (error) {
+                    console.error("Erro ao solicitar Pointer Lock:", error);
+                }
+            } else if (this.scene.alreadyLocked) {
+                console.log("Pointer Lock já está ativo");
+            } else {
+                console.warn("requestPointerLock não está disponível neste navegador");
+            }
+        } catch (e) {
+            console.error("Erro ao configurar Pointer Lock:", e);
         }
-        
-        this.scene.alreadyLocked = true;
     }
     
     setupInputHandling() {

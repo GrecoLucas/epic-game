@@ -53,129 +53,138 @@ class MonsterController {
         this.startPatrolBehavior();
     }
     
-    // Renomeado de checkWallCollision
-        checkObstacle_collision() {
-            if (this.isDisposed || this.isStunned || !this.model || !this.model.getMesh()) return;
+    // Renomeado de checkWallCollision - MÉTODO CORRIGIDO
+    checkObstacle_collision() {
+        if (this.isDisposed || this.isStunned || !this.model || !this.model.getMesh()) return;
+    
+        const monsterPosition = this.model.getPosition();
+        const collisionRadius = 1.5; // Manter raio de verificação
         
-            const monsterPosition = this.model.getPosition();
-            const collisionRadius = 1.5; // Manter raio de verificação
-            
-            
-            // Direções para verificar (8 direções)
-            const directions = [
-                new BABYLON.Vector3(1, 0, 0),    // direita
-                new BABYLON.Vector3(-1, 0, 0),   // esquerda
-                new BABYLON.Vector3(0, 0, 1),    // frente
-                new BABYLON.Vector3(0, 0, -1),   // trás
-                new BABYLON.Vector3(0.7, 0, 0.7), // diagonal frente-direita
-                new BABYLON.Vector3(-0.7, 0, 0.7), // diagonal frente-esquerda
-                new BABYLON.Vector3(0.7, 0, -0.7), // diagonal trás-direita
-                new BABYLON.Vector3(-0.7, 0, -0.7)  // diagonal trás-esquerda
-            ];
-            
-            // Função para determinar quais objetos considerar para colisão
-            const predicate = (mesh) => {
-                // Procurar por meshes cujo nome começa com "wall_", "ramp_", "playerWall_" ou "playerRamp_"
-                const isValid = mesh.isPickable &&
-                       mesh.checkCollisions &&
-                       (mesh.name.startsWith("wall_") || 
-                        mesh.name.startsWith("ramp_") || 
-                        mesh.name.startsWith("playerWall_") || 
-                        mesh.name.startsWith("playerRamp_"));
-                
-                
-                return isValid;
-            };
         
-            // Pegar o labirinto da cena global (necessário para chamar damageWallAt/handleRampDamage)
+        // Direções para verificar (8 direções)
+        const directions = [
+            new BABYLON.Vector3(1, 0, 0),    // direita
+            new BABYLON.Vector3(-1, 0, 0),   // esquerda
+            new BABYLON.Vector3(0, 0, 1),    // frente
+            new BABYLON.Vector3(0, 0, -1),   // trás
+            new BABYLON.Vector3(0.7, 0, 0.7), // diagonal frente-direita
+            new BABYLON.Vector3(-0.7, 0, 0.7), // diagonal frente-esquerda
+            new BABYLON.Vector3(0.7, 0, -0.7), // diagonal trás-direita
+            new BABYLON.Vector3(-0.7, 0, -0.7)  // diagonal trás-esquerda
+        ];
+        
+        // Função para determinar quais objetos considerar para colisão
+        const predicate = (mesh) => {
+            // Procurar por meshes cujo nome começa com "wall_", "ramp_", "playerWall_" ou "playerRamp_"
+            const isValid = mesh.isPickable &&
+                   mesh.checkCollisions &&
+                   (mesh.name.startsWith("wall_") || 
+                    mesh.name.startsWith("ramp_") || 
+                    mesh.name.startsWith("playerWall_") || 
+                    mesh.name.startsWith("playerRamp_"));
+            
+            return isValid;
+        };
+    
+        // Determinar o modo de jogo atual (Open World ou Maze)
+        const isOpenWorldMode = this.scene.gameInstance?.gameMode === 'openworld';
+        
+        // Diferentes modos de obter o controlador de labirinto
+        let mazeController = null;
+        
+        if (!isOpenWorldMode) {
+            // Pegar o labirinto da cena global no modo Maze
             const maze = this.scene.gameInstance?.maze;
-            if (!maze) {
-                console.error("Maze não encontrado na cena. Impossível verificar colisões.");
-                return; // Precisa do labirinto para danificar paredes
+            if (maze) {
+                mazeController = maze.controller;
             }
-            
-            const mazeController = maze.controller; // Obter referência ao MazeController
-            if (!mazeController) {
-                console.error("MazeController não encontrado. Impossível danificar estruturas.");
-                return;
-            }
-        
-            const now = Date.now();
-            const currentHits = new Set(); // Paredes atingidas nesta verificação
-        
-            // Verificar cada direção
-            for (const direction of directions) {
-                // Criar um raio a partir da posição do monstro na direção específica
-                const ray = new BABYLON.Ray(monsterPosition, direction, collisionRadius);
-                
-                // Verificar colisão
-                const hit = this.scene.pickWithRay(ray, predicate);
-                
-                if (hit && hit.hit && hit.pickedMesh) {
-                    // Usar o nome do mesh atingido para identificar o obstáculo
-                    const obstacleName = hit.pickedMesh.name;
-                    const obstacleMesh = hit.pickedMesh; // Guardar referência ao mesh
-                    const obstacleCenterPosition = obstacleMesh.position; // Posição central do obstáculo
-                    
-                    
-                    currentHits.add(obstacleName); // Marcar como atingida nesta verificação
-        
-                    // Inicializar timer se for o primeiro contato
-                    if (!this.obstacleContactTimers[obstacleName]) {
-                        this.obstacleContactTimers[obstacleName] = { startTime: now, lastDamageTime: 0 };
-                    }
-        
-                    // Verificar se já passou tempo suficiente e se o cooldown permite
-                    const contactDuration = now - this.obstacleContactTimers[obstacleName].startTime;
-                    const canDamage = now - this.obstacleContactTimers[obstacleName].lastDamageTime >= this.OBSTACLE_DAMAGE_COOLDOWN;
-                    
-                    // NOVO LOG: Estado do temporizador
-        
-                    if (contactDuration >= this.OBSTACLE_CONTACT_DAMAGE_THRESHOLD && canDamage) {
-                        let damageResult = null;
-                        let wasDestroyed = false;
-        
-                       // Verificar se é uma estrutura construída pelo jogador
-                       if (obstacleName.startsWith("playerWall_") || obstacleName.startsWith("playerRamp_")) {
-                           
-                           // Verificação segura antes de acessar as propriedades
-                           if (!obstacleMesh) {
-                               continue; // Pular para a próxima iteração
-                           }
-                           
-                           // Inicializar metadata se não existir
-                           if (!obstacleMesh.metadata) {
-                               obstacleMesh.metadata = {
-                                   isPlayerBuilt: true,
-                                   initialHealth: 100,
-                                   health: 100
-                               };
-                           }
-                           
-                           
-                           // Verificar se o mesh tem metadata com informações de saúde de forma segura
-                           if (obstacleMesh.metadata && typeof obstacleMesh.metadata.health !== 'undefined') {
-                               // Reduzir a saúde da estrutura do jogador
-                               const oldHealth = obstacleMesh.metadata.health;
-                               obstacleMesh.metadata.health -= this.OBSTACLE_DAMAGE_AMOUNT;
+        }
 
-                                // Verificar se a estrutura foi destruída
-                                if (obstacleMesh.metadata.health <= 0) {
-                                    wasDestroyed = true;
-                                    
-                                    // Efeito visual para estruturas do player
-                                    if (obstacleName.startsWith("playerWall_")) {
+        const now = Date.now();
+        const currentHits = new Set(); // Paredes atingidas nesta verificação
+    
+        // Verificar cada direção
+        for (const direction of directions) {
+            // Criar um raio a partir da posição do monstro na direção específica
+            const ray = new BABYLON.Ray(monsterPosition, direction, collisionRadius);
+            
+            // Verificar colisão
+            const hit = this.scene.pickWithRay(ray, predicate);
+            
+            if (hit && hit.hit && hit.pickedMesh) {
+                // Usar o nome do mesh atingido para identificar o obstáculo
+                const obstacleName = hit.pickedMesh.name;
+                const obstacleMesh = hit.pickedMesh; // Guardar referência ao mesh
+                const obstacleCenterPosition = obstacleMesh.position; // Posição central do obstáculo
+                
+                
+                currentHits.add(obstacleName); // Marcar como atingida nesta verificação
+    
+                // Inicializar timer se for o primeiro contato
+                if (!this.obstacleContactTimers[obstacleName]) {
+                    this.obstacleContactTimers[obstacleName] = { startTime: now, lastDamageTime: 0 };
+                }
+    
+                // Verificar se já passou tempo suficiente e se o cooldown permite
+                const contactDuration = now - this.obstacleContactTimers[obstacleName].startTime;
+                const canDamage = now - this.obstacleContactTimers[obstacleName].lastDamageTime >= this.OBSTACLE_DAMAGE_COOLDOWN;
+                
+                if (contactDuration >= this.OBSTACLE_CONTACT_DAMAGE_THRESHOLD && canDamage) {
+                    let damageResult = null;
+                    let wasDestroyed = false;
+    
+                    // Verificar se é uma estrutura construída pelo jogador
+                    if (obstacleName.startsWith("playerWall_") || obstacleName.startsWith("playerRamp_")) {
+                           
+                        // Verificação segura antes de acessar as propriedades
+                        if (!obstacleMesh) {
+                            continue; // Pular para a próxima iteração
+                        }
+                        
+                        // Inicializar metadata se não existir
+                        if (!obstacleMesh.metadata) {
+                            obstacleMesh.metadata = {
+                                isPlayerBuilt: true,
+                                initialHealth: 100,
+                                health: 100
+                            };
+                        }
+                        
+                        
+                        // Verificar se o mesh tem metadata com informações de saúde de forma segura
+                        if (obstacleMesh.metadata && typeof obstacleMesh.metadata.health !== 'undefined') {
+                            // Reduzir a saúde da estrutura do jogador
+                            const oldHealth = obstacleMesh.metadata.health;
+                            obstacleMesh.metadata.health -= this.OBSTACLE_DAMAGE_AMOUNT;
+
+                            // Verificar se a estrutura foi destruída
+                            if (obstacleMesh.metadata.health <= 0) {
+                                wasDestroyed = true;
+                                
+                                // Efeito visual para estruturas do player
+                                if (obstacleName.startsWith("playerWall_")) {
+                                    if (mazeController) {
                                         mazeController.getView().destroyWallVisual(obstacleName, obstacleCenterPosition);
-                                    } else if (obstacleName.startsWith("playerRamp_")) {
+                                    } else {
+                                        // Fallback para modo Open World - remover o mesh diretamente
+                                        obstacleMesh.dispose();
+                                    }
+                                } else if (obstacleName.startsWith("playerRamp_")) {
+                                    if (mazeController) {
                                         mazeController.getView().destroyRampVisual(obstacleName, obstacleCenterPosition);
+                                    } else {
+                                        // Fallback para modo Open World - remover o mesh diretamente
+                                        obstacleMesh.dispose();
                                     }
-                                    
-                                    // Remover do sistema de colisão se necessário
-                                    if (obstacleMesh.physicsImpostor) {
-                                        obstacleMesh.physicsImpostor.dispose();
-                                    }
-                                } else {
-                                    // Aplicar efeito visual de dano
+                                }
+                                
+                                // Remover do sistema de colisão se necessário
+                                if (obstacleMesh.physicsImpostor) {
+                                    obstacleMesh.physicsImpostor.dispose();
+                                }
+                            } else {
+                                // Aplicar efeito visual de dano
+                                if (mazeController && mazeController.getView) {
                                     if (obstacleName.startsWith("playerWall_")) {
                                         mazeController.getView().applyWallDamageVisual(
                                             obstacleName, 
@@ -189,49 +198,93 @@ class MonsterController {
                                             obstacleMesh.metadata.initialHealth || 100
                                         );
                                     }
+                                } else {
+                                    // Fallback para modo Open World - efeito visual básico
+                                    this._applyBasicDamageVisual(obstacleMesh);
                                 }
-                                
-                            } else {
-                                // Se a saúde não estiver definida, inicializá-la
-                                if (!obstacleMesh.metadata) {
-                                    obstacleMesh.metadata = {};
-                                }
-                                obstacleMesh.metadata.initialHealth = 100;
-                                obstacleMesh.metadata.health = 100 - this.OBSTACLE_DAMAGE_AMOUNT;
                             }
-                            // Simular formato de retorno para consistência com código existente
-                            damageResult = { 
-                                destroyed: wasDestroyed, 
-                                remainingHealth: obstacleMesh.metadata ? obstacleMesh.metadata.health : 0 
-                            };
+                            
                         } else {
-                            // Código existente para estruturas geradas pelo mapa
-                            if (obstacleName.startsWith("wall_")) {
-                                damageResult = mazeController.damageWallAt(obstacleCenterPosition, this.OBSTACLE_DAMAGE_AMOUNT);
-                            } else if (obstacleName.startsWith("ramp_")) {
-                                mazeController.handleRampDamage(obstacleName, this.OBSTACLE_DAMAGE_AMOUNT, obstacleCenterPosition);
-                                damageResult = { destroyed: false, remainingHealth: 1 };
+                            // Se a saúde não estiver definida, inicializá-la
+                            if (!obstacleMesh.metadata) {
+                                obstacleMesh.metadata = {};
                             }
+                            obstacleMesh.metadata.initialHealth = 100;
+                            obstacleMesh.metadata.health = 100 - this.OBSTACLE_DAMAGE_AMOUNT;
                         }
-        
-                        // Atualizar tempo do último dano
-                        this.obstacleContactTimers[obstacleName].lastDamageTime = now;
-        
-                        // Se o obstáculo foi destruído pelo dano, remover o timer
-                        if (damageResult && damageResult.destroyed) {
-                            delete this.obstacleContactTimers[obstacleName];
+                        // Simular formato de retorno para consistência com código existente
+                        damageResult = { 
+                            destroyed: wasDestroyed, 
+                            remainingHealth: obstacleMesh.metadata ? obstacleMesh.metadata.health : 0 
+                        };
+                    } else if (mazeController) {
+                        // Código existente para estruturas geradas pelo mapa (apenas no modo Maze)
+                        if (obstacleName.startsWith("wall_")) {
+                            damageResult = mazeController.damageWallAt(obstacleCenterPosition, this.OBSTACLE_DAMAGE_AMOUNT);
+                        } else if (obstacleName.startsWith("ramp_")) {
+                            mazeController.handleRampDamage(obstacleName, this.OBSTACLE_DAMAGE_AMOUNT, obstacleCenterPosition);
+                            damageResult = { destroyed: false, remainingHealth: 1 };
                         }
+                    } else {
+                        // Fallback para obstáculos genéricos no modo Open World 
+                        // Aplicar dano a qualquer mesh de obstáculo
+                        if (!obstacleMesh.metadata) {
+                            obstacleMesh.metadata = { health: 100, initialHealth: 100 };
+                        }
+                        
+                        obstacleMesh.metadata.health -= this.OBSTACLE_DAMAGE_AMOUNT;
+                        
+                        if (obstacleMesh.metadata.health <= 0) {
+                            obstacleMesh.dispose();
+                            damageResult = { destroyed: true, remainingHealth: 0 };
+                        } else {
+                            this._applyBasicDamageVisual(obstacleMesh);
+                            damageResult = { destroyed: false, remainingHealth: obstacleMesh.metadata.health };
+                        }
+                    }
+    
+                    // Atualizar tempo do último dano
+                    this.obstacleContactTimers[obstacleName].lastDamageTime = now;
+    
+                    // Se o obstáculo foi destruído pelo dano, remover o timer
+                    if (damageResult && damageResult.destroyed) {
+                        delete this.obstacleContactTimers[obstacleName];
                     }
                 }
             }
-        
-            // Limpar timers de obstáculos que não estão mais em contato
-            for (const obstacleName in this.obstacleContactTimers) {
-                if (!currentHits.has(obstacleName)) {
-                    delete this.obstacleContactTimers[obstacleName];
-                }
+        }
+    
+        // Limpar timers de obstáculos que não estão mais em contato
+        for (const obstacleName in this.obstacleContactTimers) {
+            if (!currentHits.has(obstacleName)) {
+                delete this.obstacleContactTimers[obstacleName];
             }
         }
+    }
+    
+    // Novo método para efeito visual básico de dano no Open World
+    _applyBasicDamageVisual(mesh) {
+        if (!mesh || !mesh.material) return;
+        
+        // Guardar cor original
+        if (!mesh.metadata.originalColor) {
+            if (mesh.material.diffuseColor) {
+                mesh.metadata.originalColor = mesh.material.diffuseColor.clone();
+            } else {
+                mesh.metadata.originalColor = new BABYLON.Color3(0.5, 0.5, 0.5);
+            }
+        }
+        
+        // Aplicar cor de dano (piscar vermelho)
+        mesh.material.diffuseColor = new BABYLON.Color3(1, 0, 0); // Vermelho
+        
+        // Retornar à cor original após um breve período
+        setTimeout(() => {
+            if (mesh && mesh.material && !mesh.isDisposed()) {
+                mesh.material.diffuseColor = mesh.metadata.originalColor;
+            }
+        }, 200);
+    }
 
     // Método para criar efeito visual de destruição da parede
     update() {

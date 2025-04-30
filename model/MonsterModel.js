@@ -132,7 +132,36 @@ class MonsterModel {
 
         // --- Particle System (Emit from the root mesh) ---
         const particleSystem = new BABYLON.ParticleSystem("monsterParticles", 100, this.scene);
-        particleSystem.particleTexture = new BABYLON.Texture("/textures/flare.png", this.scene);
+        try {
+            particleSystem.particleTexture = new BABYLON.Texture("textures/flare.png", this.scene);
+        } catch (e) {
+            console.warn("Textura flare.png não encontrada, criando uma textura procedural", e);
+            
+            // Criar uma textura de círculo simples proceduralmente
+            const size = 256;
+            const particleCanvas = document.createElement('canvas');
+            particleCanvas.width = size;
+            particleCanvas.height = size;
+            
+            const ctx = particleCanvas.getContext('2d');
+            
+            // Desenhar um círculo com gradiente radial
+            const gradient = ctx.createRadialGradient(size/2, size/2, 0, size/2, size/2, size/2);
+            gradient.addColorStop(0, 'white');
+            gradient.addColorStop(1, 'transparent');
+            
+            ctx.fillStyle = gradient;
+            ctx.beginPath();
+            ctx.arc(size/2, size/2, size/2, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // Criar textura a partir do canvas
+            particleSystem.particleTexture = new BABYLON.Texture.CreateFromBase64String(
+                particleCanvas.toDataURL(), 
+                "generatedParticle", 
+                this.scene
+            );
+        }        
         particleSystem.emitter = this.mesh; // Emitter is the root mesh
         // Adjust emit box relative to the root mesh's origin (0,0,0)
         particleSystem.minEmitBox = new BABYLON.Vector3(-0.6, 0, -0.4); // Based on body size/2
