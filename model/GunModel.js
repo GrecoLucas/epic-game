@@ -7,6 +7,7 @@ class GunModel {
         this.totalAmmo = maxAmmo; // Quantidade de munição total 
         this.reloadTime = reloadTime;
         this.isPickedUp = false;
+        this.isAutomatic = false; // Nova propriedade para controlar o disparo automático
         this.position = { x: 0, y: 0, z: 0 };
         
         // Propriedades específicas por tipo de arma
@@ -21,12 +22,14 @@ class GunModel {
                 this.ammo = 8;
                 this.maxAmmo = 8;
                 this.reloadTime = 2.5;
+                this.isAutomatic = false;
                 break;
-            case 'rifle':
+            case 'assault_rifle':
                 this.damage = 50; // Ensure rifle also does 50 base damage
                 this.ammo = 20;
                 this.maxAmmo = 20;
                 this.reloadTime = 1.8;
+                this.isAutomatic = true; // Rifle de assalto com disparo automático
                 break;
             case 'pistol':
             default:
@@ -34,6 +37,7 @@ class GunModel {
                 this.ammo = 15;
                 this.maxAmmo = 15;
                 this.reloadTime = 2;
+                this.isAutomatic = false;
                 break;
         }
     }

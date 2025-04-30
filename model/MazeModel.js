@@ -48,9 +48,13 @@ class MazeModel {
                         this.monsterPositions.push({ row: i, col: j });
                         // Considerar essa posição como chão (0)
                         processedRow.push(0);
-                    } else if (row[j] === 'G') {
-                        // Armazenar a posição da arma
-                        this.gunPositions.push({ row: i, col: j });
+                    } else if (row[j] === 'G' || row[j] === 'G1' || row[j] === 'G2') {
+                        // Armazenar a posição da arma com seu tipo
+                        this.gunPositions.push({ 
+                            row: i, 
+                            col: j,
+                            type: row[j] // Armazenar G, G1 ou G2 para diferenciar os tipos
+                        });
                         // Considerar essa posição como chão (0)
                         processedRow.push(0);
                     } else if (row[j] === 'RS') {
@@ -139,11 +143,20 @@ class MazeModel {
         
         for (const pos of this.gunPositions) {
             const worldPos = this.calculateWorldPosition(pos.row, pos.col);
-            processedPositions.push(worldPos);
+            
+            // Adicionar a posição e preservar o tipo da arma (G, G1, G2)
+            processedPositions.push({
+                x: worldPos.x,
+                y: worldPos.y,
+                z: worldPos.z,
+                type: pos.type || 'G' // Usar G como padrão se não houver tipo específico
+            });
         }
         
         // Substituir as posições de grade por posições de mundo
         this.gunPositions = processedPositions;
+        
+        console.log("Posições de armas processadas:", this.gunPositions);
     }
     
     // Método auxiliar para calcular posição no mundo a partir da grade

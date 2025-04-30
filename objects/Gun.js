@@ -1,5 +1,6 @@
 import GunModel from '../model/GunModel.js';
-import GunView from '../view/GunView.js';
+import Pistol from '../view/Guns/Pistol.js';
+import AssaultRifle from '../view/Guns/Assalt_rifle.js';
 import GunController from '../controller/GunController.js';
 
 class Gun {
@@ -9,8 +10,14 @@ class Gun {
         this.model.setPosition(x, y, z);
         
         // Inicializar a view com o modelo
-        this.view = new GunView(scene, this.model);
-        
+        if(type === 'pistol') {
+            console.log("Criando PISTOLA");
+            this.view = new Pistol(scene, this.model);
+        } else if(type === 'assault_rifle') {
+            console.log("Criando FUZIL");
+            this.view = new AssaultRifle(scene, this.model);
+        }
+              
         // Inicializar o controlador
         this.controller = new GunController(this.model, this.view);
         

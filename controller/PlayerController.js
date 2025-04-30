@@ -180,6 +180,10 @@ class PlayerController {
             return mesh.isPickable && mesh.name && mesh.name.includes("button");
         };
 
+        // Variável para controlar o disparo automático
+        let automaticFireInterval = null;
+
+        // Adicionar event listener para mousedown
         this.scene.onPointerDown = (evt) => {
             if (!this.scene.alreadyLocked) {
                 const camera = this.view.getCamera();
@@ -191,20 +195,36 @@ class PlayerController {
             }
 
             const isLeftClick = evt.button === 0;
-            const isRightClick = evt.button === 2; // Botão direito
+            const isRightClick = evt.button === 2;
 
             if (isLeftClick) {
                 // --- Prioridade: Construção ---
                 if (this.buildingController?.isEnabled) {
-                    this.buildingController.placeItem(); // Tenta colocar o item
+                    this.buildingController.placeItem();
                 }
                 // --- Senão, Disparo ---
                 else {
-                    this.handleShoot(); // Lógica de disparo normal
+                    // Obter a arma equipada
+                    const equippedGun = this.getPlayerEquippedGun();
+                    
+                    // Disparo único imediato
+                    this.handleShoot();
+                    
+                    // Se for arma automática, configurar intervalo para disparo contínuo
+                    if (equippedGun && equippedGun.model.isAutomatic) {
+                        // Limpar qualquer intervalo existente
+                        if (automaticFireInterval) {
+                            clearInterval(automaticFireInterval);
+                        }
+                        
+                        // Configurar intervalo para disparo automático a cada 400ms
+                        automaticFireInterval = setInterval(() => {
+                            this.handleShoot();
+                        }, 80);
+                    }
                 }
 
                 // --- Interação com Botão (Raycast) ---
-                // Pode ser mantido, mas talvez desativado no modo construção?
                 if (!this.buildingController?.isEnabled) {
                     const camera = this.view.getCamera();
                     if (!camera) return;
@@ -228,6 +248,14 @@ class PlayerController {
                      this.buildingController.rotatePreview(); // Rotaciona o preview (se for rampa)
                  }
                  // Adicionar outra lógica para botão direito se necessário (mira?)
+            }
+        };
+
+        // Adicionar event listener para mouseup para parar o disparo automático
+        this.scene.onPointerUp = (evt) => {
+            if (evt.button === 0 && automaticFireInterval) {
+                clearInterval(automaticFireInterval);
+                automaticFireInterval = null;
             }
         };
     }

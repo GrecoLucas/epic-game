@@ -4,7 +4,7 @@ import Buttons from './objects/Buttons.js';
 import Maze from './objects/Maze.js'; 
 import Monster from './Monster.js'; 
 import GunLoader from './GunLoader.js'; 
-import ZombieS from './objects/ZombieS.js'; // Importando o Zombie Spawner
+import ZombieS from './objects/ZombieS.js'; 
 
 class Game {
     constructor(engine, scene) {
@@ -181,9 +181,15 @@ class Game {
                         // Ajustar a altura para ficar um pouco acima do chão
                         position.y = 0.5;
                         
-                        // Criar arma nesta posição
-                        const gun = this.gunLoader.createGunAtPosition(position.x, position.y, position.z);
-                        console.log(`Arma #${index + 1} criada na posição [${position.x}, ${position.y}, ${position.z}]`);
+                        // Determinar o tipo de arma com base no marcador do mapa
+                        let gunType = 'pistol'; // Tipo padrão
+                        if (position.type === 'G2') {
+                            gunType = 'assault_rifle';
+                        }
+                        
+                        // Criar arma nesta posição com o tipo correto
+                        const gun = this.gunLoader.createGunAtPosition(position.x, position.y, position.z, gunType);
+                        console.log(`Arma #${index + 1} (${gunType}) criada na posição [${position.x}, ${position.y}, ${position.z}]`);
                     });
                     
                     return;
