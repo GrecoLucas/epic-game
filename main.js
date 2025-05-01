@@ -8,6 +8,7 @@ import GunLoader from './GunLoader.js';
 import ZombieS from './objects/ZombieS.js'; 
 import SkySphere from "./objects/SkySphere.js";
 import SkySphereController from "./controller/SkySphereController.js";
+import InvisibleWall from "./objects/InvisibleWall.js"; // Adicionar importação para InvisibleWall
 
 class Game {
     constructor(engine, scene) {
@@ -22,6 +23,7 @@ class Game {
         this.gunLoader = null; // Referência ao carregador de armas
         this.zombieSpawner = null; // Referência ao sistema de hordas
         this.skySphereController = null; // Controlador da SkySphere
+        this.invisibleWall = null; // Referência às paredes invisíveis
         
         // Armazenar referência ao Game na cena
         this.scene.gameInstance = this;
@@ -44,6 +46,18 @@ class Game {
         
         this.scene.enablePhysics(new BABYLON.Vector3(0, -9.81, 0), new BABYLON.CannonJSPlugin());
 
+        // Melhorar a iluminação para visualizar melhor os itens
+        const hemisphericLight = new BABYLON.HemisphericLight('hemisphericLight', new BABYLON.Vector3(0, 1, 0), this.scene);
+        hemisphericLight.intensity = 0.8; // Aumentar intensidade da luz ambiente
+        hemisphericLight.diffuse = new BABYLON.Color3(0.9, 0.9, 0.9); // Luz mais clara
+        hemisphericLight.specular = new BABYLON.Color3(0.5, 0.5, 0.5); // Destacar superfícies
+        hemisphericLight.groundColor = new BABYLON.Color3(0.5, 0.5, 0.5); // Iluminação de baixo para cima
+        
+        // Adicionar luz direcional para dar mais dimensão ao ambiente
+        const directionalLight = new BABYLON.DirectionalLight('directionalLight', new BABYLON.Vector3(0.5, -0.5, 0.5), this.scene);
+        directionalLight.intensity = 0.6;
+        directionalLight.diffuse = new BABYLON.Color3(1, 1, 0.9); // Tom levemente amarelado
+
         // Criar sistema de colisão
         this.collisionSystem = new Collision(this.scene);
         
@@ -58,6 +72,9 @@ class Game {
         if (mazeMeshes && mazeMeshes.length > 0) {
             this.collisionSystem.addMeshes(mazeMeshes);
         }
+
+        // Inicializar paredes invisíveis ao redor do mapa do labirinto
+        this._initializeInvisibleWalls();
         
         // Obter a posição inicial do jogador do labirinto
         const playerStartPosition = this.maze.getPlayerStartPosition();
@@ -292,6 +309,39 @@ class Game {
             }, 1000);
         }
     }
+
+    // Inicializar paredes invisíveis ao redor do mapa
+    _initializeInvisibleWalls() {
+        try {
+            
+            // Obter dimensões do labirinto para criar paredes invisíveis do tamanho correto
+            let mazeSize = 0;
+            
+            if (this.maze && this.maze.model) {
+                const mazeDimensions = this.maze.model.getMazeDimensions();
+                if (mazeDimensions) {
+                    // Calcular o tamanho do labirinto com base em suas dimensões
+                    mazeSize = Math.max(mazeDimensions.width, mazeDimensions.height) * 1.6; // 20% maior que o labirinto
+                }
+            }
+            // Criar o objeto de paredes invisíveis
+            this.invisibleWall = new InvisibleWall(this.scene);
+            
+            // Inicializar com o sistema de colisão e tamanho do mapa
+            const success = this.invisibleWall.initialize(this.collisionSystem, mazeSize);
+            
+            if (success) {
+                console.log("Paredes invisíveis criadas com sucesso!");
+            } else {
+                console.error("Erro ao criar paredes invisíveis");
+            }
+            
+            return success;
+        } catch (error) {
+            console.error("Erro ao inicializar paredes invisíveis:", error);
+            return false;
+        }
+    }
     
     // Configurar inputs de teclado para voltar ao menu
     setupKeyboardInputs() {
@@ -300,113 +350,6 @@ class Game {
             this.scene.actionManager = new BABYLON.ActionManager(this.scene);
         }
         
-        // Adicionar ação para a tecla ESC para voltar ao menu
-        this.scene.actionManager.registerAction(
-            new BABYLON.ExecuteCodeAction(
-                BABYLON.ActionManager.OnKeyUpTrigger,
-                (evt) => {
-                    if (evt.sourceEvent.key === "Escape") {
-                        this.showPauseMenu();
-                    }
-                }
-            )
-        );
-    }
-    
-    // Método para exibir o menu de pausa
-    showPauseMenu() {
-        // Verificar se já existe um menu de pausa
-        if (this.pauseMenuUI) {
-            return;
-        }
-        
-        // Pausar o jogo
-        this.scene.paused = true;
-        
-        // Criar um menu de pausa
-        this.pauseMenuUI = BABYLON.GUI.AdvancedDynamicTexture.CreateFullscreenUI("pauseMenu");
-        
-        // Painel de fundo semi-transparente
-        const background = new BABYLON.GUI.Rectangle();
-        background.width = "100%";
-        background.height = "100%";
-        background.color = "transparent";
-        background.thickness = 0;
-        background.background = "rgba(0, 0, 0, 0.7)";
-        this.pauseMenuUI.addControl(background);
-        
-        // Título do menu
-        const title = new BABYLON.GUI.TextBlock();
-        title.text = "JOGO PAUSADO";
-        title.color = "white";
-        title.fontSize = 48;
-        title.height = "80px";
-        title.top = "-200px";
-        background.addControl(title);
-        
-        // Botão para continuar
-        const continueButton = BABYLON.GUI.Button.CreateSimpleButton("continueBtn", "CONTINUAR");
-        continueButton.width = "300px";
-        continueButton.height = "60px";
-        continueButton.color = "white";
-        continueButton.cornerRadius = 10;
-        continueButton.background = "rgba(0, 100, 200, 0.8)";
-        continueButton.top = "-50px";
-        continueButton.onPointerUpObservable.add(() => {
-            this.closePauseMenu();
-        });
-        background.addControl(continueButton);
-        
-        // Botão para retornar ao menu principal
-        const menuButton = BABYLON.GUI.Button.CreateSimpleButton("menuBtn", "VOLTAR AO MENU");
-        menuButton.width = "300px";
-        menuButton.height = "60px";
-        menuButton.color = "white";
-        menuButton.cornerRadius = 10;
-        menuButton.background = "rgba(200, 50, 50, 0.8)";
-        menuButton.top = "50px";
-        menuButton.onPointerUpObservable.add(() => {
-            this.returnToMainMenu();
-        });
-        background.addControl(menuButton);
-        
-        // Desabilitar controles do player durante a pausa
-        if (this.player && this.player.controller) {
-            this.player.controller.enabled = false;
-        }
-        
-        // Exibir cursor do mouse
-        document.body.style.cursor = "default";
-    }
-    
-    // Método para fechar o menu de pausa
-    closePauseMenu() {
-        if (this.pauseMenuUI) {
-            this.pauseMenuUI.dispose();
-            this.pauseMenuUI = null;
-            
-            // Retomar o jogo
-            this.scene.paused = false;
-            
-            // Reabilitar controles do player
-            if (this.player && this.player.controller) {
-                this.player.controller.enabled = true;
-            }
-            
-            // Ocultar cursor do mouse
-            document.body.style.cursor = "none";
-        }
-    }
-    
-    // Método para retornar ao menu principal
-    returnToMainMenu() {
-        // Limpar recursos e dispose da cena atual
-        this.dispose();
-        
-        // Recarregar a página para voltar ao menu principal
-        // Isso é uma solução simples, em uma implementação mais robusta
-        // você iria para o menu sem recarregar a página
-        window.location.reload();
     }
     
     // Método para limpar recursos e memória
@@ -443,6 +386,11 @@ class Game {
             }
         }
         
+        // Dispose das paredes invisíveis
+        if (this.invisibleWall) {
+            this.invisibleWall.dispose();
+        }
+        
         // Limpar referências
         this.collisionSystem = null;
         this.player = null;
@@ -452,6 +400,7 @@ class Game {
         this.gunLoader = null;
         this.zombieSpawner = null;
         this.skySphereController = null;
+        this.invisibleWall = null;
         
         // Marcar como não inicializado
         this.isInitialized = false;

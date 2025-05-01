@@ -91,13 +91,18 @@ class MazeView {
         );
     
         // Add texture to floor material
-        const floorTexture = new BABYLON.Texture("textures/floor.png", this.scene);
+        const floorTexture = new BABYLON.Texture("textures/floor.png", this.scene); // Usando textura de madeira
         this.floorMaterial.diffuseTexture = floorTexture;
+        
+        // Ajustando o brilho e cor para melhorar a visibilidade
+        this.floorMaterial.diffuseColor = new BABYLON.Color3(0.95, 0.95, 0.95); // Cor mais clara
+        this.floorMaterial.specularColor = new BABYLON.Color3(0.1, 0.1, 0.1); // Reduzindo reflexos
+        this.floorMaterial.ambientColor = new BABYLON.Color3(0.8, 0.8, 0.8); // Aumentando luminosidade ambiente
         
         // Adjust texture repetition to avoid distortion
         // The higher the number, the more times the texture will repeat
-        this.floorMaterial.diffuseTexture.uScale = dimensions.width / 2;
-        this.floorMaterial.diffuseTexture.vScale = dimensions.height / 2;
+        this.floorMaterial.diffuseTexture.uScale = dimensions.width / 4; // Aumentado escala para detalhe melhor
+        this.floorMaterial.diffuseTexture.vScale = dimensions.height / 4;
     
         // Center the floor at the origin
         floor.position = new BABYLON.Vector3(0, 0, 0);
