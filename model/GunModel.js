@@ -25,7 +25,7 @@ class GunModel {
                 this.isAutomatic = false;
                 break;
             case 'assault_rifle':
-                this.damage = 50; // Ensure rifle also does 50 base damage
+                this.damage = 15; // Ensure rifle also does 50 base damage
                 this.ammo = 20;
                 this.maxAmmo = 20;
                 this.reloadTime = 1.8;

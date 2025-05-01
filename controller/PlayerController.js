@@ -16,6 +16,9 @@ class PlayerController {
         this.buildingController = null;
         // Initialize shootController
         this.shootController = new ShootController(scene, playerView);
+        
+        // Add pointer lock state tracking
+        this.pointerLockActive = false;
 
         this.initialize();
     }
@@ -63,6 +66,68 @@ class PlayerController {
         setTimeout(() => {
             this.initializeBuildingController();
         }, 2000); // Atraso de 2 segundos para garantir que o jogo foi inicializado
+
+        // Set up pointer lock change detection
+        this.setupPointerLockHandling();
+    }
+    
+    // Add new method to handle pointer lock events
+    setupPointerLockHandling() {
+        // Define pointer lock change event handler
+        const pointerLockChangeHandler = () => {
+            const canvas = document.getElementById("renderCanvas");
+            
+            if (document.pointerLockElement === canvas || 
+                document.mozPointerLockElement === canvas ||
+                document.webkitPointerLockElement === canvas ||
+                document.msPointerLockElement === canvas) {
+                // Pointer lock is active
+                console.log("Pointer lock active");
+                this.scene.alreadyLocked = true;
+                this.pointerLockActive = true;
+            } else {
+                // Pointer lock is no longer active
+                console.log("Pointer lock inactive - press click to re-enable");
+                this.scene.alreadyLocked = false;
+                this.pointerLockActive = false;
+                
+                // Show instruction to click to re-enable camera control
+                this.showPointerLockInstruction();
+            }
+        };
+        
+        // Add event listeners for pointer lock change
+        document.addEventListener('pointerlockchange', pointerLockChangeHandler);
+        document.addEventListener('mozpointerlockchange', pointerLockChangeHandler);
+        document.addEventListener('webkitpointerlockchange', pointerLockChangeHandler);
+        document.addEventListener('mspointerlockchange', pointerLockChangeHandler);
+    }
+    
+    // Show instruction to re-enable pointer lock
+    showPointerLockInstruction() {
+        // Create or update instruction text
+        if (!this.pointerLockInstruction) {
+            const advancedTexture = BABYLON.GUI.AdvancedDynamicTexture.CreateFullscreenUI("pointerLockUI", true);
+            
+            this.pointerLockInstruction = new BABYLON.GUI.TextBlock();
+            this.pointerLockInstruction.text = "Clique 1 ou 2 vezes para retornar ao jogo";
+            this.pointerLockInstruction.color = "white";
+            this.pointerLockInstruction.fontSize = 24;
+            this.pointerLockInstruction.fontFamily = "Arial";
+            this.pointerLockInstruction.textHorizontalAlignment = BABYLON.GUI.Control.HORIZONTAL_ALIGNMENT_CENTER;
+            this.pointerLockInstruction.textVerticalAlignment = BABYLON.GUI.Control.VERTICAL_ALIGNMENT_CENTER;
+            
+            advancedTexture.addControl(this.pointerLockInstruction);
+        } else {
+            this.pointerLockInstruction.isVisible = true;
+        }
+        
+        // Hide instruction after 3 seconds or when pointer lock is re-enabled
+        setTimeout(() => {
+            if (this.pointerLockInstruction && !this.pointerLockActive) {
+                this.pointerLockInstruction.isVisible = false;
+            }
+        }, 3000);
     }
 
     // Adicionando um novo método para inicializar o BuildingController com segurança
@@ -319,31 +384,32 @@ class PlayerController {
                 return;
             }
             
+            // Normalize the pointer lock API across browsers
             canvas.requestPointerLock = 
                 canvas.requestPointerLock || 
                 canvas.msRequestPointerLock || 
                 canvas.mozRequestPointerLock || 
                 canvas.webkitRequestPointerLock;
                 
-            // Solicitar o Pointer Lock apenas se o evento for acionado por um gesto do usuário
-            // (geralmente será chamado a partir de um evento de clique ou tecla)
-            if (canvas.requestPointerLock && !this.scene.alreadyLocked) {
-                // Envolver em um try-catch para lidar com possíveis exceções
-                try {
-                    // Adicionar um ouvinte para capturar erros de Pointer Lock
-                    const lockErrorCallback = (e) => {
-                        console.log("Erro ao solicitar Pointer Lock:", e);
-                        document.removeEventListener('pointerlockerror', lockErrorCallback);
-                    };
-                    document.addEventListener('pointerlockerror', lockErrorCallback);
-                    
-                    canvas.requestPointerLock();
-                    this.scene.alreadyLocked = true;
-                    console.log("Pointer Lock solicitado com sucesso");
-                } catch (error) {
-                    console.error("Erro ao solicitar Pointer Lock:", error);
+            // Only request pointer lock if it's not already active and API is available
+            if (canvas.requestPointerLock && !this.pointerLockActive) {
+                // Set up error handling for pointer lock request
+                const lockErrorCallback = (e) => {
+                    console.log("Erro ao solicitar Pointer Lock:", e);
+                    document.removeEventListener('pointerlockerror', lockErrorCallback);
+                };
+                document.addEventListener('pointerlockerror', lockErrorCallback);
+                
+                // Request pointer lock
+                canvas.requestPointerLock();
+                
+                // Hide instructions if visible
+                if (this.pointerLockInstruction) {
+                    this.pointerLockInstruction.isVisible = false;
                 }
-            } else if (this.scene.alreadyLocked) {
+                
+                console.log("Pointer Lock solicitado com sucesso");
+            } else if (this.pointerLockActive) {
                 console.log("Pointer Lock já está ativo");
             } else {
                 console.warn("requestPointerLock não está disponível neste navegador");

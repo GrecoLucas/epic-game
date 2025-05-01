@@ -11,10 +11,8 @@ class Gun {
         
         // Inicializar a view com o modelo
         if(type === 'pistol') {
-            console.log("Criando PISTOLA");
             this.view = new Pistol(scene, this.model);
         } else if(type === 'assault_rifle') {
-            console.log("Criando FUZIL");
             this.view = new AssaultRifle(scene, this.model);
         }
               
