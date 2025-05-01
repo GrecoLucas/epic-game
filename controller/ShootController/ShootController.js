@@ -19,6 +19,14 @@ class ShootController {
             return;
         }
 
+        // --- Efeitos do Tiro (tentar disparar primeiro para verificar se tem munição e não está recarregando) ---
+        const shotFired = equippedGun.shoot();
+        
+        if (!shotFired) {
+            console.log("Disparo falhou (sem munição ou recarregando).");
+            return; // Saímos imediatamente se o disparo falhou, sem processar hits
+        }
+        
         // --- Configurações ---
         const config = {
             rayLength: 200,         // Alcance máximo do tiro em unidades
@@ -93,13 +101,6 @@ class ShootController {
                 // Se não acertamos estrutura, mas acertamos algum outro obstáculo e estamos em debug
                 console.log(`Tiro acertou objeto: '${firstObstacleHit.pickedMesh.name}' a ${firstObstacleHit.distance.toFixed(2)} unidades.`);
             }
-        }
-
-        // --- Efeitos do Tiro (sempre executados, independente de acertar) ---
-        const shotFired = equippedGun.shoot();
-        
-        if (!shotFired) {
-            console.log("Disparo falhou (sem munição ou recarregando).");
         }
     }
     

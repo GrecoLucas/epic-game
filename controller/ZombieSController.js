@@ -11,16 +11,50 @@ class ZombieSController {
         
         // Array para armazenar posições possíveis de spawn
         this.spawnPositions = [];
+        
+        // Flags para controle de estado
+        this.waitingForKeyPress = false;
+        this.keyListener = null;
     }
 
     initialize() {
         // Coletar posições de spawn possíveis
         this.collectSpawnPositions();
         
-        // Inicializar o contador de tempo
-        this.updateCountdown();
+        // Configurar listener de input para a tecla H
+        this._setupKeyListener();
+        
+        // Inicializar display
+        this.view.showReadyToStart(1);
         
         return this.zombieSpawner;
+    }
+
+    // Configurar listener para tecla H
+    _setupKeyListener() {
+        // Remover listener existente se houver
+        if (this.keyListener) {
+            window.removeEventListener("keydown", this.keyListener);
+        }
+        
+        // Criar novo listener
+        this.keyListener = (event) => {
+            // Verificar se a tecla H foi pressionada e está aguardando interação
+            if (event.key === "h" || event.key === "H") {
+                if (this.waitingForKeyPress && this.model.hordeActive) {
+                    this.waitingForKeyPress = false;
+                    
+                    // Iniciar horda imediatamente (sempre)
+                    this.startHorde();
+                } else if (!this.model.hordeActive) {
+                    // Se o sistema está inativo, ativar e aguardar tecla
+                    this.startHordeSystem();
+                }
+            }
+        };
+        
+        // Adicionar listener
+        window.addEventListener("keydown", this.keyListener);
     }
 
     // Coletar pontos potenciais de spawn no labirinto
@@ -61,14 +95,19 @@ class ZombieSController {
         if (!this.model.isHordeActive()) {
             this.model.hordeActive = true;
             this.model.resetCounters();
-            this.startCountdown();
-            console.log("Sistema de hordas iniciado!");
+            
+            // Aguardar o jogador pressionar H para iniciar a primeira horda
+            this.waitingForKeyPress = true;
+            this.view.showReadyToStart(1);
+            
+            console.log("Sistema de hordas iniciado! Aguardando jogador pressionar H para iniciar.");
         }
     }
 
     // Parar o sistema de hordas
     stopHordeSystem() {
         this.model.hordeActive = false;
+        this.waitingForKeyPress = false;
         
         // Limpar todos os timers
         if (this.model.hordeTimer) {
@@ -80,45 +119,6 @@ class ZombieSController {
         }
         
         console.log("Sistema de hordas parado.");
-    }
-
-    // Iniciar contagem regressiva para a próxima horda
-    startCountdown() {
-        // Limpar timer anterior, se existir
-        if (this.model.countdownTimer) {
-            clearInterval(this.model.countdownTimer);
-        }
-        
-        // Calcular intervalo para a próxima horda
-        const interval = this.model.calculateNextInterval();
-        this.model.timeToNextHorde = interval;
-        
-        // Atualizar o display de tempo
-        this.updateCountdown();
-        
-        // Iniciar contador com atualizações a cada segundo
-        this.model.countdownTimer = setInterval(() => {
-            this.model.timeToNextHorde -= 1;
-            
-            // Atualizar o display
-            this.updateCountdown();
-            
-            // Verificar se é hora de iniciar a horda
-            if (this.model.timeToNextHorde <= 0) {
-                clearInterval(this.model.countdownTimer);
-                this.startHorde();
-            }
-        }, 1000);
-        
-        console.log(`Próxima horda em ${interval} segundos.`);
-    }
-
-    // Atualizar o display de contagem regressiva
-    updateCountdown() {
-        this.view.updateHordeCountdown(
-            this.model.timeToNextHorde,
-            this.model.currentHorde
-        );
     }
 
     // Iniciar uma horda de monstros
@@ -137,10 +137,13 @@ class ZombieSController {
         // Spawnar os monstros
         this.spawnMonsters(monsterCount);
         
-        // Agendar a próxima horda
+        // Agendar para mostrar mensagem para a próxima horda após um intervalo
         this.model.hordeTimer = setTimeout(() => {
-            this.startCountdown();
-        }, 5000); // Pequeno intervalo antes de iniciar a próxima contagem
+            // Ao terminar a horda, ficar aguardando o jogador apertar H novamente
+            this.waitingForKeyPress = true;
+            this.view.showReadyToStart(this.model.currentHorde + 1);
+            console.log(`Horda ${this.model.currentHorde} completa. Pressione H para iniciar a próxima horda.`);
+        }, 5000); // Pequeno intervalo antes de mostrar mensagem
     }
 
     // Spawnar um número específico de monstros

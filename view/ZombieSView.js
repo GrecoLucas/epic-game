@@ -10,7 +10,7 @@ class ZombieSView {
         const advancedTexture = BABYLON.GUI.AdvancedDynamicTexture.CreateFullscreenUI("zombieUI");
         
         this.hordeInfoDisplay = new BABYLON.GUI.TextBlock();
-        this.hordeInfoDisplay.text = "Preparando primeira horda...";
+        this.hordeInfoDisplay.text = "Pressione H para iniciar a horda";
         this.hordeInfoDisplay.color = "white";
         this.hordeInfoDisplay.fontSize = 20;
         this.hordeInfoDisplay.fontFamily = "Arial";
@@ -23,25 +23,12 @@ class ZombieSView {
         advancedTexture.addControl(this.hordeInfoDisplay);
     }
 
-    // Atualiza o display com o tempo restante para a próxima horda
-    updateHordeCountdown(seconds, currentHorde) {
+    // Mostrar mensagem para iniciar horda
+    showReadyToStart(hordeNumber) {
         if (this.hordeInfoDisplay) {
-            // Formatar os segundos como mm:ss
-            const minutes = Math.floor(seconds / 60);
-            const remainingSeconds = Math.floor(seconds % 60);
-            const formattedTime = `${minutes}:${remainingSeconds < 10 ? '0' : ''}${remainingSeconds}`;
-            
-            // Mostrar informações da próxima horda
-            this.hordeInfoDisplay.text = `HORDA ${currentHorde + 1} EM ${formattedTime}`;
-            
-            // Mudar a cor conforme o tempo diminui
-            if (seconds <= 10) {
-                this.hordeInfoDisplay.color = "red";
-            } else if (seconds <= 30) {
-                this.hordeInfoDisplay.color = "orange";
-            } else {
-                this.hordeInfoDisplay.color = "white";
-            }
+            this.hordeInfoDisplay.text = `Pressione H (x2) para iniciar a Horda ${hordeNumber}`;
+            this.hordeInfoDisplay.color = "lime";
+            this.hordeInfoDisplay.fontSize = 22;
         }
     }
 

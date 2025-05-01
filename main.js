@@ -143,11 +143,9 @@ class Game {
         this.zombieSpawner = new ZombieS(this.scene, this);
         this.zombieSpawner.initialize();
         
-        // Iniciar o sistema de hordas após um pequeno atraso para garantir que tudo carregou
-        setTimeout(() => {
-            this.zombieSpawner.startHordeSystem();
-            console.log("Sistema de hordas de zumbis iniciado!");
-        }, 5000); // 5 segundos de atraso inicial
+        // O sistema de hordas agora aguarda que o jogador pressione H
+        // Não precisa mais iniciar automaticamente com timeout
+        console.log("Sistema de hordas inicializado! Pressione H para começar quando estiver pronto.");
     }
     
     // Método para criar monstros baseados no labirinto
