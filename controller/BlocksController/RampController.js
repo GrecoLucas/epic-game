@@ -346,7 +346,7 @@ class RampController {
     }
     
     // Place a ramp at the current position
-    placeRamp(position, initialHealth = 150) {
+    placeRamp(position, initialHealth = 300) {
         console.log(`Attempting to place ${this.rampDirection} ramp at ${position}`);
         
         // Create new ramp through MazeView

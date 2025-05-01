@@ -16,9 +16,9 @@ class MonsterController {
         this.obstacleCheckInterval = 100; // Renomeado de wallCheckInterval
 
         this.obstacleContactTimers = {}; // Renomeado de wallContactTimers { obstacleName: { startTime: timestamp, lastDamageTime: timestamp } }
-        this.OBSTACLE_CONTACT_DAMAGE_THRESHOLD = 1500; // Renomeado
-        this.OBSTACLE_DAMAGE_AMOUNT = 20; // Renomeado
-        this.OBSTACLE_DAMAGE_COOLDOWN = 500; // Renomeado
+        this.OBSTACLE_CONTACT_DAMAGE_THRESHOLD = 2500; // Tempo que o monstro precisa ficar em contato antes de causar dano (aumentado para 2.5 segundos)
+        this.OBSTACLE_DAMAGE_AMOUNT = 15; // Reduzido o dano por ataque
+        this.OBSTACLE_DAMAGE_COOLDOWN = 3000; // Tempo entre ataques (aumentado para 3 segundos)
     
         
         // Inicializar o controlador
@@ -61,7 +61,7 @@ class MonsterController {
         const collisionRadius = 1.5; // Manter raio de verificação
         
         
-        // Direções para verificar (8 direções)
+        // Direções para verificar (8 direções horizontais + direção para baixo)
         const directions = [
             new BABYLON.Vector3(1, 0, 0),    // direita
             new BABYLON.Vector3(-1, 0, 0),   // esquerda
@@ -70,7 +70,8 @@ class MonsterController {
             new BABYLON.Vector3(0.7, 0, 0.7), // diagonal frente-direita
             new BABYLON.Vector3(-0.7, 0, 0.7), // diagonal frente-esquerda
             new BABYLON.Vector3(0.7, 0, -0.7), // diagonal trás-direita
-            new BABYLON.Vector3(-0.7, 0, -0.7)  // diagonal trás-esquerda
+            new BABYLON.Vector3(-0.7, 0, -0.7),  // diagonal trás-esquerda
+            new BABYLON.Vector3(0, -1, 0)    // direção para baixo (detectar barricadas baixas)
         ];
         
         // Função para determinar quais objetos considerar para colisão
@@ -106,8 +107,22 @@ class MonsterController {
     
         // Verificar cada direção
         for (const direction of directions) {
+            // Determinar origem do raio com base na direção
+            let rayOrigin;
+            let rayLength;
+            
+            // Para a direção para baixo, ajustar a origem e comprimento do raio
+            if (direction.y < 0) {
+                // Ajustar para detectar barricadas baixas abaixo do monstro
+                rayOrigin = monsterPosition.clone();
+                rayLength = 2.0; // Comprimento maior para garantir detecção de barricadas baixas
+            } else {
+                rayOrigin = monsterPosition.clone();
+                rayLength = collisionRadius;
+            }
+            
             // Criar um raio a partir da posição do monstro na direção específica
-            const ray = new BABYLON.Ray(monsterPosition, direction, collisionRadius);
+            const ray = new BABYLON.Ray(rayOrigin, direction, rayLength);
             
             // Verificar colisão
             const hit = this.scene.pickWithRay(ray, predicate);
@@ -375,37 +390,10 @@ class MonsterController {
             // Check again inside the timeout
             if (this.isDisposed || this.isStunned) return;
 
-            // Se não estiver perseguindo o jogador
-            if (!this.model.isPlayerChased()) {
-                // Mover para uma direção aleatória
-                this.moveRandomly();
-            }
-
             // Continuar o comportamento de patrulha recursively
             this.startPatrolBehavior();
         }, patrolInterval);
     }
-    
-    // Mover em uma direção aleatória
-    moveRandomly() {
-        if (!this.model.getMesh() || this.isDisposed) return;
-        if (!this.model.getMesh() || this.isDisposed || this.isStunned) return;
-
-        // Gerar um ângulo aleatório
-        const angle = Math.random() * Math.PI * 2;
-        
-        // Criar um vetor de direção com o ângulo
-        const direction = new BABYLON.Vector3(
-            Math.sin(angle),
-            0,
-            Math.cos(angle)
-        );
-        
-        // Mover na direção com uma pequena distância
-        const movement = direction.scale(0.1);
-        this.model.moveWithCollision(movement);
-    }
-
     
     // Método para atualizar o texto da vida do monstro
     updateHealthText() {

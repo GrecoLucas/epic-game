@@ -586,8 +586,8 @@ class MazeView {
      * @param {number} initialHealth Initial health of the wall.
      * @returns {BABYLON.Mesh} The wall mesh.
      */
-    createPlayerWall(position, cellSize, initialHealth = 100) {
-        const wall = this.blockHandler.createPlayerBlock(position, cellSize, initialHealth);
+    createPlayerWall(position, cellSize, initialHealth = 300) {
+        const wall = this.blockHandler.createPlayerWall(position, cellSize, initialHealth);
         this.meshes.push(wall);
         return wall;
     }
@@ -601,7 +601,7 @@ class MazeView {
      * @param {number} initialHealth Initial health of the ramp.
      * @returns {BABYLON.Mesh} The ramp mesh.
      */
-    createPlayerRamp(position, rotationY, cellSize, direction = 'east', initialHealth = 150) {
+    createPlayerRamp(position, rotationY, cellSize, direction = 'east', initialHealth = 200) {
         const ramp = this.rampHandler.createPlayerRamp(position, rotationY, cellSize, direction, initialHealth);
         this.meshes.push(ramp);
         return ramp;
@@ -615,7 +615,7 @@ class MazeView {
      * @param {number} initialHealth Initial health of the barricade.
      * @returns {BABYLON.Mesh} The barricade mesh.
      */
-    createPlayerBarricade(position, cellSize, rotation = 0, initialHealth = 75) {
+    createPlayerBarricade(position, cellSize, rotation = 0, initialHealth = 200) {
         const barricade = this.barricadeHandler.createPlayerBarricade(position, cellSize, rotation, initialHealth);
         this.meshes.push(barricade);
         return barricade;

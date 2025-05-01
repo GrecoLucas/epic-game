@@ -15,11 +15,15 @@ class Barricade {
      * @param {number} initialHealth Initial health points of the barricade.
      * @returns {BABYLON.Mesh} The barricade mesh.
      */
-    createPlayerBarricade(position, cellSize, rotation = 0, initialHealth = 75) {
+    createPlayerBarricade(position, cellSize, rotation = 0, initialHealth = 200) {
         // Use cellSize if provided, otherwise use default
         const barricadeWidth = cellSize || 4;
-        const barricadeHeight = (this.wallMaterial?.wallHeight || 4) / 2; // Half height
+        const barricadeHeight = (this.wallMaterial?.wallHeight || 4) / 2; // Quarter height (was half height)
         const barricadeDepth = (cellSize || 4) / 2; // Half depth
+        
+        // Adjust position to align with ground properly with the new lower height
+        const adjustedPosition = position.clone();
+        adjustedPosition.y = position.y - (this.wallMaterial?.wallHeight || 4) / 10; // Adjust Y position to compensate for lower height
         
         const barricade = BABYLON.MeshBuilder.CreateBox(`playerBarricade_${Date.now()}`, {
             width: barricadeWidth,
@@ -27,7 +31,7 @@ class Barricade {
             depth: barricadeDepth
         }, this.scene);
     
-        barricade.position = position;
+        barricade.position = adjustedPosition; // Use adjusted position
         barricade.rotation.y = rotation; // Apply rotation
         
         // Clone material safely
@@ -46,8 +50,8 @@ class Barricade {
         // Add metadata to indicate it's a buildable surface
         barricade.metadata.isBuildableSurface = true;
         barricade.metadata.isPlayerBuilt = true;
-        barricade.metadata.initialHealth = initialHealth || 75; // Ensure default value
-        barricade.metadata.health = initialHealth || 75; // Ensure default value
+        barricade.metadata.initialHealth = initialHealth || 200; // Ensure default value
+        barricade.metadata.health = initialHealth || 200; // Ensure default value
         
         // Add metadata for dependency tracking
         barricade.metadata.supportingBlock = null; // Block below (support)

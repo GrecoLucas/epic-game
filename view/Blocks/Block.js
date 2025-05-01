@@ -13,7 +13,7 @@ class Block {
      * @param {number} initialHealth Initial health points of the wall.
      * @returns {BABYLON.Mesh} The wall mesh.
      */
-    createPlayerBlock(position, cellSize, initialHealth = 100) {
+    createPlayerWall(position, cellSize, initialHealth = 300) {
         // Use cellSize if provided, otherwise use default
         const wallWidth = cellSize || 4;
         const wallHeight = this.wallMaterial?.wallHeight || 4;
@@ -41,8 +41,8 @@ class Block {
         // Add metadata to indicate it's a buildable surface
         wall.metadata.isBuildableSurface = true;
         wall.metadata.isPlayerBuilt = true;
-        wall.metadata.initialHealth = initialHealth || 100; // Ensure default value
-        wall.metadata.health = initialHealth || 100; // Ensure default value
+        wall.metadata.initialHealth = initialHealth || 300; // Ensure default value
+        wall.metadata.health = initialHealth || 300; // Ensure default value
         
         // Add metadata for dependency tracking
         wall.metadata.supportingBlock = null; // Block below (support)

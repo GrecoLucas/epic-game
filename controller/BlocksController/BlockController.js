@@ -155,7 +155,7 @@ class BlockController {
     }
     
     // Place a block at the current position
-    placeBlock(position, initialHealth = 100) {
+    placeBlock(position, initialHealth = 300) {
         console.log(`Attempting to place block at ${position}`);
         
         // Create new block through MazeView

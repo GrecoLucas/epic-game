@@ -15,7 +15,7 @@ class Ramp {
      * @param {number} initialHealth Initial health points of the ramp.
      * @returns {BABYLON.Mesh} The ramp mesh.
      */
-    createPlayerRamp(position, rotationY, cellSize, direction = 'east', initialHealth = 150) {
+    createPlayerRamp(position, rotationY, cellSize, direction = 'east', initialHealth = 300) {
         // Use cellSize if provided, otherwise fallback
         const rampWidth = cellSize || 4;
         const rampHeight = 4; // Default height if not available from materials

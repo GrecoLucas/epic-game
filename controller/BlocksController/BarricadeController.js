@@ -175,7 +175,7 @@ class BarricadeController {
     }
     
     // Place a barricade at the current position
-    placeBarricade(position, initialHealth = 75) {
+    placeBarricade(position, initialHealth = 200) {
         console.log(`Attempting to place barricade at ${position} with rotation ${this.currentPlacementRotation}`);
         
         // Create new barricade through MazeView
