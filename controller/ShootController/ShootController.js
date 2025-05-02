@@ -69,6 +69,11 @@ class ShootController {
             
             // Encontrar todos os hits de monstros (ordenados por distância)
             monsterHits = this.scene.multiPickWithRay(limitedRay, monsterPartPredicate);
+            
+            // Garantir que a lista esteja ordenada por distância (do mais próximo para o mais distante)
+            if (monsterHits.length > 1) {
+                monsterHits.sort((a, b) => a.distance - b.distance);
+            }
         }
 
         // --- Processamento do Hit ---
@@ -76,10 +81,12 @@ class ShootController {
         
         // Processar o hit de monstro mais próximo (se houver)
         if (monsterHits.length > 0 && monsterHits[0].pickedMesh) {
-            hitSuccessful = this.processMonsterHit(monsterHits[0], equippedGun);
+            // Verificação adicional para garantir que estamos pegando o monstro mais próximo
+            const closestMonsterHit = monsterHits[0];
+            hitSuccessful = this.processMonsterHit(closestMonsterHit, equippedGun);
             
             if (hitSuccessful && config.DEBUG_MODE) {
-                console.log(`Hit bem sucedido no monstro a ${monsterHits[0].distance.toFixed(2)} unidades.`);
+                console.log(`Hit bem sucedido no monstro a ${closestMonsterHit.distance.toFixed(2)} unidades.`);
             }
         } 
         // Se não acertamos monstro, verificamos se acertamos estrutura destrutível (parede, rampa, barricada)

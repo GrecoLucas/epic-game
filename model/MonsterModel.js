@@ -276,57 +276,73 @@ class MonsterModel {
         this.moveWithCollision(movement);
     }
     
-    // Método para calcular a direção para evitar outros monstros próximos
+    
+    // Método para calcular a direção para evitar outros monstros próximos (Otimizado)
     calculateMonsterAvoidance() {
         if (!this.mesh) return null;
-        
-        // Obter todos os monstros da cena
-        const monsters = this.scene.gameInstance?.getMonsters() || [];
-        
-        if (monsters.length <= 1) return null; // Se só tem um monstro (este), não fazer nada
-        
-        let avoidanceDirection = new BABYLON.Vector3(0, 0, 0);
-        let hasNearbyMonsters = false;
-        
+
+        // Assume que gameInstance.getMonsters() retorna um array de instâncias de MonsterController
+        const monsterControllers = this.scene.gameInstance?.getMonsters();
+        // Se não há outros monstros, não há necessidade de evitar
+        if (!monsterControllers || monsterControllers.length <= 1) return null;
+
+        let totalAvoidance = BABYLON.Vector3.Zero(); // Vetor acumulador para a direção de evitação
+        let nearbyMonsterCount = 0; // Contador de monstros próximos
+
         const currentPosition = this.getPosition();
-        
-        // Verificar todos os outros monstros para calcular direção de evitação
-        for (const otherMonster of monsters) {
-            const otherController = otherMonster.getController();
-            if (!otherController || otherController.isDisposed) continue;
-            
-            // Pular a si mesmo
+        // Pré-calcular o quadrado do raio para evitar Math.sqrt em cada verificação
+        const avoidanceRadiusSq = this.monsterAvoidanceRadius * this.monsterAvoidanceRadius;
+
+        for (const otherController of monsterControllers) {
+            // Pular a verificação se for o próprio monstro
+            if (otherController.model === this) continue;
+
+            // Garantir que o outro monstro é válido e tem um modelo
+            if (!otherController.model || otherController.isDisposed) continue;
+
             const otherModel = otherController.model;
-            if (!otherModel || otherModel.id === this.id) continue;
-            
             const otherPosition = otherModel.getPosition();
+            // Pular se a posição do outro monstro não for válida
             if (!otherPosition) continue;
-            
-            // Calcular distância e direção ao outro monstro
-            const distance = BABYLON.Vector3.Distance(currentPosition, otherPosition);
-            
-            // Se está dentro do raio de evitação
-            if (distance < this.monsterAvoidanceRadius) {
-                // Calcular vetor de direção PARA LONGE do outro monstro
+
+            // Usar DistanceSquared para otimização (evita raiz quadrada)
+            const distanceSq = BABYLON.Vector3.DistanceSquared(currentPosition, otherPosition);
+
+            // Verificar se está dentro do raio de evitação (e não exatamente na mesma posição)
+            // Usar 0.0001 como um pequeno epsilon para evitar problemas com distância zero
+            if (distanceSq < avoidanceRadiusSq && distanceSq > 0.0001) {
+                // Calcular a distância real apenas quando necessário (para o cálculo da força)
+                const distance = Math.sqrt(distanceSq);
+
+                // Calcular vetor apontando PARA LONGE do outro monstro
+                // Reutilizar um vetor temporário pode ser mais otimizado em cenários extremos,
+                // mas a criação aqui é geralmente aceitável.
                 const awayDirection = currentPosition.subtract(otherPosition);
-                
-                // Normalizar e escalar inversamente à distância (quanto mais perto, mais forte a evitação)
+
+                // Normalizar o vetor de direção (modifica o vetor 'awayDirection' diretamente)
                 awayDirection.normalize();
+
+                // Calcular a força da evitação (mais forte quanto mais perto)
                 const strength = (this.monsterAvoidanceRadius - distance) / this.monsterAvoidanceRadius;
-                
-                // Adicionar ao vetor de evitação total
-                avoidanceDirection.addInPlace(awayDirection.scale(strength));
-                hasNearbyMonsters = true;
+
+                // Adicionar o vetor de evitação escalado ao total
+                // scaleInPlace modifica 'awayDirection' e addInPlace modifica 'totalAvoidance'
+                totalAvoidance.addInPlace(awayDirection.scaleInPlace(strength));
+                nearbyMonsterCount++;
             }
         }
-        
-        // Se temos monstros próximos, normalizar a direção de evitação
-        if (hasNearbyMonsters) {
-            avoidanceDirection.normalize();
-            return avoidanceDirection;
+
+        // Se algum monstro próximo contribuiu para a evitação, normalizar o vetor final
+        if (nearbyMonsterCount > 0) {
+            // Evitar normalizar um vetor zero (caso as forças se cancelem perfeitamente)
+            if (totalAvoidance.lengthSquared() > 0.0001) {
+                 totalAvoidance.normalize(); // Normalizar a direção final
+                 return totalAvoidance;
+            }
         }
-        
-        return null; // Nenhum monstro próximo, sem necessidade de evitação
+
+        // Nenhum monstro próximo ou as forças se cancelaram, retornar null
+        return null;
     }
     
     lookAt(targetPosition) {
