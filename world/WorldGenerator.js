@@ -1,4 +1,4 @@
-// WorldGenerator.js - Gerador de terreno procedural para o mundo aberto
+// WorldGenerator.js - Gerador de terreno procedural para o mundo aberto com transições perfeitas em todas as direções
 
 class WorldGenerator {
     constructor(scene, gameInstance, seed) {
@@ -6,10 +6,10 @@ class WorldGenerator {
         this.gameInstance = gameInstance;
         this.seed = seed || Math.floor(Math.random() * 1000000);
         
-        // Terrain configuration
+        // Configuração do terreno
         this.chunkSize = gameInstance.chunkSize || 16;
-        this.groundSize = this.chunkSize * 1.05; // 5% overlap to eliminate seams
-        this.terrainSubdivisions = 32; // Higher for more detailed terrain
+        this.groundSize = this.chunkSize * 1.05; // 5% de sobreposição para eliminar costuras
+        this.terrainSubdivisions = 32; // Maior para terreno mais detalhado
         this.terrainHeight = 15;
         this.octaves = 4;
         this.persistence = 0.5;
@@ -18,16 +18,19 @@ class WorldGenerator {
         this.roughness = 2.7;
         this.terrainMaterials = new Map();
         
-        // Cache for border heights between chunks
+        // Cache para alturas das bordas entre chunks - sistema totalmente redefinido
         this.borderHeightCache = new Map();
         
-        // Initialize noise generator
+        // Flag de debug para visualizar transições e bordas durante desenvolvimento
+        this.debugBorders = false;
+        
+        // Inicializar gerador de ruído
         this._initializeNoiseGenerator();
     }
     
     // Inicializar o gerador de ruído
     _initializeNoiseGenerator() {
-        // Simple hash function for noise based on seed
+        // Função hash simples para ruído baseado na seed
         this.hashFunction = function(x, y) {
             const seedValue = ((x * 73856093) ^ (y * 19349663)) ^ this.seed;
             return this._frac(Math.sin(seedValue) * 43758.5453);
@@ -36,30 +39,30 @@ class WorldGenerator {
     
     // Função de geração de ruído Simplex simplificada
     _simplexNoise(x, y) {
-        // Grid cell coords
+        // Coordenadas de célula da grade
         const X = Math.floor(x);
         const Y = Math.floor(y);
         
-        // Relative position within grid cell
+        // Posição relativa dentro da célula
         const xf = x - X;
         const yf = y - Y;
         
-        // Get values for corners
+        // Obter valores para os cantos
         const v00 = this.hashFunction(X, Y);
         const v01 = this.hashFunction(X, Y + 1);
         const v10 = this.hashFunction(X + 1, Y);
         const v11 = this.hashFunction(X + 1, Y + 1);
         
-        // Cubic Hermine curve for smooth interpolation
+        // Curva cúbica de Hermite para interpolação suave
         const sx = this._smoothstep(xf);
         const sy = this._smoothstep(yf);
         
-        // Bilinear interpolation for final value
+        // Interpolação bilinear para valor final
         const vx0 = this._lerp(v00, v10, sx);
         const vx1 = this._lerp(v01, v11, sx);
         const v = this._lerp(vx0, vx1, sy);
         
-        // Map to [-1, 1] range
+        // Mapear para intervalo [-1, 1]
         return v * 2 - 1;
     }
     
@@ -109,14 +112,12 @@ class WorldGenerator {
         return t * t * (3 - 2 * t);
     }
     
-
-    
     // Calcular altura do terreno com base no tipo de bioma
     _calculateTerrainHeight(x, z, biome) {
-        // Base noise value
+        // Valor base de ruído
         let noiseValue = this._getNoise(x * 0.015, z * 0.015);
         
-        // Modifier based on biome
+        // Modificador baseado no bioma
         switch(biome) {
             case 'mountains':
                 // Montanhas são mais altas e íngremes
@@ -229,53 +230,50 @@ class WorldGenerator {
         return material;
     }
     
-    // In WorldGenerator.js
-    // Add this method to create a procedural heightmap
-
-    // 1. Add method to create a procedural heightmap
+    // Método para criar uma heightmap procedural
     async createProceduralHeightmap(width, height) {
         return new Promise((resolve) => {
-            // Create a canvas to draw the heightmap
+            // Criar um canvas para desenhar o heightmap
             const canvas = document.createElement('canvas');
             canvas.width = width;
             canvas.height = height;
             const ctx = canvas.getContext('2d');
             
-            // Create an ImageData to fill with height data
+            // Criar um ImageData para preencher com dados de altura
             const imageData = ctx.createImageData(width, height);
             
-            // Generate height data using noise
+            // Gerar dados de altura usando ruído
             for (let y = 0; y < height; y++) {
                 for (let x = 0; x < width; x++) {
-                    // Index for the data array (4 bytes per pixel: R,G,B,A)
+                    // Índice para o array de dados (4 bytes por pixel: R,G,B,A)
                     const idx = (y * width + x) * 4;
                     
-                    // Use existing noise function to generate height value
-                    // Normalize coordinates to noise space
+                    // Usar função de ruído existente para gerar valor de altura
+                    // Normalizar coordenadas para espaço de ruído
                     const nx = x / width;
                     const ny = y / height;
                     
-                    // Use noise function with multiple octaves
+                    // Usar função de ruído com múltiplas oitavas
                     const noiseValue = this._getNoise(nx * 10, ny * 10);
                     
-                    // Convert to pixel value (0-255)
+                    // Converter para valor de pixel (0-255)
                     const pixelValue = Math.floor(noiseValue * 255);
                     
-                    // Set grayscale value
+                    // Definir valor em escala de cinza
                     imageData.data[idx] = pixelValue;     // R
                     imageData.data[idx + 1] = pixelValue; // G
                     imageData.data[idx + 2] = pixelValue; // B
-                    imageData.data[idx + 3] = 255;        // A (full opacity)
+                    imageData.data[idx + 3] = 255;        // A (opacidade total)
                 }
             }
             
-            // Update canvas with generated data
+            // Atualizar canvas com dados gerados
             ctx.putImageData(imageData, 0, 0);
             
-            // Convert to data URL
+            // Converter para URL de dados
             const dataURL = canvas.toDataURL();
             
-            // Create image to load into Babylon
+            // Criar imagem para carregar no Babylon
             const img = new Image();
             img.onload = () => {
                 resolve(img);
@@ -284,11 +282,10 @@ class WorldGenerator {
         });
     }
 
-
     // Adicionar água a um chunk se for apropriado para o bioma
     async _addWaterToChunk(chunkX, chunkZ, groundMesh, biome) {
         // Verificar se o bioma precisa de água
-        if (!['swamp', 'forest', 'plains'].includes(biome)) { // Adicionado 'plains' para ter água em planícies
+        if (!['swamp', 'forest', 'plains'].includes(biome)) {
             return null;
         }
         
@@ -364,58 +361,39 @@ class WorldGenerator {
         return waterMesh;
     }
     
-    // Obter chunks próximos para reflexão da água
-    _getNearbyChunks(chunkX, chunkZ, radius) {
-        const chunks = [];
-        
-        for (let x = -radius; x <= radius; x++) {
-            for (let z = -radius; z <= radius; z++) {
-                // Pular o próprio chunk
-                if (x === 0 && z === 0) continue;
-                
-                chunks.push({
-                    x: chunkX + x,
-                    z: chunkZ + z
-                });
-            }
-        }
-        
-        return chunks;
-    }
-    // Em vez de criar o arquivo heightmap.png, vamos modificar o WorldGenerator.js para gerar um heightmap proceduralmente
-
-
-
+    // Obter biomas vizinhos para um chunk
     _getNeighborBiomes(chunkX, chunkZ) {
+        const biomeManager = this.gameInstance?.biomeManager;
+        if (!biomeManager) return null;
+        
         const neighbors = {
-            north: this.biomeManager?.getBiomeAt((chunkX) * this.chunkSize, (chunkZ - 1) * this.chunkSize),
-            south: this.biomeManager?.getBiomeAt((chunkX) * this.chunkSize, (chunkZ + 1) * this.chunkSize),
-            west: this.biomeManager?.getBiomeAt((chunkX - 1) * this.chunkSize, (chunkZ) * this.chunkSize),
-            east: this.biomeManager?.getBiomeAt((chunkX + 1) * this.chunkSize, (chunkZ) * this.chunkSize),
-            northeast: this.biomeManager?.getBiomeAt((chunkX + 1) * this.chunkSize, (chunkZ - 1) * this.chunkSize),
-            northwest: this.biomeManager?.getBiomeAt((chunkX - 1) * this.chunkSize, (chunkZ - 1) * this.chunkSize),
-            southeast: this.biomeManager?.getBiomeAt((chunkX + 1) * this.chunkSize, (chunkZ + 1) * this.chunkSize),
-            southwest: this.biomeManager?.getBiomeAt((chunkX - 1) * this.chunkSize, (chunkZ + 1) * this.chunkSize)
+            north: biomeManager.getBiomeAt((chunkX) * this.chunkSize, (chunkZ - 1) * this.chunkSize),
+            south: biomeManager.getBiomeAt((chunkX) * this.chunkSize, (chunkZ + 1) * this.chunkSize),
+            west: biomeManager.getBiomeAt((chunkX - 1) * this.chunkSize, (chunkZ) * this.chunkSize),
+            east: biomeManager.getBiomeAt((chunkX + 1) * this.chunkSize, (chunkZ) * this.chunkSize),
+            northeast: biomeManager.getBiomeAt((chunkX + 1) * this.chunkSize, (chunkZ - 1) * this.chunkSize),
+            northwest: biomeManager.getBiomeAt((chunkX - 1) * this.chunkSize, (chunkZ - 1) * this.chunkSize),
+            southeast: biomeManager.getBiomeAt((chunkX + 1) * this.chunkSize, (chunkZ + 1) * this.chunkSize),
+            southwest: biomeManager.getBiomeAt((chunkX - 1) * this.chunkSize, (chunkZ + 1) * this.chunkSize)
         };
         
         return neighbors;
     }
 
-
-
+    // Método principal para gerar terreno para um chunk
     async generateChunkTerrain(chunkX, chunkZ, biome) {
-        // Calculate real world position
-        const worldX = chunkX * this.chunkSize;
-        const worldZ = chunkZ * this.chunkSize;
-        
-        // Get neighboring biomes for proper transitions
-        const neighborBiomes = this._getNeighborBiomes(chunkX, chunkZ);
-        
-        // Get appropriate terrain material with biome blending
-        const biomeMaterial = this._getTerrainMaterial(biome);
-        
         try {
-            // Create a standard ground with subdivisions
+            // Calcular posição real do chunk no mundo
+            const worldX = chunkX * this.chunkSize;
+            const worldZ = chunkZ * this.chunkSize;
+            
+            // Obter biomas vizinhos para transições adequadas
+            const neighborBiomes = this._getNeighborBiomes(chunkX, chunkZ);
+            
+            // Obter material de terreno apropriado
+            const biomeMaterial = this._getTerrainMaterial(biome);
+            
+            // Criar terreno base com subdivisões
             const ground = BABYLON.MeshBuilder.CreateGround(
                 `terrain_${chunkX}_${chunkZ}`,
                 {
@@ -427,136 +405,211 @@ class WorldGenerator {
                 this.scene
             );
             
-            // Position the terrain
+            // Posicionar o terreno
             ground.position.x = worldX;
             ground.position.z = worldZ;
             
-            // Apply material
+            // Aplicar material
             ground.material = biomeMaterial;
             
-            // Get boundary height data from neighboring chunks
-            const boundaryData = await this._getBoundaryHeightData(chunkX, chunkZ);
+            // *** PONTO CRÍTICO: Obter e sincronizar dados de altura das bordas dos chunks vizinhos ***
+            const chunkId = `${chunkX},${chunkZ}`;
             
-            // Get vertex positions for manipulation
+            // 1. Primeiro, buscamos dados de altura de todas as bordas vizinhas
+            const neighborBorders = await this._fetchAllNeighborBorderData(chunkX, chunkZ);
+            
+            // 2. Em seguida, garantimos que as alturas dos cantos, que são críticas, sejam consistentes
+            const cornerHeights = await this._resolveCornerHeights(chunkX, chunkZ, neighborBorders);
+            
+            // Obter posições dos vértices para manipulação
             const positions = ground.getVerticesData(BABYLON.VertexBuffer.PositionKind);
             
-            // Calculate procedural height for each vertex
+            // Calcular altura procedural para cada vértice
             const verticesPerSide = this.terrainSubdivisions + 1;
             
-            // Generate heights for every vertex using noise function
-            for (let i = 0; i < positions.length; i += 3) {
-                // Current index in the vertex grid
-                const vertexIndex = i / 3;
-                const col = vertexIndex % verticesPerSide;
-                const row = Math.floor(vertexIndex / verticesPerSide);
-                
-                // Convert local coordinates to world space
-                const normalizedX = col / this.terrainSubdivisions; // 0-1 range
-                const normalizedZ = row / this.terrainSubdivisions; // 0-1 range
-                
-                // Convert to world position (add small offset to prevent exact border alignment issues)
-                const worldPosX = worldX - this.groundSize/2 + normalizedX * this.groundSize + 0.01;
-                const worldPosZ = worldZ - this.groundSize/2 + normalizedZ * this.groundSize + 0.01;
-                
-                // Generate height using noise
-                let height = this._calculateTerrainHeight(worldPosX, worldPosZ, biome);
-                
-                // Apply biome blending if needed
-                if (neighborBiomes) {
-                    height = this._applyBiomeBlending(height, worldPosX, worldPosZ, biome, neighborBiomes);
-                }
-                
-                // Determine if this vertex is near a chunk border for smooth transitions
-                const distFromEdgeX = Math.min(normalizedX, 1 - normalizedX) * this.groundSize;
-                const distFromEdgeZ = Math.min(normalizedZ, 1 - normalizedZ) * this.groundSize;
-                const distFromEdge = Math.min(distFromEdgeX, distFromEdgeZ);
-                
-                // The blend distance for edge smoothing (10% of chunk size)
-                const edgeBlendDist = this.groundSize * 0.1;
-                
-                // If near an edge, blend with neighboring chunk data
-                if (distFromEdge < edgeBlendDist && boundaryData) {
-                    // Determine which edge we're closest to
-                    const isNorth = row === 0;
-                    const isSouth = row === this.terrainSubdivisions;
-                    const isWest = col === 0;
-                    const isEast = col === this.terrainSubdivisions;
-                    
-                    // Get boundary height from the right neighbor if available
-                    let boundaryHeight = height; // Default if no boundary data
-                    
-                    if (isNorth && boundaryData.north) {
-                        if (col >= 0 && col < boundaryData.north.length) {
-                            boundaryHeight = boundaryData.north[col];
-                        }
-                    }
-                    else if (isSouth && boundaryData.south) {
-                        if (col >= 0 && col < boundaryData.south.length) {
-                            boundaryHeight = boundaryData.south[col];
-                        }
-                    }
-                    else if (isWest && boundaryData.west) {
-                        if (row >= 0 && row < boundaryData.west.length) {
-                            boundaryHeight = boundaryData.west[row];
-                        }
-                    }
-                    else if (isEast && boundaryData.east) {
-                        if (row >= 0 && row < boundaryData.east.length) {
-                            boundaryHeight = boundaryData.east[row];
-                        }
-                    }
-                    
-                    // Blend factor (0 at edge, 1 at blendDist from edge)
-                    const blendFactor = distFromEdge / edgeBlendDist;
-                    
-                    // Interpolate between boundary and generated height
-                    height = this._lerp(boundaryHeight, height, blendFactor);
-                }
-                
-                // Apply the final height to vertex Y position
-                positions[i + 1] = height;
+            // 3. Criar uma matriz temporária de alturas para todo o chunk
+            // Isso permite modificações complexas antes de aplicar ao mesh final
+            const heightMap = new Array(verticesPerSide);
+            for (let i = 0; i < verticesPerSide; i++) {
+                heightMap[i] = new Array(verticesPerSide);
             }
             
-            // Update the mesh with new vertex positions
+            // 4. Preencher a matriz de alturas - FASE CRUCIAL
+            for (let row = 0; row < verticesPerSide; row++) {
+                for (let col = 0; col < verticesPerSide; col++) {
+                    // Posição normalizada no chunk (0-1)
+                    const normalizedX = col / this.terrainSubdivisions;
+                    const normalizedZ = row / this.terrainSubdivisions;
+                    
+                    // Converter para posição global
+                    const worldPosX = worldX - this.groundSize/2 + normalizedX * this.groundSize;
+                    const worldPosZ = worldZ - this.groundSize/2 + normalizedZ * this.groundSize;
+                    
+                    // Verificar se este vértice está em uma borda ou canto
+                    const isNorthBorder = row === 0;
+                    const isSouthBorder = row === this.terrainSubdivisions;
+                    const isWestBorder = col === 0;
+                    const isEastBorder = col === this.terrainSubdivisions;
+                    
+                    let height;
+                    
+                    // *** TRATAMENTO ESPECIAL PARA CANTOS ***
+                    // Os cantos são os pontos mais críticos onde 4 chunks se encontram
+                    if (isNorthBorder && isWestBorder) {
+                        height = cornerHeights.NW; // Canto noroeste - já resolvido
+                    }
+                    else if (isNorthBorder && isEastBorder) {
+                        height = cornerHeights.NE; // Canto nordeste - já resolvido
+                    }
+                    else if (isSouthBorder && isWestBorder) {
+                        height = cornerHeights.SW; // Canto sudoeste - já resolvido
+                    }
+                    else if (isSouthBorder && isEastBorder) {
+                        height = cornerHeights.SE; // Canto sudeste - já resolvido
+                    }
+                    // *** TRATAMENTO PARA BORDAS ***
+                    else if (isNorthBorder) {
+                        // Usar dados da borda norte ou gerá-los
+                        if (neighborBorders.north && col < neighborBorders.north.length) {
+                            height = neighborBorders.north[col];
+                        } else {
+                            // Gerar altura preservando a continuidade com os cantos
+                            const ratio = col / this.terrainSubdivisions;
+                            height = this._lerpWithBias(
+                                cornerHeights.NW,
+                                cornerHeights.NE,
+                                ratio,
+                                worldPosX, worldPosZ, biome
+                            );
+                        }
+                    }
+                    else if (isSouthBorder) {
+                        // Borda sul
+                        if (neighborBorders.south && col < neighborBorders.south.length) {
+                            height = neighborBorders.south[col];
+                        } else {
+                            const ratio = col / this.terrainSubdivisions;
+                            height = this._lerpWithBias(
+                                cornerHeights.SW,
+                                cornerHeights.SE,
+                                ratio,
+                                worldPosX, worldPosZ, biome
+                            );
+                        }
+                    }
+                    else if (isWestBorder) {
+                        // Borda oeste
+                        if (neighborBorders.west && row < neighborBorders.west.length) {
+                            height = neighborBorders.west[row];
+                        } else {
+                            const ratio = row / this.terrainSubdivisions;
+                            height = this._lerpWithBias(
+                                cornerHeights.NW,
+                                cornerHeights.SW,
+                                ratio,
+                                worldPosX, worldPosZ, biome
+                            );
+                        }
+                    }
+                    else if (isEastBorder) {
+                        // Borda leste
+                        if (neighborBorders.east && row < neighborBorders.east.length) {
+                            height = neighborBorders.east[row];
+                        } else {
+                            const ratio = row / this.terrainSubdivisions;
+                            height = this._lerpWithBias(
+                                cornerHeights.NE,
+                                cornerHeights.SE,
+                                ratio,
+                                worldPosX, worldPosZ, biome
+                            );
+                        }
+                    }
+                    // *** INTERIOR DO CHUNK ***
+                    else {
+                        // Usando novo método para interior que garante continuidade com todas as bordas
+                        height = this._calculateInteriorHeight(
+                            worldPosX, worldPosZ, biome,
+                            normalizedX, normalizedZ,
+                            neighborBorders,
+                            cornerHeights,
+                            neighborBiomes
+                        );
+                    }
+                    
+                    // Armazenar a altura na matriz
+                    heightMap[row][col] = height;
+                }
+            }
+            
+            // 5. Agora aplicamos um filtro suavizador para garantir que não haja transições bruscas
+            // dentro do chunk, mantendo as bordas fixas
+            this._smoothHeightMap(heightMap, /* bordersFixed= */ true);
+            
+            // 6. Aplicar a matriz de alturas final às posições dos vértices
+            for (let row = 0; row < verticesPerSide; row++) {
+                for (let col = 0; col < verticesPerSide; col++) {
+                    const vertexIndex = row * verticesPerSide + col;
+                    const positionIndex = vertexIndex * 3; // 3 componentes por vértice (x, y, z)
+                    
+                    // Atualizar componente Y (altura)
+                    positions[positionIndex + 1] = heightMap[row][col];
+                }
+            }
+            
+            // Atualizar a malha com as novas posições de vértices
             ground.updateVerticesData(BABYLON.VertexBuffer.PositionKind, positions);
             
-            // Compute normals for proper lighting
+            // 7. Calcular normais corretas para iluminação adequada
             BABYLON.VertexData.ComputeNormals(
                 positions, 
                 ground.getIndices(), 
                 ground.getVerticesData(BABYLON.VertexBuffer.NormalKind)
             );
             
-            // Store border height data for neighboring chunks
-            const borderHeights = this._extractBorderHeights(positions, this.terrainSubdivisions);
+            // 8. Extrair e armazenar alturas de borda para uso por chunks futuros
+            const borderHeights = this._extractAndStoreBorderHeights(chunkX, chunkZ, heightMap, cornerHeights);
             
-            // Add physics collision
+            // 9. Adicionar colisão física
             ground.checkCollisions = true;
             
-            // Add physics impostor if physics engine is available
+            // 10. Adicionar impostor físico se disponível
             if (this.scene.getPhysicsEngine()) {
-                ground.physicsImpostor = new BABYLON.PhysicsImpostor(
-                    ground, 
-                    BABYLON.PhysicsImpostor.MeshImpostor, // Use MeshImpostor instead of HeightmapImpostor for stability
-                    { mass: 0, friction: 0.5, restitution: 0.2 }, 
-                    this.scene
-                );
+                try {
+                    ground.physicsImpostor = new BABYLON.PhysicsImpostor(
+                        ground, 
+                        BABYLON.PhysicsImpostor.HeightmapImpostor, 
+                        { 
+                            mass: 0, 
+                            friction: 0.5, 
+                            restitution: 0.1 
+                        }, 
+                        this.scene
+                    );
+                } catch (error) {
+                    console.warn("Erro ao criar impostor físico para o terreno:", error);
+                    // Fallback para MeshImpostor
+                    ground.physicsImpostor = new BABYLON.PhysicsImpostor(
+                        ground, 
+                        BABYLON.PhysicsImpostor.MeshImpostor, 
+                        { mass: 0, friction: 0.5, restitution: 0.1 }, 
+                        this.scene
+                    );
+                }
             }
             
-            // Add metadata for identification
+            // 11. Adicionar metadados ao mesh para identificação
             ground.metadata = {
                 isChunkTerrain: true,
                 chunkX: chunkX,
                 chunkZ: chunkZ,
                 biome: biome,
-                borderHeights: borderHeights
+                borderHeights: borderHeights,
+                cornerHeights: cornerHeights
             };
             
-            // Cache border data for neighboring chunks
-            this._cacheBorderHeights(chunkX, chunkZ, borderHeights);
-            
-            // Add water if appropriate for biome
-            if (['swamp', 'forest'].includes(biome)) {
+            // 12. Adicionar água se apropriado para o bioma
+            if (['swamp', 'forest', 'plains'].includes(biome)) {
                 const waterMesh = await this._addWaterToChunk(chunkX, chunkZ, ground, biome);
                 if (waterMesh) {
                     return [ground, waterMesh];
@@ -565,25 +618,25 @@ class WorldGenerator {
             
             return [ground];
         } catch (error) {
-            console.error(`Error generating terrain for chunk ${chunkX},${chunkZ}:`, error);
+            console.error(`Erro ao gerar terreno para chunk ${chunkX},${chunkZ}:`, error);
             
-            // Create a simple flat ground as fallback
+            // Criar um terreno plano simples como fallback em caso de erro
             const fallbackGround = BABYLON.MeshBuilder.CreateGround(
                 `terrain_fallback_${chunkX}_${chunkZ}`,
                 { width: this.groundSize, height: this.groundSize },
                 this.scene
             );
             
-            fallbackGround.position.x = worldX;
-            fallbackGround.position.z = worldZ;
+            fallbackGround.position.x = chunkX * this.chunkSize;
+            fallbackGround.position.z = chunkZ * this.chunkSize;
             fallbackGround.checkCollisions = true;
             
-            // Simple material
+            // Material simples
             const fallbackMaterial = new BABYLON.StandardMaterial(`fallback_material_${chunkX}_${chunkZ}`, this.scene);
-            fallbackMaterial.diffuseColor = new BABYLON.Color3(0.3, 0.5, 0.3); // Default green
+            fallbackMaterial.diffuseColor = new BABYLON.Color3(0.3, 0.5, 0.3); // Verde padrão
             fallbackGround.material = fallbackMaterial;
             
-            // Add basic metadata
+            // Adicionar metadados básicos
             fallbackGround.metadata = {
                 isChunkTerrain: true,
                 chunkX: chunkX,
@@ -595,285 +648,615 @@ class WorldGenerator {
         }
     }
     
-
-    _getBoundaryIndex(localCoord, size) {
-        // Convert local coordinate to 0-1 range
-        const normalizedCoord = (localCoord + size/2) / size;
-        // Map to index in boundary array
-        return Math.min(
-            Math.max(0, Math.floor(normalizedCoord * this.terrainSubdivisions)),
-            this.terrainSubdivisions
-        );
+    // Método avançado para calcular altura interior com influência de todas as bordas
+    _calculateInteriorHeight(worldX, worldZ, biome, normalizedX, normalizedZ, neighborBorders, cornerHeights, neighborBiomes) {
+        // Gerar altura base para este ponto
+        const baseHeight = this._calculateTerrainHeight(worldX, worldZ, biome);
+        
+        // Aplicar blending de biomas se necessário
+        let blendedHeight = baseHeight;
+        if (neighborBiomes) {
+            blendedHeight = this._applyBiomeBlending(baseHeight, worldX, worldZ, biome, neighborBiomes);
+        }
+        
+        // Agora aplicamos um algoritmo de interpolação multi-borda para garantir
+        // que o interior se misture suavemente com TODAS as bordas
+        
+        // 1. Calculamos a distância para cada borda (0 = na borda, 1 = mais distante)
+        const distFromNorth = normalizedZ;
+        const distFromSouth = 1 - normalizedZ;
+        const distFromWest = normalizedX;
+        const distFromEast = 1 - normalizedX;
+        
+        // 2. Calculamos a influência de cada borda baseada em função de suavização modificada
+        // que garante que a soma das influências inteiras seja exatamente 1
+        const northInfluence = this._borderInfluence(distFromNorth);
+        const southInfluence = this._borderInfluence(distFromSouth);
+        const westInfluence = this._borderInfluence(distFromWest);
+        const eastInfluence = this._borderInfluence(distFromEast);
+        
+        // 3. Calculamos a influência dos cantos - crucial para suavidade
+        const nwInfluence = this._cornerInfluence(distFromNorth, distFromWest);
+        const neInfluence = this._cornerInfluence(distFromNorth, distFromEast);
+        const swInfluence = this._cornerInfluence(distFromSouth, distFromWest);
+        const seInfluence = this._cornerInfluence(distFromSouth, distFromEast);
+        
+        // 4. Calculamos a soma das influências para normalização
+        const totalBorderInfluence = 
+            northInfluence + southInfluence + westInfluence + eastInfluence +
+            nwInfluence + neInfluence + swInfluence + seInfluence;
+        
+        // 5. Se a soma for significativa, aplicamos as influências
+        if (totalBorderInfluence > 0.01) {  // threshold pequeno para evitar divisão por zero
+            // Obter as alturas das bordas nos pontos correspondentes
+            const northSample = this._sampleBorder(neighborBorders.north, normalizedX);
+            const southSample = this._sampleBorder(neighborBorders.south, normalizedX);
+            const westSample = this._sampleBorder(neighborBorders.west, normalizedZ);
+            const eastSample = this._sampleBorder(neighborBorders.east, normalizedZ);
+            
+            // Calcular a altura de influência das bordas
+            let borderInfluencedHeight = 0;
+            
+            // Adicionar influência de cada borda
+            if (northSample !== null) {
+                borderInfluencedHeight += northSample * (northInfluence / totalBorderInfluence);
+            }
+            if (southSample !== null) {
+                borderInfluencedHeight += southSample * (southInfluence / totalBorderInfluence);
+            }
+            if (westSample !== null) {
+                borderInfluencedHeight += westSample * (westInfluence / totalBorderInfluence);
+            }
+            if (eastSample !== null) {
+                borderInfluencedHeight += eastSample * (eastInfluence / totalBorderInfluence);
+            }
+            
+            // Adicionar influência dos cantos
+            if (cornerHeights.NW !== null) {
+                borderInfluencedHeight += cornerHeights.NW * (nwInfluence / totalBorderInfluence);
+            }
+            if (cornerHeights.NE !== null) {
+                borderInfluencedHeight += cornerHeights.NE * (neInfluence / totalBorderInfluence);
+            }
+            if (cornerHeights.SW !== null) {
+                borderInfluencedHeight += cornerHeights.SW * (swInfluence / totalBorderInfluence);
+            }
+            if (cornerHeights.SE !== null) {
+                borderInfluencedHeight += cornerHeights.SE * (seInfluence / totalBorderInfluence);
+            }
+            
+            // 6. Interpolar entre a altura do bioma e a altura influenciada pelas bordas
+            // baseado na força total da influência das bordas
+            const influenceStrength = Math.min(1.0, totalBorderInfluence * 2); // Ajustar para maior impacto
+            return blendedHeight * (1 - influenceStrength) + borderInfluencedHeight * influenceStrength;
+        }
+        
+        return blendedHeight;
     }
-
-    _extractBorderHeights(positions, subdivisions) {
-        // Esta função extrai as alturas das bordas para compartilhar com chunks adjacentes
-        const borders = {
-            north: new Array(subdivisions + 1),
-            south: new Array(subdivisions + 1),
-            east: new Array(subdivisions + 1),
-            west: new Array(subdivisions + 1)
+    
+    // Função de influência das bordas - determina quanto uma borda afeta um ponto interior
+    _borderInfluence(distance) {
+        // Parâmetros ajustáveis para controlar a influência
+        const borderInfluenceRange = 0.4; // 40% de distância da borda para dentro
+        const falloffPower = 2.5; // Potência para a função de queda - maior = queda mais rápida
+        
+        if (distance >= borderInfluenceRange) {
+            return 0; // Fora do alcance de influência
+        }
+        
+        // Normalizar a distância para o alcance de influência
+        const normalizedDist = distance / borderInfluenceRange;
+        
+        // Aplicar função de queda com suavização
+        return Math.pow(1 - normalizedDist, falloffPower);
+    }
+    
+    // Influência especial para os cantos - particularmente importante
+    _cornerInfluence(dist1, dist2) {
+        // Usamos o menor valor para determinar a distância ao canto
+        const cornerDist = Math.min(dist1, dist2);
+        
+        // Ajustar parâmetros para controle fino
+        const cornerInfluenceRange = 0.3; // 30% de alcance para cantos
+        const cornerFalloffPower = 3.0; // Queda ainda mais rápida para cantos
+        
+        if (cornerDist >= cornerInfluenceRange) {
+            return 0; // Fora do alcance de influência
+        }
+        
+        // Normalizar distância
+        const normalizedDist = cornerDist / cornerInfluenceRange;
+        
+        // Aplicar função de queda especial para cantos
+        // Multiplicamos por um fator adicional para evitar que cantos dominem as bordas
+        return Math.pow(1 - normalizedDist, cornerFalloffPower) * 0.7;
+    }
+    
+    // Amostragem suavizada de uma borda - lida com bordas incompletas ou nulas
+    _sampleBorder(borderArray, normalizedPos) {
+        if (!borderArray || borderArray.length === 0) {
+            return null;
+        }
+        
+        // Converter posição normalizada para índice
+        const exactIndex = normalizedPos * (borderArray.length - 1);
+        const lowerIndex = Math.floor(exactIndex);
+        const upperIndex = Math.ceil(exactIndex);
+        
+        // Se os índices são iguais ou fora dos limites
+        if (lowerIndex === upperIndex || lowerIndex < 0) {
+            return borderArray[Math.max(0, Math.min(borderArray.length - 1, lowerIndex))];
+        }
+        
+        // Peso para interpolação
+        const weight = exactIndex - lowerIndex;
+        
+        // Fazer interpolação linear entre os dois valores mais próximos
+        return borderArray[lowerIndex] * (1 - weight) + borderArray[upperIndex] * weight;
+    }
+    
+    // Interpolação linear com bias de ruído para naturalidade
+    _lerpWithBias(a, b, t, worldX, worldZ, biome) {
+        // Interpolação básica
+        const directLerp = a * (1 - t) + b * t;
+        
+        // Adicionar um pequeno componente de ruído para evitar linearidade óbvia
+        // mas manter a continuidade nas extremidades
+        const noiseScale = 0.3; // Escala do ruído (menor = menos efeito)
+        const edgeBias = Math.min(t, 1 - t) * 4; // Bias que desaparece nas extremidades
+        
+        // Gerar valor de ruído
+        const noise = this._getNoise(worldX * 0.1, worldZ * 0.1) - 0.5; // Centralizado em 0
+        
+        // Calcular altura procedural para referência
+        const proceduralHeight = this._calculateTerrainHeight(worldX, worldZ, biome);
+        
+        // Misturar interpolação direta com influência de ruído e altura procedural
+        return directLerp + (noise * noiseScale * edgeBias * Math.abs(b - a)) + 
+               (edgeBias * 0.1 * (proceduralHeight - directLerp));
+    }
+    
+    // Suavizar a matriz de alturas para evitar transições bruscas
+    _smoothHeightMap(heightMap, bordersFixed) {
+        const rows = heightMap.length;
+        const cols = heightMap[0].length;
+        
+        // Criar uma cópia da matriz para usar como referência durante o smoothing
+        const originalMap = Array(rows);
+        for (let i = 0; i < rows; i++) {
+            originalMap[i] = [...heightMap[i]];
+        }
+        
+        // Passar um kernel de suavização 3x3
+        const smoothingFactor = 0.5; // Ajustar entre 0 (sem suavização) e 1 (suavização máxima)
+        
+        for (let row = 0; row < rows; row++) {
+            for (let col = 0; col < cols; col++) {
+                // Se as bordas estão fixas, pular os vértices das bordas
+                if (bordersFixed && (row === 0 || row === rows - 1 || col === 0 || col === cols - 1)) {
+                    continue;
+                }
+                
+                // Acumular alturas dos vizinhos
+                let sum = 0;
+                let count = 0;
+                
+                for (let dr = -1; dr <= 1; dr++) {
+                    for (let dc = -1; dc <= 1; dc++) {
+                        const nr = row + dr;
+                        const nc = col + dc;
+                        
+                        if (nr >= 0 && nr < rows && nc >= 0 && nc < cols) {
+                            sum += originalMap[nr][nc];
+                            count++;
+                        }
+                    }
+                }
+                
+                const average = sum / count;
+                
+                // Interpolar entre o valor original e a média para controlar a suavização
+                heightMap[row][col] = originalMap[row][col] * (1 - smoothingFactor) + average * smoothingFactor;
+            }
+        }
+    }
+    
+    // Extrair e armazenar alturas das bordas para uso futuro
+    _extractAndStoreBorderHeights(chunkX, chunkZ, heightMap, cornerHeights) {
+        const borderHeights = {
+            north: [...heightMap[0]],
+            south: [...heightMap[heightMap.length - 1]],
+            west: heightMap.map(row => row[0]),
+            east: heightMap.map(row => row[row.length - 1]),
+            cornerNW: cornerHeights.NW,
+            cornerNE: cornerHeights.NE,
+            cornerSW: cornerHeights.SW,
+            cornerSE: cornerHeights.SE
         };
         
-        // Vértices por lado
-        const verticesPerSide = subdivisions + 1;
+        // Armazenar no sistema de cache
+        this._storeBorderHeightsInCache(chunkX, chunkZ, borderHeights);
         
-        // Extrair alturas a partir dos dados de posição
-        for (let i = 0; i < positions.length; i += 3) {
-            const vertexIndex = i / 3;
-            const row = Math.floor(vertexIndex / verticesPerSide);
-            const col = vertexIndex % verticesPerSide;
-            
-            const height = positions[i + 1]; // Componente Y
-            
-            // Armazenar alturas para cada borda
-            if (row === 0) borders.north[col] = height;
-            if (row === subdivisions) borders.south[col] = height;
-            if (col === 0) borders.west[row] = height;
-            if (col === subdivisions) borders.east[row] = height;
-        }
+        return borderHeights;
+    }
+    
+    // Buscar dados de borda de todos os vizinhos
+    async _fetchAllNeighborBorderData(chunkX, chunkZ) {
+        const borders = {
+            north: await this._getBorderData(chunkX, chunkZ - 1, 'south'),
+            south: await this._getBorderData(chunkX, chunkZ + 1, 'north'),
+            west: await this._getBorderData(chunkX - 1, chunkZ, 'east'),
+            east: await this._getBorderData(chunkX + 1, chunkZ, 'west')
+        };
         
         return borders;
     }
-    _cacheBorderHeights(chunkX, chunkZ, borderHeights) {
-        // Armazenar no cache local
-        this.borderHeightCache.set(`${chunkX},${chunkZ}`, borderHeights);
+    
+    // Resolver alturas dos cantos de forma consistente
+    async _resolveCornerHeights(chunkX, chunkZ, neighborBorders) {
+        // Sistema coordenado dos cantos:
+        //  NW --- N --- NE
+        //  |             |
+        //  W      C      E
+        //  |             |
+        //  SW --- S --- SE
         
-        // Importante: também armazenar essas alturas em todos os chunks adjacentes
-        // para garantir que as transições sejam perfeitamente suaves
-        
-        // Compartilhar borda norte com chunk ao sul
-        if (borderHeights.north && borderHeights.north.length > 0) {
-            let southChunkData = this.borderHeightCache.get(`${chunkX},${chunkZ-1}`);
-            if (!southChunkData) {
-                southChunkData = {
-                    north: null,
-                    south: null,
-                    east: null,
-                    west: null
-                };
-            }
-            southChunkData.south = [...borderHeights.north]; // Clone para evitar problemas de referência
-            this.borderHeightCache.set(`${chunkX},${chunkZ-1}`, southChunkData);
-        }
-        
-        // Compartilhar borda sul com chunk ao norte
-        if (borderHeights.south && borderHeights.south.length > 0) {
-            let northChunkData = this.borderHeightCache.get(`${chunkX},${chunkZ+1}`);
-            if (!northChunkData) {
-                northChunkData = {
-                    north: null,
-                    south: null,
-                    east: null,
-                    west: null
-                };
-            }
-            northChunkData.north = [...borderHeights.south]; // Clone para evitar problemas de referência
-            this.borderHeightCache.set(`${chunkX},${chunkZ+1}`, northChunkData);
-        }
-        
-        // Compartilhar borda oeste com chunk a leste
-        if (borderHeights.west && borderHeights.west.length > 0) {
-            let eastChunkData = this.borderHeightCache.get(`${chunkX-1},${chunkZ}`);
-            if (!eastChunkData) {
-                eastChunkData = {
-                    north: null,
-                    south: null,
-                    east: null,
-                    west: null
-                };
-            }
-            eastChunkData.east = [...borderHeights.west]; // Clone para evitar problemas de referência
-            this.borderHeightCache.set(`${chunkX-1},${chunkZ}`, eastChunkData);
-        }
-        
-        // Compartilhar borda leste com chunk a oeste
-        if (borderHeights.east && borderHeights.east.length > 0) {
-            let westChunkData = this.borderHeightCache.get(`${chunkX+1},${chunkZ}`);
-            if (!westChunkData) {
-                westChunkData = {
-                    north: null,
-                    south: null,
-                    east: null,
-                    west: null
-                };
-            }
-            westChunkData.west = [...borderHeights.east]; // Clone para evitar problemas de referência
-            this.borderHeightCache.set(`${chunkX+1},${chunkZ}`, westChunkData);
-        }
-    }
-
-    async _getBoundaryHeightData(chunkX, chunkZ) {
-        const boundaryData = {
-            north: null,
-            south: null,
-            east: null,
-            west: null
+        // Inicializar com valores default
+        const corners = { 
+            NW: null, 
+            NE: null, 
+            SW: null, 
+            SE: null 
         };
         
-        // Verificar cache primeiro (muito mais rápido)
-        const cacheKeys = [
-            `${chunkX},${chunkZ-1}`, // Norte
-            `${chunkX},${chunkZ+1}`, // Sul
-            `${chunkX+1},${chunkZ}`, // Leste
-            `${chunkX-1},${chunkZ}`  // Oeste
-        ];
+        // Verificar se os dados dos cantos já existem no cache ou nos chunks
+        // Ordem de prioridade: chunks carregados > cache > novo cálculo
         
-        // Chunk norte
-        const northChunk = this.borderHeightCache.get(cacheKeys[0]);
-        if (northChunk && northChunk.south) {
-            boundaryData.north = [...northChunk.south]; // Clone para evitar problemas de referência
+        // 1. Canto Noroeste (compartilhado por 4 chunks)
+        corners.NW = await this._resolveCornerHeight(
+            chunkX, chunkZ, 'NW',
+            // Candidatos possíveis para este canto
+            [
+                { ch: { x: chunkX - 1, z: chunkZ - 1 }, corner: 'SE' },
+                { ch: { x: chunkX, z: chunkZ - 1 }, corner: 'SW' },
+                { ch: { x: chunkX - 1, z: chunkZ }, corner: 'NE' }
+            ],
+            // Bordas que terminam neste canto
+            neighborBorders.north ? neighborBorders.north[0] : null,
+            neighborBorders.west ? neighborBorders.west[0] : null
+        );
+        
+        // 2. Canto Nordeste
+        corners.NE = await this._resolveCornerHeight(
+            chunkX, chunkZ, 'NE',
+            [
+                { ch: { x: chunkX + 1, z: chunkZ - 1 }, corner: 'SW' },
+                { ch: { x: chunkX, z: chunkZ - 1 }, corner: 'SE' },
+                { ch: { x: chunkX + 1, z: chunkZ }, corner: 'NW' }
+            ],
+            neighborBorders.north ? neighborBorders.north[neighborBorders.north.length - 1] : null,
+            neighborBorders.east ? neighborBorders.east[0] : null
+        );
+        
+        // 3. Canto Sudoeste
+        corners.SW = await this._resolveCornerHeight(
+            chunkX, chunkZ, 'SW',
+            [
+                { ch: { x: chunkX - 1, z: chunkZ + 1 }, corner: 'NE' },
+                { ch: { x: chunkX, z: chunkZ + 1 }, corner: 'NW' },
+                { ch: { x: chunkX - 1, z: chunkZ }, corner: 'SE' }
+            ],
+            neighborBorders.south ? neighborBorders.south[0] : null,
+            neighborBorders.west ? neighborBorders.west[neighborBorders.west.length - 1] : null
+        );
+        
+        // 4. Canto Sudeste
+        corners.SE = await this._resolveCornerHeight(
+            chunkX, chunkZ, 'SE',
+            [
+                { ch: { x: chunkX + 1, z: chunkZ + 1 }, corner: 'NW' },
+                { ch: { x: chunkX, z: chunkZ + 1 }, corner: 'NE' },
+                { ch: { x: chunkX + 1, z: chunkZ }, corner: 'SW' }
+            ],
+            neighborBorders.south ? neighborBorders.south[neighborBorders.south.length - 1] : null,
+            neighborBorders.east ? neighborBorders.east[neighborBorders.east.length - 1] : null
+        );
+        
+        return corners;
+    }
+    
+    // Resolver altura de um único canto
+    async _resolveCornerHeight(chunkX, chunkZ, cornerPosition, neighbors, borderValue1, borderValue2) {
+        // 1. Verificar se já existe no cache para este chunk
+        let height = await this._getCornerFromCache(chunkX, chunkZ, cornerPosition);
+        if (height !== null) return height;
+        
+        // 2. Verificar em chunks vizinhos (cantos são compartilhados por até 4 chunks)
+        for (const neighbor of neighbors) {
+            height = await this._getCornerFromCache(neighbor.ch.x, neighbor.ch.z, neighbor.corner);
+            if (height !== null) return height;
         }
         
-        // Chunk sul
-        const southChunk = this.borderHeightCache.get(cacheKeys[1]);
-        if (southChunk && southChunk.north) {
-            boundaryData.south = [...southChunk.north]; // Clone para evitar problemas de referência
-        }
-        
-        // Chunk leste
-        const eastChunk = this.borderHeightCache.get(cacheKeys[2]);
-        if (eastChunk && eastChunk.west) {
-            boundaryData.east = [...eastChunk.west]; // Clone para evitar problemas de referência
-        }
-        
-        // Chunk oeste
-        const westChunk = this.borderHeightCache.get(cacheKeys[3]);
-        if (westChunk && westChunk.east) {
-            boundaryData.west = [...westChunk.east]; // Clone para evitar problemas de referência
-        }
-        
-        // Verificar se precisamos buscar dados de chunks já carregados no jogo
-        if (!boundaryData.north || !boundaryData.south || !boundaryData.east || !boundaryData.west) {
-            // Tentar obter dados de chunks carregados (se o cache falhou)
-            try {
-                // Chunk norte
-                if (!boundaryData.north && this.gameInstance.loadedChunks?.has(cacheKeys[0])) {
-                    const chunk = this.gameInstance.loadedChunks.get(cacheKeys[0]);
-                    if (chunk?.terrain[0]?.metadata?.borderHeights?.south) {
-                        boundaryData.north = [...chunk.terrain[0].metadata.borderHeights.south];
-                    }
-                }
-                
-                // Chunk sul
-                if (!boundaryData.south && this.gameInstance.loadedChunks?.has(cacheKeys[1])) {
-                    const chunk = this.gameInstance.loadedChunks.get(cacheKeys[1]);
-                    if (chunk?.terrain[0]?.metadata?.borderHeights?.north) {
-                        boundaryData.south = [...chunk.terrain[0].metadata.borderHeights.north];
-                    }
-                }
-                
-                // Chunk leste
-                if (!boundaryData.east && this.gameInstance.loadedChunks?.has(cacheKeys[2])) {
-                    const chunk = this.gameInstance.loadedChunks.get(cacheKeys[2]);
-                    if (chunk?.terrain[0]?.metadata?.borderHeights?.west) {
-                        boundaryData.east = [...chunk.terrain[0].metadata.borderHeights.west];
-                    }
-                }
-                
-                // Chunk oeste
-                if (!boundaryData.west && this.gameInstance.loadedChunks?.has(cacheKeys[3])) {
-                    const chunk = this.gameInstance.loadedChunks.get(cacheKeys[3]);
-                    if (chunk?.terrain[0]?.metadata?.borderHeights?.east) {
-                        boundaryData.west = [...chunk.terrain[0].metadata.borderHeights.east];
-                    }
-                }
-            } catch (error) {
-                console.warn("Erro ao ler dados de chunks carregados:", error);
+        // 3. Verificar se as bordas têm valores compatíveis
+        if (borderValue1 !== null && borderValue2 !== null) {
+            // Se as bordas têm valores próximos, usamos a média
+            if (Math.abs(borderValue1 - borderValue2) < 0.5) {
+                height = (borderValue1 + borderValue2) / 2;
+                return height;
             }
         }
         
-        return boundaryData;
+        // 4. Se um valor de borda está disponível, usamos com pequeno offset aleatório
+        if (borderValue1 !== null) {
+            const offset = (this._getNoise(chunkX * 100 + 50, chunkZ * 100 + 50) - 0.5) * 0.2;
+            height = borderValue1 + offset;
+            return height;
+        }
+        
+        if (borderValue2 !== null) {
+            const offset = (this._getNoise(chunkX * 100 + 70, chunkZ * 100 + 70) - 0.5) * 0.2;
+            height = borderValue2 + offset;
+            return height;
+        }
+        
+        // 5. Última opção: calcular novo valor de altura
+        // Determinar bioma neste ponto
+        const biome = this.gameInstance?.biomeManager?.getBiomeAt(
+            chunkX * this.chunkSize, 
+            chunkZ * this.chunkSize
+        ) || 'plains';
+        
+        // Posição do mundo para este canto
+        let worldX, worldZ;
+        
+        // Determinar posição do mundo baseada no canto
+        switch (cornerPosition) {
+            case 'NW':
+                worldX = chunkX * this.chunkSize - this.groundSize/2;
+                worldZ = chunkZ * this.chunkSize - this.groundSize/2;
+                break;
+            case 'NE':
+                worldX = chunkX * this.chunkSize + this.groundSize/2;
+                worldZ = chunkZ * this.chunkSize - this.groundSize/2;
+                break;
+            case 'SW':
+                worldX = chunkX * this.chunkSize - this.groundSize/2;
+                worldZ = chunkZ * this.chunkSize + this.groundSize/2;
+                break;
+            case 'SE':
+                worldX = chunkX * this.chunkSize + this.groundSize/2;
+                worldZ = chunkZ * this.chunkSize + this.groundSize/2;
+                break;
+        }
+        
+        // Calcular altura procedural para este ponto
+        height = this._calculateTerrainHeight(worldX, worldZ, biome);
+        
+        // Armazenar no cache para uso futuro e consistência
+        this._storeCornerHeightInCache(chunkX, chunkZ, cornerPosition, height);
+        
+        // Também propagar para todos os chunks vizinhos que compartilham este canto
+        for (const neighbor of neighbors) {
+            this._storeCornerHeightInCache(neighbor.ch.x, neighbor.ch.z, neighbor.corner, height);
+        }
+        
+        return height;
     }
-
+    
+    // Buscar dados de borda do cache ou chunks carregados
+    async _getBorderData(chunkX, chunkZ, borderName) {
+        const chunkId = `${chunkX},${chunkZ}`;
+        
+        // 1. Tentar obter do cache de bordas
+        const cachedBorders = this.borderHeightCache.get(chunkId);
+        if (cachedBorders && cachedBorders[borderName]) {
+            return cachedBorders[borderName];
+        }
+        
+        // 2. Tentar obter de um chunk carregado
+        const loadedChunk = this.gameInstance?.loadedChunks?.get(chunkId);
+        if (loadedChunk?.terrain && loadedChunk.terrain.length > 0) {
+            const chunkMesh = loadedChunk.terrain[0];
+            if (chunkMesh.metadata?.borderHeights?.[borderName]) {
+                return chunkMesh.metadata.borderHeights[borderName];
+            }
+        }
+        
+        // 3. Se não encontrar, retornar null
+        return null;
+    }
+    
+    // Obter altura de um canto específico do cache
+    async _getCornerFromCache(chunkX, chunkZ, cornerPosition) {
+        const chunkId = `${chunkX},${chunkZ}`;
+        const cornerProp = `corner${cornerPosition}`;
+        
+        // 1. Tentar obter do cache
+        const cachedBorders = this.borderHeightCache.get(chunkId);
+        if (cachedBorders && cachedBorders[cornerProp] !== undefined) {
+            return cachedBorders[cornerProp];
+        }
+        
+        // 2. Tentar obter de um chunk carregado
+        const loadedChunk = this.gameInstance?.loadedChunks?.get(chunkId);
+        if (loadedChunk?.terrain && loadedChunk.terrain.length > 0) {
+            const chunkMesh = loadedChunk.terrain[0];
+            if (chunkMesh.metadata?.cornerHeights?.[cornerPosition]) {
+                return chunkMesh.metadata.cornerHeights[cornerPosition];
+            }
+        }
+        
+        // 3. Se não encontrar, retornar null
+        return null;
+    }
+    
+    // Armazenar dados de borda no cache
+    _storeBorderHeightsInCache(chunkX, chunkZ, borderHeights) {
+        const chunkId = `${chunkX},${chunkZ}`;
+        
+        // Criar ou obter entrada do cache
+        let cacheEntry = this.borderHeightCache.get(chunkId);
+        if (!cacheEntry) {
+            cacheEntry = {};
+            this.borderHeightCache.set(chunkId, cacheEntry);
+        }
+        
+        // Armazenar dados
+        cacheEntry.north = borderHeights.north;
+        cacheEntry.south = borderHeights.south;
+        cacheEntry.east = borderHeights.east;
+        cacheEntry.west = borderHeights.west;
+        cacheEntry.cornerNW = borderHeights.cornerNW;
+        cacheEntry.cornerNE = borderHeights.cornerNE;
+        cacheEntry.cornerSW = borderHeights.cornerSW;
+        cacheEntry.cornerSE = borderHeights.cornerSE;
+        
+        // Propagar para chunks vizinhos - essencial para consistência
+        // Borda norte -> borda sul do chunk ao norte
+        this._propagateBorder(chunkX, chunkZ - 1, 'south', borderHeights.north);
+        
+        // Borda sul -> borda norte do chunk ao sul
+        this._propagateBorder(chunkX, chunkZ + 1, 'north', borderHeights.south);
+        
+        // Borda oeste -> borda leste do chunk a oeste
+        this._propagateBorder(chunkX - 1, chunkZ, 'east', borderHeights.west);
+        
+        // Borda leste -> borda oeste do chunk a leste
+        this._propagateBorder(chunkX + 1, chunkZ, 'west', borderHeights.east);
+    }
+    
+    // Propagar borda para um chunk vizinho
+    _propagateBorder(chunkX, chunkZ, borderName, heightArray) {
+        if (!heightArray) return;
+        
+        const chunkId = `${chunkX},${chunkZ}`;
+        
+        // Criar ou obter entrada do cache
+        let cacheEntry = this.borderHeightCache.get(chunkId);
+        if (!cacheEntry) {
+            cacheEntry = {};
+            this.borderHeightCache.set(chunkId, cacheEntry);
+        }
+        
+        // Armazenar a borda
+        cacheEntry[borderName] = heightArray;
+    }
+    
+    // Armazenar altura de um canto específico no cache
+    _storeCornerHeightInCache(chunkX, chunkZ, cornerPosition, height) {
+        const chunkId = `${chunkX},${chunkZ}`;
+        const cornerProp = `corner${cornerPosition}`;
+        
+        // Criar ou obter entrada do cache
+        let cacheEntry = this.borderHeightCache.get(chunkId);
+        if (!cacheEntry) {
+            cacheEntry = {};
+            this.borderHeightCache.set(chunkId, cacheEntry);
+        }
+        
+        // Armazenar a altura do canto
+        cacheEntry[cornerProp] = height;
+    }
+    
+    // Aplicar blending de biomas para transições suaves
     _applyBiomeBlending(height, x, z, centerBiome, neighborBiomes) {
-        // Distance from chunk center (for biome blending)
+        // Distância do centro do chunk (para blending de biomas)
         const chunkCenterX = Math.floor(x / this.chunkSize) * this.chunkSize + this.chunkSize/2;
         const chunkCenterZ = Math.floor(z / this.chunkSize) * this.chunkSize + this.chunkSize/2;
         
         const distX = Math.abs(x - chunkCenterX) / (this.chunkSize/2);
         const distZ = Math.abs(z - chunkCenterZ) / (this.chunkSize/2);
         
-        // Only blend near edges (outer 30% of chunk)
+        // Só fazer blending perto das bordas (30% externos do chunk)
         if (distX > 0.7 || distZ > 0.7) {
             let blendedHeight = height;
-            let totalWeight = 1.0; // Weight for center biome
+            let totalWeight = 1.0; // Peso para o bioma central
             
-            // Determine which neighbors to blend with
+            // Determinar quais vizinhos usar para blending
             const isNorth = z < chunkCenterZ;
             const isSouth = z > chunkCenterZ;
             const isWest = x < chunkCenterX;
             const isEast = x > chunkCenterX;
             
-            // Calculate blend weights based on position
-            let northWeight = isNorth ? (distZ * 0.8) : 0;
-            let southWeight = isSouth ? (distZ * 0.8) : 0;
-            let westWeight = isWest ? (distX * 0.8) : 0;
-            let eastWeight = isEast ? (distX * 0.8) : 0;
+            // Calcular pesos de blending baseados na posição
+            // Usando função suavizada para melhor transição
+            let northWeight = isNorth ? this._smoothstep(distZ * 0.8) : 0;
+            let southWeight = isSouth ? this._smoothstep(distZ * 0.8) : 0;
+            let westWeight = isWest ? this._smoothstep(distX * 0.8) : 0;
+            let eastWeight = isEast ? this._smoothstep(distX * 0.8) : 0;
             
-            // Corner weights
-            let northeastWeight = (isNorth && isEast) ? (distX * distZ * 0.6) : 0;
-            let northwestWeight = (isNorth && isWest) ? (distX * distZ * 0.6) : 0;
-            let southeastWeight = (isSouth && isEast) ? (distX * distZ * 0.6) : 0;
-            let southwestWeight = (isSouth && isWest) ? (distX * distZ * 0.6) : 0;
+            // Pesos para os cantos
+            let northeastWeight = (isNorth && isEast) ? this._smoothstep(distX * distZ * 0.6) : 0;
+            let northwestWeight = (isNorth && isWest) ? this._smoothstep(distX * distZ * 0.6) : 0;
+            let southeastWeight = (isSouth && isEast) ? this._smoothstep(distX * distZ * 0.6) : 0;
+            let southwestWeight = (isSouth && isWest) ? this._smoothstep(distX * distZ * 0.6) : 0;
             
-            // Blend heights from neighboring biomes
+            // Aplicar blending de alturas dos biomas vizinhos
+            
+            // Norte
             if (northWeight > 0 && neighborBiomes.north) {
                 const northHeight = this._calculateTerrainHeight(x, z, neighborBiomes.north);
                 blendedHeight += northHeight * northWeight;
                 totalWeight += northWeight;
             }
             
+            // Sul
             if (southWeight > 0 && neighborBiomes.south) {
                 const southHeight = this._calculateTerrainHeight(x, z, neighborBiomes.south);
                 blendedHeight += southHeight * southWeight;
                 totalWeight += southWeight;
             }
             
+            // Leste
             if (eastWeight > 0 && neighborBiomes.east) {
                 const eastHeight = this._calculateTerrainHeight(x, z, neighborBiomes.east);
                 blendedHeight += eastHeight * eastWeight;
                 totalWeight += eastWeight;
             }
             
+            // Oeste
             if (westWeight > 0 && neighborBiomes.west) {
                 const westHeight = this._calculateTerrainHeight(x, z, neighborBiomes.west);
                 blendedHeight += westHeight * westWeight;
                 totalWeight += westWeight;
             }
             
-            // Add corner influences
+            // Adicionar influências dos cantos
+            
+            // Nordeste
             if (northeastWeight > 0 && neighborBiomes.northeast) {
                 const neHeight = this._calculateTerrainHeight(x, z, neighborBiomes.northeast);
                 blendedHeight += neHeight * northeastWeight;
                 totalWeight += northeastWeight;
             }
             
+            // Noroeste
             if (northwestWeight > 0 && neighborBiomes.northwest) {
                 const nwHeight = this._calculateTerrainHeight(x, z, neighborBiomes.northwest);
                 blendedHeight += nwHeight * northwestWeight;
                 totalWeight += northwestWeight;
             }
             
+            // Sudeste
             if (southeastWeight > 0 && neighborBiomes.southeast) {
                 const seHeight = this._calculateTerrainHeight(x, z, neighborBiomes.southeast);
                 blendedHeight += seHeight * southeastWeight;
                 totalWeight += southeastWeight;
             }
             
+            // Sudoeste
             if (southwestWeight > 0 && neighborBiomes.southwest) {
                 const swHeight = this._calculateTerrainHeight(x, z, neighborBiomes.southwest);
                 blendedHeight += swHeight * southwestWeight;
                 totalWeight += southwestWeight;
             }
             
-            // Normalize by total weight
+            // Normalizar pelo peso total
             return blendedHeight / totalWeight;
         }
         
         return height;
     }
-    
 }
 
 export default WorldGenerator;
