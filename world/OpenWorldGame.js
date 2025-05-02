@@ -32,7 +32,7 @@ class OpenWorldGame {
         this.worldSeed = Math.floor(Math.random() * 1000000); // Seed aleatória
         this.worldSize = 1000; // Tamanho do mundo em unidades
         this.chunkSize = 16; // Tamanho de cada chunk em unidades
-        this.visibleRange = 1; // Quantos chunks são visíveis em cada direção
+        this.visibleRange = 3; // Quantos chunks são visíveis em cada direção
         
         // Estado do jogo
         this.isPaused = false;
