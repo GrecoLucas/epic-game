@@ -1,5 +1,6 @@
 import BuildingController from './BuildingController.js'; // Importar a nova classe
 import ShootController from './ShootController/ShootController.js'; // Importar o novo ShootController
+import Pause from '../objects/Pause.js'; // Importar o objeto de pausa
 
 class PlayerController {
     constructor(scene, playerModel, playerView) {
@@ -19,6 +20,9 @@ class PlayerController {
         
         // Add pointer lock state tracking
         this.pointerLockActive = false;
+        
+        // Inicializar o sistema de pausa
+        this.pause = new Pause(scene, playerView);
 
         this.initialize();
     }
@@ -41,6 +45,9 @@ class PlayerController {
         
         // Registrar a verificação de chão e atualização da física a cada frame
         this.scene.registerBeforeRender(() => {
+            // Não executar atualizações se o jogo estiver pausado
+            if (this.pause.isPaused()) return;
+            
             this.checkIfGrounded();
             this.model.updatePhysics();
             // Add call to updateMovement
@@ -91,8 +98,6 @@ class PlayerController {
                 this.scene.alreadyLocked = false;
                 this.pointerLockActive = false;
                 
-                // Show instruction to click to re-enable camera control
-                this.showPointerLockInstruction();
             }
         };
         
@@ -103,32 +108,6 @@ class PlayerController {
         document.addEventListener('mspointerlockchange', pointerLockChangeHandler);
     }
     
-    // Show instruction to re-enable pointer lock
-    showPointerLockInstruction() {
-        // Create or update instruction text
-        if (!this.pointerLockInstruction) {
-            const advancedTexture = BABYLON.GUI.AdvancedDynamicTexture.CreateFullscreenUI("pointerLockUI", true);
-            
-            this.pointerLockInstruction = new BABYLON.GUI.TextBlock();
-            this.pointerLockInstruction.text = "Clique 1 ou 2 vezes para retornar ao jogo";
-            this.pointerLockInstruction.color = "white";
-            this.pointerLockInstruction.fontSize = 24;
-            this.pointerLockInstruction.fontFamily = "Arial";
-            this.pointerLockInstruction.textHorizontalAlignment = BABYLON.GUI.Control.HORIZONTAL_ALIGNMENT_CENTER;
-            this.pointerLockInstruction.textVerticalAlignment = BABYLON.GUI.Control.VERTICAL_ALIGNMENT_CENTER;
-            
-            advancedTexture.addControl(this.pointerLockInstruction);
-        } else {
-            this.pointerLockInstruction.isVisible = true;
-        }
-        
-        // Hide instruction after 3 seconds or when pointer lock is re-enabled
-        setTimeout(() => {
-            if (this.pointerLockInstruction && !this.pointerLockActive) {
-                this.pointerLockInstruction.isVisible = false;
-            }
-        }, 3000);
-    }
 
     // Adicionando um novo método para inicializar o BuildingController com segurança
     initializeBuildingController() {
@@ -314,6 +293,9 @@ class PlayerController {
                 return;
             }
 
+            // Não processar cliques se o jogo estiver pausado
+            if (this.pause.isPaused()) return;
+            
             const isLeftClick = evt.button === 0;
             const isRightClick = evt.button === 2;
 
@@ -431,6 +413,13 @@ class PlayerController {
                     const key = evt.sourceEvent.key.toLowerCase();
                     this.inputMap[key] = true;
 
+                    // --- Tecla P para pausar o jogo ---
+                    if (key === "p" || key === "escape") {
+                        this.pause.togglePause();
+                        return; // Não processar outros inputs se estamos pausando
+                    }
+                    // Não processar outros comandos se o jogo estiver pausado
+                    if (this.pause.isPaused()) return;
                     // --- Inputs Gerais (Fora do Modo Construção ou Sempre Ativos) ---
                     if (key === "e") {
                         if (!this.buildingController?.isEnabled) { // Só interage se NÃO estiver construindo
@@ -584,6 +573,9 @@ class PlayerController {
     }
     
     updateMovement() {
+        // Não atualizar movimento se o jogo estiver pausado
+        if (this.pause.isPaused()) return;
+        
         // Movimento para frente/trás
         if (this.inputMap["w"]) {
             this.moveForward();
