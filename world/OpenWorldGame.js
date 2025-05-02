@@ -117,8 +117,8 @@ class OpenWorldGame {
         }
     }
     
-    // Modificar o método generateInitialWorld para tratar erros
-    // OpenWorldGame.js - Add to generateInitialWorld method
+
+    // 1. Improve generateInitialWorld to handle errors better
     async generateInitialWorld() {
         console.log("Generating initial world...");
         
@@ -135,7 +135,12 @@ class OpenWorldGame {
             for (let i = 0; i < immediateChunks.length; i++) {
                 const progress = (i / immediateChunks.length) * 50; // First 50% of progress
                 this.updateLoadingProgress(progress);
-                await this.generateChunk(immediateChunks[i].x, immediateChunks[i].z);
+                try {
+                    await this.generateChunk(immediateChunks[i].x, immediateChunks[i].z);
+                } catch (error) {
+                    console.warn(`Failed to generate initial chunk ${immediateChunks[i].x},${immediateChunks[i].z}:`, error);
+                    // Continue with next chunk even if this one fails
+                }
                 
                 // Small pause to allow UI to update
                 await new Promise(resolve => setTimeout(resolve, 5));
@@ -165,8 +170,8 @@ class OpenWorldGame {
             return false;
         }
     }
+    
 
-    // Add new method for background loading
     async _loadRemainingChunksInBackground(chunks) {
         const BATCH_SIZE = 2; // Load 2 chunks at a time
         const DELAY_BETWEEN_BATCHES = 300; // 300ms delay between batches
@@ -180,6 +185,7 @@ class OpenWorldGame {
                     await this.generateChunk(chunk.x, chunk.z);
                 } catch (error) {
                     console.warn(`Failed to load background chunk ${chunk.x},${chunk.z}:`, error);
+                    // Continue with next chunk even if this one fails
                 }
             }
             
@@ -187,37 +193,41 @@ class OpenWorldGame {
             await new Promise(resolve => setTimeout(resolve, DELAY_BETWEEN_BATCHES));
         }
     }
-        
-    // Método para gerar um chunk na posição especificada
+    
+    // 3. Improve generateChunk with better error handling and fix pointer lock issues
     async generateChunk(chunkX, chunkZ) {
+        // Fix pointer lock issues
+        this.fixPointerLockIssues();
         const chunkId = `${chunkX},${chunkZ}`;
         
-        // Verificar se o chunk já está carregado
+        // Check if chunk is already loaded
         if (this.loadedChunks.has(chunkId)) {
             return this.loadedChunks.get(chunkId);
         }
         
         try {
-            // Calcular posição real do chunk no mundo
+            // Calculate real world position
             const worldX = chunkX * this.chunkSize;
             const worldZ = chunkZ * this.chunkSize;
             
-            // Determinar o bioma para este chunk
-            let biome = 'plains'; // Bioma padrão em caso de erro
+            // Determine biome for this chunk
+            let biome = 'plains'; // Default biome
             if (this.biomeManager) {
                 biome = this.biomeManager.getBiomeAt(worldX, worldZ);
             }
             
-            // Estruturas padrão em caso do worldGenerator falhar
+            // Default empty arrays in case of errors
             let chunkMeshes = [];
+            let structures = [];
+            let entities = [];
             
-            // Gerar o terreno para este chunk
+            // Generate terrain for this chunk
             if (this.worldGenerator) {
                 try {
                     chunkMeshes = await this.worldGenerator.generateChunkTerrain(chunkX, chunkZ, biome);
                 } catch (error) {
-                    console.error(`Erro ao gerar terreno para chunk ${chunkId}:`, error);
-                    // Criar um terreno plano simples como fallback
+                    console.error(`Error generating terrain for chunk ${chunkId}:`, error);
+                    // Create a simple flat ground as fallback
                     const fallbackGround = BABYLON.MeshBuilder.CreateGround(
                         `terrain_fallback_${chunkX}_${chunkZ}`,
                         { width: this.chunkSize, height: this.chunkSize },
@@ -231,42 +241,39 @@ class OpenWorldGame {
                     fallbackMaterial.diffuseColor = new BABYLON.Color3(0.5, 0.5, 0.5);
                     fallbackGround.material = fallbackMaterial;
                     
+                    fallbackGround.metadata = { isChunkTerrain: true };
                     chunkMeshes = [fallbackGround];
                 }
             }
             
-            // Adicionar meshes do terreno ao sistema de colisão
+            // Add terrain meshes to collision system
             if (this.collisionSystem && chunkMeshes.length > 0) {
                 this.collisionSystem.addMeshes(chunkMeshes);
             }
             
-            // Estruturas e entidades
-            let structures = [];
-            let entities = [];
-            
-            // Gerar estruturas para este chunk (árvores, casas, etc.) baseado no bioma
+            // Generate structures for this chunk
             if (this.structureManager) {
                 try {
                     structures = await this.structureManager.generateStructuresForChunk(chunkX, chunkZ, biome);
-                    // Adicionar estruturas ao sistema de colisão
+                    // Add to collision system
                     if (this.collisionSystem && structures && structures.length > 0) {
                         this.collisionSystem.addMeshes(structures);
                     }
                 } catch (error) {
-                    console.error(`Erro ao gerar estruturas para chunk ${chunkId}:`, error);
+                    console.error(`Error generating structures for chunk ${chunkId}:`, error);
                 }
             }
             
-            // Gerar entidades para este chunk (monstros, itens) baseado no bioma
+            // Generate entities for this chunk
             if (this.entityManager) {
                 try {
                     entities = await this.entityManager.spawnEntitiesInChunk(chunkX, chunkZ, biome);
                 } catch (error) {
-                    console.error(`Erro ao gerar entidades para chunk ${chunkId}:`, error);
+                    console.error(`Error generating entities for chunk ${chunkId}:`, error);
                 }
             }
             
-            // Armazenar dados do chunk
+            // Store chunk data
             const chunkData = {
                 x: chunkX,
                 z: chunkZ,
@@ -281,7 +288,104 @@ class OpenWorldGame {
             
             return chunkData;
         } catch (error) {
-            console.error(`Erro ao gerar o chunk ${chunkId}:`, error);
+            console.error(`Error generating chunk ${chunkId}:`, error);
+            return null;
+        }
+    }
+            
+    // 3. Improve generateChunk with better error handling
+    async generateChunk(chunkX, chunkZ) {
+        const chunkId = `${chunkX},${chunkZ}`;
+        
+        // Check if chunk is already loaded
+        if (this.loadedChunks.has(chunkId)) {
+            return this.loadedChunks.get(chunkId);
+        }
+        
+        try {
+            // Calculate real world position
+            const worldX = chunkX * this.chunkSize;
+            const worldZ = chunkZ * this.chunkSize;
+            
+            // Determine biome for this chunk
+            let biome = 'plains'; // Default biome
+            if (this.biomeManager) {
+                biome = this.biomeManager.getBiomeAt(worldX, worldZ);
+            }
+            
+            // Default empty arrays in case of errors
+            let chunkMeshes = [];
+            let structures = [];
+            let entities = [];
+            
+            // Generate terrain for this chunk
+            if (this.worldGenerator) {
+                try {
+                    chunkMeshes = await this.worldGenerator.generateChunkTerrain(chunkX, chunkZ, biome);
+                } catch (error) {
+                    console.error(`Error generating terrain for chunk ${chunkId}:`, error);
+                    // Create a simple flat ground as fallback
+                    const fallbackGround = BABYLON.MeshBuilder.CreateGround(
+                        `terrain_fallback_${chunkX}_${chunkZ}`,
+                        { width: this.chunkSize, height: this.chunkSize },
+                        this.scene
+                    );
+                    fallbackGround.position.x = worldX;
+                    fallbackGround.position.z = worldZ;
+                    fallbackGround.checkCollisions = true;
+                    
+                    const fallbackMaterial = new BABYLON.StandardMaterial(`fallback_material_${chunkId}`, this.scene);
+                    fallbackMaterial.diffuseColor = new BABYLON.Color3(0.5, 0.5, 0.5);
+                    fallbackGround.material = fallbackMaterial;
+                    
+                    fallbackGround.metadata = { isChunkTerrain: true };
+                    chunkMeshes = [fallbackGround];
+                }
+            }
+            
+            // Add terrain meshes to collision system
+            if (this.collisionSystem && chunkMeshes.length > 0) {
+                this.collisionSystem.addMeshes(chunkMeshes);
+            }
+            
+            // Generate structures for this chunk
+            if (this.structureManager) {
+                try {
+                    structures = await this.structureManager.generateStructuresForChunk(chunkX, chunkZ, biome);
+                    // Add to collision system
+                    if (this.collisionSystem && structures && structures.length > 0) {
+                        this.collisionSystem.addMeshes(structures);
+                    }
+                } catch (error) {
+                    console.error(`Error generating structures for chunk ${chunkId}:`, error);
+                }
+            }
+            
+            // Generate entities for this chunk
+            if (this.entityManager) {
+                try {
+                    entities = await this.entityManager.spawnEntitiesInChunk(chunkX, chunkZ, biome);
+                } catch (error) {
+                    console.error(`Error generating entities for chunk ${chunkId}:`, error);
+                }
+            }
+            
+            // Store chunk data
+            const chunkData = {
+                x: chunkX,
+                z: chunkZ,
+                biome: biome,
+                terrain: chunkMeshes,
+                structures: structures,
+                entities: entities,
+                lastAccessed: Date.now()
+            };
+            
+            this.loadedChunks.set(chunkId, chunkData);
+            
+            return chunkData;
+        } catch (error) {
+            console.error(`Error generating chunk ${chunkId}:`, error);
             return null;
         }
     }
@@ -414,17 +518,13 @@ class OpenWorldGame {
         }
     }
     
-    // Inicializar o sistema de hordas de zumbis
+
     initializeZombieSpawner() {
-        // Criar o gerenciador de hordas
-        this.zombieSpawner = new ZombieS(this.scene, this);
-        this.zombieSpawner.initialize();
+        // ESTA FUNÇÃO AGORA ESTÁ VAZIA PARA IMPEDIR O SISTEMA DE HORDAS NO MUNDO ABERTO
+        console.log("Sistema de hordas desabilitado no modo Open World.");
         
-        // Iniciar o sistema de hordas após um pequeno atraso
-        setTimeout(() => {
-            this.zombieSpawner.startHordeSystem();
-            console.log("Sistema de hordas de zumbis iniciado!");
-        }, 10000); // 10 segundos de atraso inicial para dar tempo ao jogador
+        // Não inicializa mais o ZombieS no modo Open World
+        this.zombieSpawner = null;
     }
     
     // Colocar algumas armas iniciais para o jogador

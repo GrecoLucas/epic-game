@@ -38,36 +38,38 @@ class EntityManager {
         return 'entity_' + (++this.entityIdCounter);
     }
     
-    // Spawnar entidades em um chunk específico
+
+    // 2. Update spawnEntitiesInChunk to pass coordinates to _determineEntityCount
     async spawnEntitiesInChunk(chunkX, chunkZ, biome) {
-        // Calcular posição real do chunk no mundo
+        // Calculate real chunk position in world
         const chunkSize = this.gameInstance.chunkSize || 16;
         const worldX = chunkX * chunkSize;
         const worldZ = chunkZ * chunkSize;
         
-        // Lista para armazenar entidades criadas
+        // List to store created entities
         const entities = [];
         
-        // Determinar quantas e quais entidades criar baseado no bioma
-        const entityCount = this._determineEntityCount(biome);
+        // Determine how many and which entities to create based on biome
+        // Pass chunkX/chunkZ coordinates for deterministic generation
+        const entityCount = this._determineEntityCount(biome, worldX, worldZ);
         
-        // Criar as entidades
+        // Create the entities
         for (let i = 0; i < entityCount; i++) {
-            // Posição aleatória dentro do chunk
+            // Random position within chunk
             const posX = worldX + Math.random() * chunkSize;
             const posZ = worldZ + Math.random() * chunkSize;
             
-            // Determinar tipo de entidade baseado no bioma
+            // Determine entity type based on biome
             const entityType = this._determineEntityType(biome, posX, posZ);
             
-            // Criar a entidade
+            // Create the entity
             const entity = await this._createEntity(posX, posZ, entityType, biome);
             
             if (entity) {
-                // Adicionar às listas apropriadas
+                // Add to appropriate lists
                 this.entities.push(entity);
                 
-                // Categorizar por tipo
+                // Categorize by type
                 if (entity.type === 'monster') {
                     this.monsters.push(entity);
                 } else if (entity.type === 'npc') {
@@ -83,43 +85,51 @@ class EntityManager {
         return entities;
     }
     
-    // Determinar quantidade de entidades para um chunk baseado no bioma
-    _determineEntityCount(biome) {
-        let baseCount = 0;
         
-        // CHANGE: Reduce base counts by ~50%
+    // EntityManager.js - Modificações para corrigir problemas de spawn
+
+
+    // 1. Fix _determineEntityCount to properly use parameters
+    _determineEntityCount(biome, x, z) {
+        // Use coordinates for deterministic generation
+        const seed = (x * 73856093) ^ (z * 19349663);
+        const baseValue = Math.abs(Math.sin(seed)) % 1.0; // Deterministic random value
+        
+        // Adjust based on biome
+        let biomeFactor = 1.0;
+        
         switch(biome) {
             case 'forest':
-                baseCount = 2; // Reduced from 4
-                break;
-            case 'mountains':
-                baseCount = 1; // Reduced from 2
-                break;
-            case 'desert':
-                baseCount = 1; // No change (already minimal)
+                biomeFactor = 1.5; // Reduced from 3.0 to 1.5
                 break;
             case 'plains':
-                baseCount = 2; // Reduced from 3
+                biomeFactor = 2.0; // Increased to favor animals like cows
+                break;
+            case 'desert':
+                biomeFactor = 0.5; // Reduced from 0.7 to 0.5
+                break;
+            case 'mountains':
+                biomeFactor = 0.8; // Reduced from 1.2 to 0.8
                 break;
             case 'snow':
-                baseCount = 1; // Reduced from 2
+                biomeFactor = 0.8; // Reduced from 1.3 to 0.8
                 break;
             case 'swamp':
-                baseCount = 3; // Reduced from 5
+                biomeFactor = 1.0; // Reduced from 2.0 to 1.0
                 break;
             default:
-                baseCount = 1;
+                biomeFactor = 0.5;
         }
         
-        // CHANGE: Smaller random variation
-        const variation = Math.floor(Math.random() * 2); // 0 or 1 instead of 0-2
+        // Calculate final count (structureDensity might not exist, use 0.6 as default)
+        const density = 0.6;
+        const rawCount = Math.floor(baseValue * 5 * biomeFactor * density);
         
-        // CHANGE: Reduce max entities per chunk
-        this.maxEntitiesPerChunk = 5; // Reduced from 8
-        
-        return Math.min(baseCount + variation, this.maxEntitiesPerChunk);
+        // Limit to a reasonable number (to avoid overload)
+        return Math.min(Math.max(rawCount, 0), 10);
     }
-    // EntityManager.js - Add to _updateActiveEntities method
+
+
     _updateActiveEntities() {
         // Get player position
         const player = this.gameInstance.player;
@@ -189,58 +199,52 @@ class EntityManager {
             }
         }
     }
-    // Determinar tipo de entidade com base no bioma
+
     _determineEntityType(biome, x, z) {
         const rand = Math.random();
         
-        // Probabilidades baseadas no bioma
+        // Alterado para remover monstros do Open World e adicionar vacas nas planícies
         switch(biome) {
             case 'forest':
-                if (rand < 0.7) return 'monster';
-                if (rand < 0.9) return 'item';
-                return 'npc';
-                
-            case 'mountains':
-                if (rand < 0.6) return 'monster';
-                if (rand < 0.95) return 'item';
-                return 'npc';
-                
-            case 'desert':
-                if (rand < 0.8) return 'monster';
-                if (rand < 0.95) return 'item';
-                return 'npc';
-                
-            case 'plains':
-                if (rand < 0.5) return 'monster';
                 if (rand < 0.8) return 'item';
                 return 'npc';
                 
-            case 'snow':
-                if (rand < 0.7) return 'monster';
+            case 'plains':
+                if (rand < 0.7) return 'cow'; // Novo tipo de entidade: vaca
                 if (rand < 0.9) return 'item';
+                return 'npc';
+                
+            case 'desert':
+                if (rand < 0.8) return 'item';
+                return 'npc';
+                
+            case 'mountains':
+                if (rand < 0.6) return 'item';
+                return 'npc';
+                
+            case 'snow':
+                if (rand < 0.7) return 'item';
                 return 'npc';
                 
             case 'swamp':
-                if (rand < 0.8) return 'monster';
-                if (rand < 0.9) return 'item';
+                if (rand < 0.8) return 'item';
                 return 'npc';
                 
             default:
-                if (rand < 0.7) return 'monster';
-                if (rand < 0.9) return 'item';
+                if (rand < 0.7) return 'item';
                 return 'npc';
         }
     }
     
-    // Criar entidade específica
+    // Modificação no método _createEntity para suportar a nova entidade "vaca"
     async _createEntity(x, z, entityType, biome) {
         // Determinar a altura Y com base na altura do terreno
         const y = await this._getTerrainHeightAt(x, z);
         
         // Criar entidade baseada no tipo
         switch(entityType) {
-            case 'monster':
-                return await this._createMonster(x, y, z, biome);
+            case 'cow':
+                return await this._createCow(x, y, z, biome);
                 
             case 'npc':
                 return await this._createNPC(x, y, z, biome);
@@ -255,31 +259,216 @@ class EntityManager {
     }
     
     // Obter altura do terreno em uma posição específica
-    async _getTerrainHeightAt(x, z) {
-        // Raycast para encontrar a altura do terreno
-        const rayStart = new BABYLON.Vector3(x, 100, z); // Começar suficientemente alto
-        const rayDirection = new BABYLON.Vector3(0, -1, 0); // Apontar para baixo
-        
-        // Criar ray
-        const ray = new BABYLON.Ray(rayStart, rayDirection, 200); // Comprimento suficiente
-        
-        // Função para filtrar apenas meshes do terreno
-        const predicate = (mesh) => {
-            return mesh.metadata && mesh.metadata.isChunkTerrain;
-        };
-        
-        // Fazer o raycast
-        const hit = this.scene.pickWithRay(ray, predicate);
-        
-        if (hit.hit) {
-            // Retornar a altura do terreno no ponto de impacto
-            return hit.pickedPoint.y;
+    async _getTerrainHeightAt(x, z, offset = 0) {
+        try {
+            // Altura máxima para começar o raio (bem acima de qualquer terreno possível)
+            const MAX_HEIGHT = 100;
+            // Profundidade máxima para verificar (bem abaixo de qualquer terreno possível)
+            const MAX_DEPTH = 100;
+            
+            // Criar posição inicial do raio (acima do terreno)
+            const rayStart = new BABYLON.Vector3(x, MAX_HEIGHT, z);
+            // Direção para baixo
+            const rayDirection = new BABYLON.Vector3(0, -1, 0);
+            
+            // Criar o raio com comprimento suficiente para alcançar qualquer terreno
+            const ray = new BABYLON.Ray(rayStart, rayDirection, MAX_HEIGHT + MAX_DEPTH);
+            
+            // Função para filtrar apenas meshes de terreno e estruturas sólidas
+            const predicate = (mesh) => {
+                // Verificar se é um chunk de terreno
+                const isTerrainChunk = mesh.metadata && mesh.metadata.isChunkTerrain;
+                
+                // Verificar se é uma estrutura sólida (não atravessável)
+                const isSolidStructure = mesh.checkCollisions === true && 
+                                        !mesh.name.includes("preview") && 
+                                        !mesh.name.includes("player");
+                
+                return isTerrainChunk || isSolidStructure;
+            };
+            
+            // Realizar o raycast
+            const hit = this.scene.pickWithRay(ray, predicate);
+            
+            if (hit.hit && hit.pickedPoint) {
+                // Adicionar um pequeno offset para garantir que a entidade fique acima do terreno
+                // e não enterrada ou flutuando
+                const height = hit.pickedPoint.y + offset;
+                
+                // Log de depuração (opcional)
+                // console.log(`Altura do terreno em [${x}, ${z}]: ${height}`);
+                
+                return height;
+            }
+            
+            // Se não acertar nada, fazer um segundo teste com raio mais curto
+            // para casos onde o terreno ainda está sendo carregado
+            const shortRay = new BABYLON.Ray(
+                new BABYLON.Vector3(x, 10, z), // Começar de altura mais baixa
+                rayDirection,
+                20 // Comprimento menor
+            );
+            
+            const shortHit = this.scene.pickWithRay(shortRay, predicate);
+            
+            if (shortHit.hit && shortHit.pickedPoint) {
+                return shortHit.pickedPoint.y + offset;
+            }
+            
+            // Se ainda não acertar nada, tentar encontrar a altura média do terreno ao redor
+            const nearbyPoints = [
+                {x: x + 1, z: z},
+                {x: x - 1, z: z},
+                {x: x, z: z + 1},
+                {x: x, z: z - 1}
+            ];
+            
+            let totalHeight = 0;
+            let validPoints = 0;
+            
+            for (const point of nearbyPoints) {
+                const nearbyRay = new BABYLON.Ray(
+                    new BABYLON.Vector3(point.x, 10, point.z),
+                    rayDirection,
+                    20
+                );
+                
+                const nearbyHit = this.scene.pickWithRay(nearbyRay, predicate);
+                
+                if (nearbyHit.hit && nearbyHit.pickedPoint) {
+                    totalHeight += nearbyHit.pickedPoint.y;
+                    validPoints++;
+                }
+            }
+            
+            if (validPoints > 0) {
+                return (totalHeight / validPoints) + offset;
+            }
+            
+            // Se tudo falhar, retornar valor padrão
+            console.warn(`Não foi possível determinar altura do terreno em [${x}, ${z}]. Usando altura padrão.`);
+            return 0.5 + offset; // Altura padrão + offset
+        } catch (error) {
+            console.error(`Erro ao obter altura do terreno:`, error);
+            return 0.5 + offset; // Valor padrão em caso de erro
         }
-        
-        // Se não acertar nada, retornar um valor padrão
-        return 0;
     }
-    
+
+    async _positionTreeOnTerrain(tree, worldX, worldZ, treeType = 'normal') {
+        if (!tree) return;
+        
+        try {
+            // Offsets específicos para diferentes tipos de árvores
+            const offsets = {
+                'normal': 0, // Árvore padrão
+                'pine': 0, // Pinheiro
+                'swamp': 0.2, // Árvore de pântano (ligeiramente enterrada)
+                'tall': 0   // Árvore alta
+            };
+            
+            // Obter offset específico para este tipo de árvore
+            const treeOffset = offsets[treeType] || 0;
+            
+            // Obter altura precisa do terreno neste ponto + offset apropriado
+            const terrainHeight = await this._getTerrainHeightAt(worldX, worldZ, treeOffset);
+            
+            // Posicionar a árvore exatamente na altura do terreno
+            tree.position.y = terrainHeight;
+            
+            // Log de depuração (opcional)
+            // console.log(`Árvore posicionada em [${worldX}, ${terrainHeight}, ${worldZ}]`);
+            
+            return tree;
+        } catch (error) {
+            console.error(`Erro ao posicionar árvore:`, error);
+            return tree; // Retornar a árvore mesmo em caso de erro
+        }
+    }
+    async _positionNPCOnTerrain(npc, worldX, worldZ, npcType = 'human') {
+        if (!npc) return;
+        
+        try {
+            // Offsets específicos para diferentes tipos de NPCs
+            const offsets = {
+                'human': 1.0, // Humano (pés no chão, offset = metade da altura)
+                'cow': 0.6,   // Vaca (meio corpo acima do chão)
+                'sheep': 0.5, // Ovelha
+                'villager': 1.0, // Aldeão
+                'trader': 1.0  // Comerciante
+            };
+            
+            // Obter offset específico para este tipo de NPC
+            const npcOffset = offsets[npcType] || 1.0;
+            
+            // Obter altura precisa do terreno neste ponto + offset apropriado
+            const terrainHeight = await this._getTerrainHeightAt(worldX, worldZ, npcOffset);
+            
+            // Posicionar o NPC exatamente na altura do terreno
+            npc.position.y = terrainHeight;
+            
+            // Log de depuração (opcional)
+            // console.log(`NPC posicionado em [${worldX}, ${terrainHeight}, ${worldZ}]`);
+            
+            return npc;
+        } catch (error) {
+            console.error(`Erro ao posicionar NPC:`, error);
+            return npc; // Retornar o NPC mesmo em caso de erro
+        }
+    }
+    async _positionStructureOnTerrain(structure, worldX, worldZ, structureType = 'house') {
+        if (!structure) return;
+        
+        try {
+            // Offsets específicos para diferentes tipos de estruturas
+            const offsets = {
+                'house': 0.1,    // Casa (ligeiramente enterrada na base)
+                'cabin': 0.1,    // Cabana
+                'tower': 0,      // Torre
+                'ruins': 0,      // Ruínas
+                'rock': 0.2,     // Rocha (parcialmente enterrada)
+                'well': 0.5      // Poço (metade enterrado)
+            };
+            
+            // Obter offset específico para este tipo de estrutura
+            const structureOffset = offsets[structureType] || 0;
+            
+            // Obter altura precisa do terreno neste ponto
+            const terrainHeight = await this._getTerrainHeightAt(worldX, worldZ, structureOffset);
+            
+            // Posicionar a estrutura exatamente na altura do terreno
+            structure.position.y = terrainHeight;
+            
+            // Ajustar a base da estrutura para acompanhar a inclinação do terreno
+            // (opcional, dependendo do tipo de estrutura)
+            if (['house', 'cabin', 'tower'].includes(structureType)) {
+                // Verificar alturas em diferentes pontos da base
+                const structureSize = 2; // Tamanho aproximado da estrutura
+                const heightNW = await this._getTerrainHeightAt(worldX - structureSize/2, worldZ - structureSize/2);
+                const heightNE = await this._getTerrainHeightAt(worldX + structureSize/2, worldZ - structureSize/2);
+                const heightSW = await this._getTerrainHeightAt(worldX - structureSize/2, worldZ + structureSize/2);
+                const heightSE = await this._getTerrainHeightAt(worldX + structureSize/2, worldZ + structureSize/2);
+                
+                // Calcular as inclinações
+                const slopeX = ((heightNE + heightSE) - (heightNW + heightSW)) / structureSize;
+                const slopeZ = ((heightSW + heightSE) - (heightNW + heightNE)) / structureSize;
+                
+                // Aplicar rotações para alinhar com o terreno (se a inclinação não for muito extrema)
+                const MAX_SLOPE = 0.3; // Limitar rotação máxima
+                if (Math.abs(slopeX) < MAX_SLOPE && Math.abs(slopeZ) < MAX_SLOPE) {
+                    structure.rotation.z = -Math.atan(slopeX);
+                    structure.rotation.x = Math.atan(slopeZ);
+                }
+            }
+            
+            // Log de depuração (opcional)
+            // console.log(`Estrutura posicionada em [${worldX}, ${terrainHeight}, ${worldZ}]`);
+            
+            return structure;
+        } catch (error) {
+            console.error(`Erro ao posicionar estrutura:`, error);
+            return structure; // Retornar a estrutura mesmo em caso de erro
+        }
+    }
     // Criar um monstro
     async _createMonster(x, y, z, biome) {
         // Tipo específico de monstro para o bioma
@@ -410,7 +599,7 @@ class EntityManager {
     async _createNPC(x, y, z, biome) {
         // Implementação básica por enquanto
         // Similar ao monstro mas com comportamento amigável
-        
+
         // Posição inicial
         const position = new BABYLON.Vector3(x, y, z);
         
@@ -481,6 +670,47 @@ class EntityManager {
         return npc;
     }
     
+    // Método adicionado ao EntityManager.js
+    async _createCow(x, y, z, biome) {
+        try {
+            // Importar os arquivos necessários dinamicamente
+            const CowModel = (await import('./models/CowModel.js')).default;
+            const CowView = (await import('./views/CowView.js')).default;
+            const CowController = (await import('./controllers/CowController.js')).default;
+            
+            // Criar posição
+            const position = new BABYLON.Vector3(x, y, z);
+            
+            // Criar modelo
+            const cowModel = new CowModel(this.scene, position);
+            
+            // Criar view
+            const cowView = new CowView(this.scene);
+            
+            // Criar controller
+            const cowController = new CowController(this.scene, cowModel, cowView);
+            
+            // Inicializar
+            cowController.initialize();
+            
+            // Adicionar propriedades para compatibilidade com o sistema de entidades
+            cowController.id = this._generateEntityId();
+            cowController.type = 'cow';
+            cowController.entityType = 'cow';
+            cowController.biome = biome;
+            
+            // Método necessário para o sistema
+            cowController.getPosition = function() {
+                return this.model ? this.model.getPosition() : position;
+            };
+            
+            return cowController;
+        } catch (error) {
+            console.error("Erro ao criar vaca:", error);
+            return null;
+        }
+    }
+
     // Criar um item colecionável
     async _createItem(x, y, z, biome) {
         // Tipo de item baseado no bioma

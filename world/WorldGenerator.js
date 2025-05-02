@@ -6,25 +6,28 @@ class WorldGenerator {
         this.gameInstance = gameInstance;
         this.seed = seed || Math.floor(Math.random() * 1000000);
         
-        // Configurações do terreno
+        // Terrain configuration
         this.chunkSize = gameInstance.chunkSize || 16;
-        this.groundSize = this.chunkSize * 1.01; // Leve sobreposição para evitar lacunas
-        this.terrainSubdivisions = 32; // Maior para terreno mais detalhado
-        this.terrainHeight = 15; // Altura máxima do terreno
-        this.octaves = 4; // Quantidade de camadas de ruído (detalhes)
-        this.persistence = 0.5; // Como as camadas influenciam umas às outras
-        this.lacunarity = 2.0; // Frequência de cada camada
-        this.baseRoughness = 1.0; // Detalhamento do terreno de base
-        this.roughness = 2.7; // Multiplicador de rugosidade por oitava
-        this.terrainMaterials = new Map(); // Cache de materiais por bioma
+        this.groundSize = this.chunkSize * 1.05; // 5% overlap to eliminate seams
+        this.terrainSubdivisions = 32; // Higher for more detailed terrain
+        this.terrainHeight = 15;
+        this.octaves = 4;
+        this.persistence = 0.5;
+        this.lacunarity = 2.0;
+        this.baseRoughness = 1.0;
+        this.roughness = 2.7;
+        this.terrainMaterials = new Map();
         
-        // Inicializar sistema de geração de ruído
+        // Cache for border heights between chunks
+        this.borderHeightCache = new Map();
+        
+        // Initialize noise generator
         this._initializeNoiseGenerator();
     }
     
     // Inicializar o gerador de ruído
     _initializeNoiseGenerator() {
-        // Simples função de hash para ruído baseado em semente
+        // Simple hash function for noise based on seed
         this.hashFunction = function(x, y) {
             const seedValue = ((x * 73856093) ^ (y * 19349663)) ^ this.seed;
             return this._frac(Math.sin(seedValue) * 43758.5453);
@@ -226,10 +229,66 @@ class WorldGenerator {
         return material;
     }
     
+    // In WorldGenerator.js
+    // Add this method to create a procedural heightmap
+
+    // 1. Add method to create a procedural heightmap
+    async createProceduralHeightmap(width, height) {
+        return new Promise((resolve) => {
+            // Create a canvas to draw the heightmap
+            const canvas = document.createElement('canvas');
+            canvas.width = width;
+            canvas.height = height;
+            const ctx = canvas.getContext('2d');
+            
+            // Create an ImageData to fill with height data
+            const imageData = ctx.createImageData(width, height);
+            
+            // Generate height data using noise
+            for (let y = 0; y < height; y++) {
+                for (let x = 0; x < width; x++) {
+                    // Index for the data array (4 bytes per pixel: R,G,B,A)
+                    const idx = (y * width + x) * 4;
+                    
+                    // Use existing noise function to generate height value
+                    // Normalize coordinates to noise space
+                    const nx = x / width;
+                    const ny = y / height;
+                    
+                    // Use noise function with multiple octaves
+                    const noiseValue = this._getNoise(nx * 10, ny * 10);
+                    
+                    // Convert to pixel value (0-255)
+                    const pixelValue = Math.floor(noiseValue * 255);
+                    
+                    // Set grayscale value
+                    imageData.data[idx] = pixelValue;     // R
+                    imageData.data[idx + 1] = pixelValue; // G
+                    imageData.data[idx + 2] = pixelValue; // B
+                    imageData.data[idx + 3] = 255;        // A (full opacity)
+                }
+            }
+            
+            // Update canvas with generated data
+            ctx.putImageData(imageData, 0, 0);
+            
+            // Convert to data URL
+            const dataURL = canvas.toDataURL();
+            
+            // Create image to load into Babylon
+            const img = new Image();
+            img.onload = () => {
+                resolve(img);
+            };
+            img.src = dataURL;
+        });
+    }
+
+
     // Adicionar água a um chunk se for apropriado para o bioma
     async _addWaterToChunk(chunkX, chunkZ, groundMesh, biome) {
-        // Verificar se bioma precisa de água
-        if (!['swamp', 'forest'].includes(biome)) {
+        // Verificar se o bioma precisa de água
+        if (!['swamp', 'forest', 'plains'].includes(biome)) { // Adicionado 'plains' para ter água em planícies
             return null;
         }
         
@@ -239,9 +298,17 @@ class WorldGenerator {
         
         // Determinar nível da água baseado no bioma
         let waterLevel = 0.5; // Nível padrão
+        let waterColor = new BABYLON.Color3(0.1, 0.3, 0.5); // Cor padrão azul
+        let transparency = 0.6; // Transparência padrão
         
         if (biome === 'swamp') {
-            waterLevel = 0.7; // Pântanos têm mais água
+            waterLevel = 0.5; // Reduzido para melhor visual
+            waterColor = new BABYLON.Color3(0.1, 0.2, 0.1); // Verde escuro
+            transparency = 0.7; // Mais opaco
+        } else if (biome === 'plains') {
+            waterLevel = 0.3; // Água mais baixa nas planícies
+            waterColor = new BABYLON.Color3(0.1, 0.4, 0.6); // Azul mais claro
+            transparency = 0.5; // Mais transparente
         }
         
         // Verificar se o terreno está baixo o suficiente para ter água
@@ -267,28 +334,14 @@ class WorldGenerator {
         // Calcular nível da água baseado na altura mínima do terreno
         const waterHeight = Math.max(minHeight + 0.1, this.terrainHeight * 0.15);
         
-        // Criar material da água
-        const waterMaterial = new BABYLON.WaterMaterial(`water_${chunkX}_${chunkZ}`, this.scene);
-        waterMaterial.backFaceCulling = true;
-        waterMaterial.bumpTexture = new BABYLON.Texture("textures/waterbump.png", this.scene);
-        
-        // Configurar aparência da água baseado no bioma
-        if (biome === 'swamp') {
-            waterMaterial.waterColor = new BABYLON.Color3(0.1, 0.2, 0.1);
-            waterMaterial.colorBlendFactor = 0.5;
-            waterMaterial.waveHeight = 0.1;
-            waterMaterial.waveLength = 0.5;
-        } else {
-            waterMaterial.waterColor = new BABYLON.Color3(0.1, 0.3, 0.5);
-            waterMaterial.colorBlendFactor = 0.3;
-            waterMaterial.waveHeight = 0.3;
-            waterMaterial.waveLength = 0.8;
-        }
-        
-        // Configurar reflexões
-        waterMaterial.windForce = 1.5;
-        waterMaterial.windDirection = new BABYLON.Vector2(0, 1);
-        waterMaterial.specularPower = 60;
+        // Usar StandardMaterial em vez de WaterMaterial para melhor compatibilidade
+        const waterMaterial = new BABYLON.StandardMaterial(`water_${chunkX}_${chunkZ}`, this.scene);
+        waterMaterial.diffuseColor = waterColor;
+        waterMaterial.alpha = transparency;
+        waterMaterial.specularColor = new BABYLON.Color3(0.2, 0.2, 0.2);
+        waterMaterial.reflectionFresnelParameters = new BABYLON.FresnelParameters();
+        waterMaterial.reflectionFresnelParameters.bias = 0.02;
+        waterMaterial.reflectionFresnelParameters.power = 2.5;
         
         // Criar mesh da água
         const waterMesh = BABYLON.MeshBuilder.CreateGround(
@@ -305,23 +358,8 @@ class WorldGenerator {
         // Aplicar material
         waterMesh.material = waterMaterial;
         
-        // Adicionar terreno à lista de refletores
-        waterMaterial.addToRenderList(groundMesh);
-        
-        // Adicionar skybox à lista de refletores
-        const skybox = this.scene.getMeshByName("skyBox");
-        if (skybox) {
-            waterMaterial.addToRenderList(skybox);
-        }
-        
-        // Adicionar outros chunks próximos para reflexão mais realista
-        const nearbyChunks = this._getNearbyChunks(chunkX, chunkZ, 1);
-        for (const nearbyChunk of nearbyChunks) {
-            const terrainMesh = this.scene.getMeshByName(`terrain_${nearbyChunk.x}_${nearbyChunk.z}`);
-            if (terrainMesh) {
-                waterMaterial.addToRenderList(terrainMesh);
-            }
-        }
+        // Garantir que a água não seja sólida para colisões
+        waterMesh.checkCollisions = false;
         
         return waterMesh;
     }
@@ -346,68 +384,38 @@ class WorldGenerator {
     }
     // Em vez de criar o arquivo heightmap.png, vamos modificar o WorldGenerator.js para gerar um heightmap proceduralmente
 
-    // Adicione este método para criar heightmap procedural
-    async createProceduralHeightmap(width, height) {
-        return new Promise((resolve) => {
-            // Criar um canvas para desenhar o heightmap
-            const canvas = document.createElement('canvas');
-            canvas.width = width;
-            canvas.height = height;
-            const ctx = canvas.getContext('2d');
-            
-            // Criar um ImageData para preencher com dados de altura
-            const imageData = ctx.createImageData(width, height);
-            
-            // Gerar dados de altura usando ruído
-            for (let y = 0; y < height; y++) {
-                for (let x = 0; x < width; x++) {
-                    // Índice para o array de dados (4 bytes por pixel: R,G,B,A)
-                    const idx = (y * width + x) * 4;
-                    
-                    // Usar função de ruído existente para gerar um valor de altura
-                    // Normalizar coordenadas para o espaço de ruído
-                    const nx = x / width;
-                    const ny = y / height;
-                    
-                    // Use a função de ruído com múltiplas oitavas
-                    const noiseValue = this._getNoise(nx * 10, ny * 10);
-                    
-                    // Converter para valor de pixel (0-255)
-                    const pixelValue = Math.floor(noiseValue * 255);
-                    
-                    // Definir o valor em escala de cinza
-                    imageData.data[idx] = pixelValue;     // R
-                    imageData.data[idx + 1] = pixelValue; // G
-                    imageData.data[idx + 2] = pixelValue; // B
-                    imageData.data[idx + 3] = 255;        // A (opacidade total)
-                }
-            }
-            
-            // Atualizar o canvas com os dados gerados
-            ctx.putImageData(imageData, 0, 0);
-            
-            // Converter para uma URL de dados
-            const dataURL = canvas.toDataURL();
-            
-            // Criar uma imagem para carregar no Babylon
-            const img = new Image();
-            img.onload = () => {
-                resolve(img);
-            };
-            img.src = dataURL;
-        });
+
+
+    _getNeighborBiomes(chunkX, chunkZ) {
+        const neighbors = {
+            north: this.biomeManager?.getBiomeAt((chunkX) * this.chunkSize, (chunkZ - 1) * this.chunkSize),
+            south: this.biomeManager?.getBiomeAt((chunkX) * this.chunkSize, (chunkZ + 1) * this.chunkSize),
+            west: this.biomeManager?.getBiomeAt((chunkX - 1) * this.chunkSize, (chunkZ) * this.chunkSize),
+            east: this.biomeManager?.getBiomeAt((chunkX + 1) * this.chunkSize, (chunkZ) * this.chunkSize),
+            northeast: this.biomeManager?.getBiomeAt((chunkX + 1) * this.chunkSize, (chunkZ - 1) * this.chunkSize),
+            northwest: this.biomeManager?.getBiomeAt((chunkX - 1) * this.chunkSize, (chunkZ - 1) * this.chunkSize),
+            southeast: this.biomeManager?.getBiomeAt((chunkX + 1) * this.chunkSize, (chunkZ + 1) * this.chunkSize),
+            southwest: this.biomeManager?.getBiomeAt((chunkX - 1) * this.chunkSize, (chunkZ + 1) * this.chunkSize)
+        };
+        
+        return neighbors;
     }
 
+
+
     async generateChunkTerrain(chunkX, chunkZ, biome) {
+        // Calculate real world position
+        const worldX = chunkX * this.chunkSize;
+        const worldZ = chunkZ * this.chunkSize;
+        
+        // Get neighboring biomes for proper transitions
+        const neighborBiomes = this._getNeighborBiomes(chunkX, chunkZ);
+        
+        // Get appropriate terrain material with biome blending
+        const biomeMaterial = this._getTerrainMaterial(biome);
+        
         try {
-            // Calcular posição real do chunk no mundo
-            const worldX = chunkX * this.chunkSize;
-            const worldZ = chunkZ * this.chunkSize;
-            
-            // Obter material apropriado para o bioma
-            const biomeMaterial = this._getTerrainMaterial(biome);
-            
-            // Criar o terreno com CreateGround em vez de CreateGroundFromHeightMap
+            // Create a standard ground with subdivisions
             const ground = BABYLON.MeshBuilder.CreateGround(
                 `terrain_${chunkX}_${chunkZ}`,
                 {
@@ -419,79 +427,135 @@ class WorldGenerator {
                 this.scene
             );
             
-            // Posicionar o terreno
+            // Position the terrain
             ground.position.x = worldX;
             ground.position.z = worldZ;
             
-            // Aplicar material
+            // Apply material
             ground.material = biomeMaterial;
             
-            // Calcular valores de altura para cada vértice
+            // Get boundary height data from neighboring chunks
+            const boundaryData = await this._getBoundaryHeightData(chunkX, chunkZ);
+            
+            // Get vertex positions for manipulation
             const positions = ground.getVerticesData(BABYLON.VertexBuffer.PositionKind);
             
+            // Calculate procedural height for each vertex
+            const verticesPerSide = this.terrainSubdivisions + 1;
+            
+            // Generate heights for every vertex using noise function
             for (let i = 0; i < positions.length; i += 3) {
-                // Posição local do vértice (x, y, z)
-                const xPos = positions[i] + worldX;
-                const zPos = positions[i + 2] + worldZ;
+                // Current index in the vertex grid
+                const vertexIndex = i / 3;
+                const col = vertexIndex % verticesPerSide;
+                const row = Math.floor(vertexIndex / verticesPerSide);
                 
-                // Gerar altura baseada no ruído
-                let height = this._calculateTerrainHeight(xPos, zPos, biome);
+                // Convert local coordinates to world space
+                const normalizedX = col / this.terrainSubdivisions; // 0-1 range
+                const normalizedZ = row / this.terrainSubdivisions; // 0-1 range
                 
-                // Terreno mais baixo nos limites dos chunks para suavizar bordas
-                const localX = positions[i];
-                const localZ = positions[i + 2];
+                // Convert to world position (add small offset to prevent exact border alignment issues)
+                const worldPosX = worldX - this.groundSize/2 + normalizedX * this.groundSize + 0.01;
+                const worldPosZ = worldZ - this.groundSize/2 + normalizedZ * this.groundSize + 0.01;
                 
-                const distFromEdgeX = Math.min(Math.abs(localX - this.groundSize/2), Math.abs(localX + this.groundSize/2));
-                const distFromEdgeZ = Math.min(Math.abs(localZ - this.groundSize/2), Math.abs(localZ + this.groundSize/2));
-                const distFromEdge = Math.min(distFromEdgeX, distFromEdgeZ);
+                // Generate height using noise
+                let height = this._calculateTerrainHeight(worldPosX, worldPosZ, biome);
                 
-                const edgeBlendDist = 1.0;
-                
-                if (distFromEdge < edgeBlendDist) {
-                    const blendFactor = distFromEdge / edgeBlendDist;
-                    height *= blendFactor;
+                // Apply biome blending if needed
+                if (neighborBiomes) {
+                    height = this._applyBiomeBlending(height, worldPosX, worldPosZ, biome, neighborBiomes);
                 }
                 
-                // Aplicar a altura ao vértice
+                // Determine if this vertex is near a chunk border for smooth transitions
+                const distFromEdgeX = Math.min(normalizedX, 1 - normalizedX) * this.groundSize;
+                const distFromEdgeZ = Math.min(normalizedZ, 1 - normalizedZ) * this.groundSize;
+                const distFromEdge = Math.min(distFromEdgeX, distFromEdgeZ);
+                
+                // The blend distance for edge smoothing (10% of chunk size)
+                const edgeBlendDist = this.groundSize * 0.1;
+                
+                // If near an edge, blend with neighboring chunk data
+                if (distFromEdge < edgeBlendDist && boundaryData) {
+                    // Determine which edge we're closest to
+                    const isNorth = row === 0;
+                    const isSouth = row === this.terrainSubdivisions;
+                    const isWest = col === 0;
+                    const isEast = col === this.terrainSubdivisions;
+                    
+                    // Get boundary height from the right neighbor if available
+                    let boundaryHeight = height; // Default if no boundary data
+                    
+                    if (isNorth && boundaryData.north) {
+                        if (col >= 0 && col < boundaryData.north.length) {
+                            boundaryHeight = boundaryData.north[col];
+                        }
+                    }
+                    else if (isSouth && boundaryData.south) {
+                        if (col >= 0 && col < boundaryData.south.length) {
+                            boundaryHeight = boundaryData.south[col];
+                        }
+                    }
+                    else if (isWest && boundaryData.west) {
+                        if (row >= 0 && row < boundaryData.west.length) {
+                            boundaryHeight = boundaryData.west[row];
+                        }
+                    }
+                    else if (isEast && boundaryData.east) {
+                        if (row >= 0 && row < boundaryData.east.length) {
+                            boundaryHeight = boundaryData.east[row];
+                        }
+                    }
+                    
+                    // Blend factor (0 at edge, 1 at blendDist from edge)
+                    const blendFactor = distFromEdge / edgeBlendDist;
+                    
+                    // Interpolate between boundary and generated height
+                    height = this._lerp(boundaryHeight, height, blendFactor);
+                }
+                
+                // Apply the final height to vertex Y position
                 positions[i + 1] = height;
             }
             
-            // Atualizar o terreno com as novas alturas
+            // Update the mesh with new vertex positions
             ground.updateVerticesData(BABYLON.VertexBuffer.PositionKind, positions);
             
-            // Calcular normais
-            ground.updateVerticesData(BABYLON.VertexBuffer.NormalKind, []);
+            // Compute normals for proper lighting
             BABYLON.VertexData.ComputeNormals(
                 positions, 
                 ground.getIndices(), 
                 ground.getVerticesData(BABYLON.VertexBuffer.NormalKind)
             );
             
-            // Adicionar interação física
+            // Store border height data for neighboring chunks
+            const borderHeights = this._extractBorderHeights(positions, this.terrainSubdivisions);
+            
+            // Add physics collision
             ground.checkCollisions = true;
             
+            // Add physics impostor if physics engine is available
             if (this.scene.getPhysicsEngine()) {
-                try {
-                    ground.physicsImpostor = new BABYLON.PhysicsImpostor(
-                        ground, 
-                        BABYLON.PhysicsImpostor.HeightmapImpostor, 
-                        { mass: 0, friction: 0.5, restitution: 0.2 }, 
-                        this.scene
-                    );
-                } catch (e) {
-                    console.warn("Não foi possível criar físicas para o terreno:", e);
-                }
+                ground.physicsImpostor = new BABYLON.PhysicsImpostor(
+                    ground, 
+                    BABYLON.PhysicsImpostor.MeshImpostor, // Use MeshImpostor instead of HeightmapImpostor for stability
+                    { mass: 0, friction: 0.5, restitution: 0.2 }, 
+                    this.scene
+                );
             }
             
-            // Adicionar metadados para identificação
+            // Add metadata for identification
             ground.metadata = {
                 isChunkTerrain: true,
                 chunkX: chunkX,
                 chunkZ: chunkZ,
-                biome: biome
+                biome: biome,
+                borderHeights: borderHeights
             };
             
-            // Adicionar água se o bioma justificar
+            // Cache border data for neighboring chunks
+            this._cacheBorderHeights(chunkX, chunkZ, borderHeights);
+            
+            // Add water if appropriate for biome
             if (['swamp', 'forest'].includes(biome)) {
                 const waterMesh = await this._addWaterToChunk(chunkX, chunkZ, ground, biome);
                 if (waterMesh) {
@@ -501,33 +565,315 @@ class WorldGenerator {
             
             return [ground];
         } catch (error) {
-            console.error("Erro ao gerar chunk de terreno:", error);
+            console.error(`Error generating terrain for chunk ${chunkX},${chunkZ}:`, error);
             
-            // Criar um terreno plano como fallback
+            // Create a simple flat ground as fallback
             const fallbackGround = BABYLON.MeshBuilder.CreateGround(
                 `terrain_fallback_${chunkX}_${chunkZ}`,
-                { width: this.groundSize, height: this.groundSize, subdivisions: 2 },
+                { width: this.groundSize, height: this.groundSize },
                 this.scene
             );
             
-            fallbackGround.position.x = chunkX * this.chunkSize;
-            fallbackGround.position.z = chunkZ * this.chunkSize;
+            fallbackGround.position.x = worldX;
+            fallbackGround.position.z = worldZ;
             fallbackGround.checkCollisions = true;
             
+            // Simple material
             const fallbackMaterial = new BABYLON.StandardMaterial(`fallback_material_${chunkX}_${chunkZ}`, this.scene);
-            fallbackMaterial.diffuseColor = new BABYLON.Color3(0.5, 0.5, 0.5);
+            fallbackMaterial.diffuseColor = new BABYLON.Color3(0.3, 0.5, 0.3); // Default green
             fallbackGround.material = fallbackMaterial;
             
+            // Add basic metadata
             fallbackGround.metadata = {
                 isChunkTerrain: true,
                 chunkX: chunkX,
                 chunkZ: chunkZ,
-                biome: 'fallback'
+                biome: biome
             };
             
             return [fallbackGround];
         }
     }
+    
+
+    _getBoundaryIndex(localCoord, size) {
+        // Convert local coordinate to 0-1 range
+        const normalizedCoord = (localCoord + size/2) / size;
+        // Map to index in boundary array
+        return Math.min(
+            Math.max(0, Math.floor(normalizedCoord * this.terrainSubdivisions)),
+            this.terrainSubdivisions
+        );
+    }
+
+    _extractBorderHeights(positions, subdivisions) {
+        // Esta função extrai as alturas das bordas para compartilhar com chunks adjacentes
+        const borders = {
+            north: new Array(subdivisions + 1),
+            south: new Array(subdivisions + 1),
+            east: new Array(subdivisions + 1),
+            west: new Array(subdivisions + 1)
+        };
+        
+        // Vértices por lado
+        const verticesPerSide = subdivisions + 1;
+        
+        // Extrair alturas a partir dos dados de posição
+        for (let i = 0; i < positions.length; i += 3) {
+            const vertexIndex = i / 3;
+            const row = Math.floor(vertexIndex / verticesPerSide);
+            const col = vertexIndex % verticesPerSide;
+            
+            const height = positions[i + 1]; // Componente Y
+            
+            // Armazenar alturas para cada borda
+            if (row === 0) borders.north[col] = height;
+            if (row === subdivisions) borders.south[col] = height;
+            if (col === 0) borders.west[row] = height;
+            if (col === subdivisions) borders.east[row] = height;
+        }
+        
+        return borders;
+    }
+    _cacheBorderHeights(chunkX, chunkZ, borderHeights) {
+        // Armazenar no cache local
+        this.borderHeightCache.set(`${chunkX},${chunkZ}`, borderHeights);
+        
+        // Importante: também armazenar essas alturas em todos os chunks adjacentes
+        // para garantir que as transições sejam perfeitamente suaves
+        
+        // Compartilhar borda norte com chunk ao sul
+        if (borderHeights.north && borderHeights.north.length > 0) {
+            let southChunkData = this.borderHeightCache.get(`${chunkX},${chunkZ-1}`);
+            if (!southChunkData) {
+                southChunkData = {
+                    north: null,
+                    south: null,
+                    east: null,
+                    west: null
+                };
+            }
+            southChunkData.south = [...borderHeights.north]; // Clone para evitar problemas de referência
+            this.borderHeightCache.set(`${chunkX},${chunkZ-1}`, southChunkData);
+        }
+        
+        // Compartilhar borda sul com chunk ao norte
+        if (borderHeights.south && borderHeights.south.length > 0) {
+            let northChunkData = this.borderHeightCache.get(`${chunkX},${chunkZ+1}`);
+            if (!northChunkData) {
+                northChunkData = {
+                    north: null,
+                    south: null,
+                    east: null,
+                    west: null
+                };
+            }
+            northChunkData.north = [...borderHeights.south]; // Clone para evitar problemas de referência
+            this.borderHeightCache.set(`${chunkX},${chunkZ+1}`, northChunkData);
+        }
+        
+        // Compartilhar borda oeste com chunk a leste
+        if (borderHeights.west && borderHeights.west.length > 0) {
+            let eastChunkData = this.borderHeightCache.get(`${chunkX-1},${chunkZ}`);
+            if (!eastChunkData) {
+                eastChunkData = {
+                    north: null,
+                    south: null,
+                    east: null,
+                    west: null
+                };
+            }
+            eastChunkData.east = [...borderHeights.west]; // Clone para evitar problemas de referência
+            this.borderHeightCache.set(`${chunkX-1},${chunkZ}`, eastChunkData);
+        }
+        
+        // Compartilhar borda leste com chunk a oeste
+        if (borderHeights.east && borderHeights.east.length > 0) {
+            let westChunkData = this.borderHeightCache.get(`${chunkX+1},${chunkZ}`);
+            if (!westChunkData) {
+                westChunkData = {
+                    north: null,
+                    south: null,
+                    east: null,
+                    west: null
+                };
+            }
+            westChunkData.west = [...borderHeights.east]; // Clone para evitar problemas de referência
+            this.borderHeightCache.set(`${chunkX+1},${chunkZ}`, westChunkData);
+        }
+    }
+
+    async _getBoundaryHeightData(chunkX, chunkZ) {
+        const boundaryData = {
+            north: null,
+            south: null,
+            east: null,
+            west: null
+        };
+        
+        // Verificar cache primeiro (muito mais rápido)
+        const cacheKeys = [
+            `${chunkX},${chunkZ-1}`, // Norte
+            `${chunkX},${chunkZ+1}`, // Sul
+            `${chunkX+1},${chunkZ}`, // Leste
+            `${chunkX-1},${chunkZ}`  // Oeste
+        ];
+        
+        // Chunk norte
+        const northChunk = this.borderHeightCache.get(cacheKeys[0]);
+        if (northChunk && northChunk.south) {
+            boundaryData.north = [...northChunk.south]; // Clone para evitar problemas de referência
+        }
+        
+        // Chunk sul
+        const southChunk = this.borderHeightCache.get(cacheKeys[1]);
+        if (southChunk && southChunk.north) {
+            boundaryData.south = [...southChunk.north]; // Clone para evitar problemas de referência
+        }
+        
+        // Chunk leste
+        const eastChunk = this.borderHeightCache.get(cacheKeys[2]);
+        if (eastChunk && eastChunk.west) {
+            boundaryData.east = [...eastChunk.west]; // Clone para evitar problemas de referência
+        }
+        
+        // Chunk oeste
+        const westChunk = this.borderHeightCache.get(cacheKeys[3]);
+        if (westChunk && westChunk.east) {
+            boundaryData.west = [...westChunk.east]; // Clone para evitar problemas de referência
+        }
+        
+        // Verificar se precisamos buscar dados de chunks já carregados no jogo
+        if (!boundaryData.north || !boundaryData.south || !boundaryData.east || !boundaryData.west) {
+            // Tentar obter dados de chunks carregados (se o cache falhou)
+            try {
+                // Chunk norte
+                if (!boundaryData.north && this.gameInstance.loadedChunks?.has(cacheKeys[0])) {
+                    const chunk = this.gameInstance.loadedChunks.get(cacheKeys[0]);
+                    if (chunk?.terrain[0]?.metadata?.borderHeights?.south) {
+                        boundaryData.north = [...chunk.terrain[0].metadata.borderHeights.south];
+                    }
+                }
+                
+                // Chunk sul
+                if (!boundaryData.south && this.gameInstance.loadedChunks?.has(cacheKeys[1])) {
+                    const chunk = this.gameInstance.loadedChunks.get(cacheKeys[1]);
+                    if (chunk?.terrain[0]?.metadata?.borderHeights?.north) {
+                        boundaryData.south = [...chunk.terrain[0].metadata.borderHeights.north];
+                    }
+                }
+                
+                // Chunk leste
+                if (!boundaryData.east && this.gameInstance.loadedChunks?.has(cacheKeys[2])) {
+                    const chunk = this.gameInstance.loadedChunks.get(cacheKeys[2]);
+                    if (chunk?.terrain[0]?.metadata?.borderHeights?.west) {
+                        boundaryData.east = [...chunk.terrain[0].metadata.borderHeights.west];
+                    }
+                }
+                
+                // Chunk oeste
+                if (!boundaryData.west && this.gameInstance.loadedChunks?.has(cacheKeys[3])) {
+                    const chunk = this.gameInstance.loadedChunks.get(cacheKeys[3]);
+                    if (chunk?.terrain[0]?.metadata?.borderHeights?.east) {
+                        boundaryData.west = [...chunk.terrain[0].metadata.borderHeights.east];
+                    }
+                }
+            } catch (error) {
+                console.warn("Erro ao ler dados de chunks carregados:", error);
+            }
+        }
+        
+        return boundaryData;
+    }
+
+    _applyBiomeBlending(height, x, z, centerBiome, neighborBiomes) {
+        // Distance from chunk center (for biome blending)
+        const chunkCenterX = Math.floor(x / this.chunkSize) * this.chunkSize + this.chunkSize/2;
+        const chunkCenterZ = Math.floor(z / this.chunkSize) * this.chunkSize + this.chunkSize/2;
+        
+        const distX = Math.abs(x - chunkCenterX) / (this.chunkSize/2);
+        const distZ = Math.abs(z - chunkCenterZ) / (this.chunkSize/2);
+        
+        // Only blend near edges (outer 30% of chunk)
+        if (distX > 0.7 || distZ > 0.7) {
+            let blendedHeight = height;
+            let totalWeight = 1.0; // Weight for center biome
+            
+            // Determine which neighbors to blend with
+            const isNorth = z < chunkCenterZ;
+            const isSouth = z > chunkCenterZ;
+            const isWest = x < chunkCenterX;
+            const isEast = x > chunkCenterX;
+            
+            // Calculate blend weights based on position
+            let northWeight = isNorth ? (distZ * 0.8) : 0;
+            let southWeight = isSouth ? (distZ * 0.8) : 0;
+            let westWeight = isWest ? (distX * 0.8) : 0;
+            let eastWeight = isEast ? (distX * 0.8) : 0;
+            
+            // Corner weights
+            let northeastWeight = (isNorth && isEast) ? (distX * distZ * 0.6) : 0;
+            let northwestWeight = (isNorth && isWest) ? (distX * distZ * 0.6) : 0;
+            let southeastWeight = (isSouth && isEast) ? (distX * distZ * 0.6) : 0;
+            let southwestWeight = (isSouth && isWest) ? (distX * distZ * 0.6) : 0;
+            
+            // Blend heights from neighboring biomes
+            if (northWeight > 0 && neighborBiomes.north) {
+                const northHeight = this._calculateTerrainHeight(x, z, neighborBiomes.north);
+                blendedHeight += northHeight * northWeight;
+                totalWeight += northWeight;
+            }
+            
+            if (southWeight > 0 && neighborBiomes.south) {
+                const southHeight = this._calculateTerrainHeight(x, z, neighborBiomes.south);
+                blendedHeight += southHeight * southWeight;
+                totalWeight += southWeight;
+            }
+            
+            if (eastWeight > 0 && neighborBiomes.east) {
+                const eastHeight = this._calculateTerrainHeight(x, z, neighborBiomes.east);
+                blendedHeight += eastHeight * eastWeight;
+                totalWeight += eastWeight;
+            }
+            
+            if (westWeight > 0 && neighborBiomes.west) {
+                const westHeight = this._calculateTerrainHeight(x, z, neighborBiomes.west);
+                blendedHeight += westHeight * westWeight;
+                totalWeight += westWeight;
+            }
+            
+            // Add corner influences
+            if (northeastWeight > 0 && neighborBiomes.northeast) {
+                const neHeight = this._calculateTerrainHeight(x, z, neighborBiomes.northeast);
+                blendedHeight += neHeight * northeastWeight;
+                totalWeight += northeastWeight;
+            }
+            
+            if (northwestWeight > 0 && neighborBiomes.northwest) {
+                const nwHeight = this._calculateTerrainHeight(x, z, neighborBiomes.northwest);
+                blendedHeight += nwHeight * northwestWeight;
+                totalWeight += northwestWeight;
+            }
+            
+            if (southeastWeight > 0 && neighborBiomes.southeast) {
+                const seHeight = this._calculateTerrainHeight(x, z, neighborBiomes.southeast);
+                blendedHeight += seHeight * southeastWeight;
+                totalWeight += southeastWeight;
+            }
+            
+            if (southwestWeight > 0 && neighborBiomes.southwest) {
+                const swHeight = this._calculateTerrainHeight(x, z, neighborBiomes.southwest);
+                blendedHeight += swHeight * southwestWeight;
+                totalWeight += southwestWeight;
+            }
+            
+            // Normalize by total weight
+            return blendedHeight / totalWeight;
+        }
+        
+        return height;
+    }
+    
 }
 
 export default WorldGenerator;

@@ -1607,19 +1607,21 @@ class StructureManager {
     
     // Métodos simplificados para elementos menores
     
-    // Criar grama alta
+    // StructureManager.js - Melhorando _createGrass
     _createGrass(x, y, z) {
         // Variação baseada na posição
         const variation = this.hashFunction(Math.floor(x * 10), Math.floor(z * 10));
         
         // Criar várias "lâminas" de grama
-        const bladeCount = 3 + Math.floor(variation * 5);
+        const bladeCount = 5 + Math.floor(variation * 7); // Aumentado para mais densidade
         const grassParts = [];
         
         for (let i = 0; i < bladeCount; i++) {
-            // Posição relativa desta lâmina no grupo
-            const bladeX = x + (variation * i - bladeCount/2) * 0.1;
-            const bladeZ = z + (this.hashFunction(x * i, z) - 0.5) * 0.1;
+            // Distribuição mais natural ao redor do ponto central
+            const angle = Math.PI * 2 * (i / bladeCount) + variation;
+            const radius = 0.2 * variation;
+            const bladeX = x + Math.cos(angle) * radius;
+            const bladeZ = z + Math.sin(angle) * radius;
             
             // Altura da lâmina
             const bladeHeight = 0.3 + variation * 0.4;
@@ -1643,6 +1645,8 @@ class StructureManager {
             // Material da grama (verde)
             const grassMaterial = this._getMaterial('grass_blade', new BABYLON.Color3(0.2, 0.6, 0.1));
             grassMaterial.backFaceCulling = false; // Para ser visível de ambos os lados
+            grassMaterial.diffuseTexture = new BABYLON.Texture("textures/grass.png", this.scene);
+            grassMaterial.diffuseTexture.hasAlpha = true;
             
             blade.material = grassMaterial;
             
