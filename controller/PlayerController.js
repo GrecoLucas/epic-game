@@ -349,7 +349,6 @@ class PlayerController {
                         const actionManager = hit.pickedMesh.actionManager;
                         if (actionManager) {
                             try {
-                                this.createFeedbackAnimation(hit.pickedMesh);
                                 actionManager.processTrigger(BABYLON.ActionManager.OnPickTrigger);
                             } catch (error) {
                                 console.log("Erro ao processar trigger do botão via raycast:", error);
@@ -440,9 +439,7 @@ class PlayerController {
                         }
                     }
                     if (key === " ") {
-                        if (!this.buildingController?.isEnabled) { // Só pula se NÃO estiver construindo? (Opcional)
-                             this.model.jump();
-                        }
+                        this.model.jump();
                     }
                     // Tecla R para recarregar a arma equipada
                     if (key === "r") {
@@ -514,52 +511,13 @@ class PlayerController {
     activateNearbyButton() {
         if (this.nearbyButton && this.nearbyButton.actionManager) {
             try {
-                // Obter o ID do botão a partir do nome
-                const buttonId = parseInt(this.nearbyButton.name.replace("button", ""));
-                
-                // Disparar animação visual de feedback
-                this.createFeedbackAnimation(this.nearbyButton);
-                
-                // Disparar as ações registradas para o evento OnPickTrigger
                 this.nearbyButton.actionManager.processTrigger(BABYLON.ActionManager.OnPickTrigger);
             } catch (error) {
                 console.log("Erro ao ativar botão próximo:", error);
             }
         }
     }
-    
-    // Criar uma animação para feedback visual ao ativar o botão
-    createFeedbackAnimation(buttonMesh) {
-        // Animação simples de escala para feedback visual
-        const originalScale = buttonMesh.scaling.clone();
         
-        // Diminuir escala brevemente
-        BABYLON.Animation.CreateAndStartAnimation(
-            "buttonFeedback",
-            buttonMesh,
-            "scaling",
-            30,
-            10,
-            originalScale,
-            originalScale.scale(0.8),
-            BABYLON.Animation.ANIMATIONLOOPMODE_CONSTANT
-        );
-        
-        // Restaurar escala original
-        setTimeout(() => {
-            BABYLON.Animation.CreateAndStartAnimation(
-                "buttonRestore",
-                buttonMesh,
-                "scaling",
-                30,
-                10,
-                buttonMesh.scaling,
-                originalScale,
-                BABYLON.Animation.ANIMATIONLOOPMODE_CONSTANT
-            );
-        }, 100);
-    }
-    
     // Pegar a arma mais próxima
     pickupNearbyGun() {
         if (this.nearbyGun) {

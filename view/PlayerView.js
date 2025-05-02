@@ -3,7 +3,10 @@ class PlayerView {
     constructor(scene) {
         this.scene = scene;
         this.camera = null;
-        this.crosshairUI = null;
+        this.crosshairUI = null;        
+        // Configurações padrão para sensibilidade e FOV
+        this.sensitivity = 5000; // Sensibilidade da câmera (valores maiores = movimento mais lento)
+        this.fieldOfView = 1.2; // FOV em radianos (aproximadamente 45 graus)
     }
 
     initialize(playerMesh) {
@@ -12,8 +15,9 @@ class PlayerView {
         this.camera.parent = playerMesh; // Parenting com o mesh do jogador para mover junto
         this.camera.minZ = 0.1; // Para evitar clipping
         
-        // Reduzir a sensibilidade da câmera
-        this.camera.angularSensibility = 3000; 
+        // Aplicar configurações de sensibilidade e FOV
+        this.camera.angularSensibility = this.sensitivity;
+        this.camera.fov = this.fieldOfView;
         this.camera.inertia = 0.6; 
         
         // Desativar a gravidade da câmera para que ela não seja afetada pela física
@@ -81,6 +85,28 @@ class PlayerView {
     
     attachCameraControl(canvas) {
         this.camera.attachControl(canvas);
+    }
+    
+    // Métodos para manipular o FOV (Field of View)
+    setFieldOfView(fovRadians) {
+        if (!this.camera) return;
+        this.fieldOfView = fovRadians;
+        this.camera.fov = fovRadians;
+    }
+    
+    getFieldOfView() {
+        return this.camera ? this.camera.fov : this.fieldOfView;
+    }
+    
+    // Métodos para manipular a sensibilidade da câmera
+    setSensitivity(value) {
+        if (!this.camera) return;
+        this.sensitivity = value;
+        this.camera.angularSensibility = value;
+    }
+    
+    getSensitivity() {
+        return this.camera ? this.camera.angularSensibility : this.sensitivity;
     }
 }
 
