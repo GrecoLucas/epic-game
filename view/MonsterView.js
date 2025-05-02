@@ -206,37 +206,6 @@ class MonsterView {
             this.textTexture = null;
         }
         this.healthText = null; // Limpar referência
-    
-        // Salvar posição atual para criar o efeito de partículas
-        const position = this.mesh.position.clone();
-        
-        // Criar sistema de partículas para explosão
-        const explosion = new BABYLON.ParticleSystem("explosion", 100, this.scene);
-        explosion.particleTexture = new BABYLON.Texture("textures/flare.png", this.scene);
-        explosion.emitter = position;
-        explosion.minEmitBox = new BABYLON.Vector3(-1, 0, -1);
-        explosion.maxEmitBox = new BABYLON.Vector3(1, 2, 1);
-        
-        // Configuração de partículas
-        explosion.color1 = new BABYLON.Color4(1, 0.5, 0, 1);
-        explosion.color2 = new BABYLON.Color4(1, 0.2, 0, 1);
-        explosion.colorDead = new BABYLON.Color4(0, 0, 0, 0);
-        
-        explosion.minSize = 0.5;
-        explosion.maxSize = 1.5;
-        explosion.minLifeTime = 0.3;
-        explosion.maxLifeTime = 1.0;
-                
-        // Som de explosão (se disponível)
-        if (BABYLON.Sound) {
-            const deathSound = new BABYLON.Sound("monsterDeathSound", "sounds/explosion.mp3", this.scene, null, {
-                volume: 0.5,
-                spatialSound: true,
-                maxDistance: 50
-            });
-            deathSound.setPosition(position);
-            deathSound.play();
-        }
         
         // Remover o mesh imediatamente
         if (this.mesh) {
@@ -244,14 +213,6 @@ class MonsterView {
             this.mesh = null;
         }
         
-        // Iniciar sistema de partículas
-        explosion.start();
-        
-        // Parar e liberar partículas após 2 segundos
-        setTimeout(() => {
-            explosion.stop();
-            setTimeout(() => explosion.dispose(), 2000);
-        }, 500);
     }
 }
 

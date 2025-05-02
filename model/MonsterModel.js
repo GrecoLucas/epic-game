@@ -5,7 +5,7 @@ class MonsterModel {
         this.position = startPosition;
         this.mesh = null;
         this.speed = 0.2; // Velocidade de movimento do monstro
-        this.detectionRadius = 5000   ; // Raio de detecção do jogador
+        this.detectionRadius = 5000; // Raio de detecção do jogador
         this.isChasing = false; // Se está perseguindo o jogador
         this.chaseTimeout = null; // Tempo de perseguição
         this.moveTimeout = null; // Tempo de movimento aleatório
@@ -130,75 +130,6 @@ class MonsterModel {
         this.mesh.ellipsoid = new BABYLON.Vector3(0.6, 1.3, 0.4); // Ellipsoid radius x, y, z
         this.mesh.ellipsoidOffset = new BABYLON.Vector3(0, 1.3, 0); // Offset the ellipsoid center to match body position
 
-        // --- Particle System (Emit from the root mesh) ---
-        const particleSystem = new BABYLON.ParticleSystem("monsterParticles", 100, this.scene);
-        try {
-            particleSystem.particleTexture = new BABYLON.Texture("textures/flare.png", this.scene);
-        } catch (e) {
-            console.warn("Textura flare.png não encontrada, criando uma textura procedural", e);
-            
-            // Criar uma textura de círculo simples proceduralmente
-            const size = 256;
-            const particleCanvas = document.createElement('canvas');
-            particleCanvas.width = size;
-            particleCanvas.height = size;
-            
-            const ctx = particleCanvas.getContext('2d');
-            
-            // Desenhar um círculo com gradiente radial
-            const gradient = ctx.createRadialGradient(size/2, size/2, 0, size/2, size/2, size/2);
-            gradient.addColorStop(0, 'white');
-            gradient.addColorStop(1, 'transparent');
-            
-            ctx.fillStyle = gradient;
-            ctx.beginPath();
-            ctx.arc(size/2, size/2, size/2, 0, Math.PI * 2);
-            ctx.fill();
-            
-            // Criar textura a partir do canvas
-            particleSystem.particleTexture = new BABYLON.Texture.CreateFromBase64String(
-                particleCanvas.toDataURL(), 
-                "generatedParticle", 
-                this.scene
-            );
-        }        
-        particleSystem.emitter = this.mesh; // Emitter is the root mesh
-        // Adjust emit box relative to the root mesh's origin (0,0,0)
-        particleSystem.minEmitBox = new BABYLON.Vector3(-0.6, 0, -0.4); // Based on body size/2
-        particleSystem.maxEmitBox = new BABYLON.Vector3(0.6, 2.6, 0.4); // Based on body size/2 and height
-        particleSystem.color1 = new BABYLON.Color4(1, 0.5, 0, 1.0);
-        particleSystem.color2 = new BABYLON.Color4(0.8, 0.2, 0, 1.0);
-        particleSystem.minSize = 0.1;
-        particleSystem.maxSize = 0.3;
-        particleSystem.minLifeTime = 0.2;
-        particleSystem.maxLifeTime = 0.6;
-        particleSystem.emitRate = 30;
-        particleSystem.blendMode = BABYLON.ParticleSystem.BLENDMODE_ADD;
-        particleSystem.gravity = new BABYLON.Vector3(0, 0.5, 0);
-        particleSystem.start();
-
-        // --- Point Light (Parent to the root mesh) ---
-        const monsterLight = new BABYLON.PointLight("monsterLight", new BABYLON.Vector3(0, 1.3, 0), this.scene); // Position relative to root
-        monsterLight.diffuse = new BABYLON.Color3(1, 0.2, 0);
-        monsterLight.specular = new BABYLON.Color3(1, 0.3, 0);
-        monsterLight.intensity = 0.8;
-        monsterLight.range = 5;
-        monsterLight.parent = this.mesh; // Parent light to the root mesh
-
-        // Light Animation
-        const lightAnimation = new BABYLON.Animation(
-            "lightPulse", "intensity", 30,
-            BABYLON.Animation.ANIMATIONTYPE_FLOAT,
-            BABYLON.Animation.ANIMATIONLOOPMODE_CYCLE
-        );
-        const keyFrames = [];
-        keyFrames.push({ frame: 0, value: 0.8 });
-        keyFrames.push({ frame: 15, value: 1.5 });
-        keyFrames.push({ frame: 30, value: 0.8 });
-        lightAnimation.setKeys(keyFrames);
-        monsterLight.animations = [lightAnimation];
-        this.scene.beginAnimation(monsterLight, 0, 30, true);
-
         return this.mesh; // Return the root mesh
     }
 
@@ -277,71 +208,108 @@ class MonsterModel {
     }
     
     
-    // Método para calcular a direção para evitar outros monstros próximos (Otimizado)
+    // Método para calcular a direção para evitar outros monstros próximos (Otimizado com grid espacial)
     calculateMonsterAvoidance() {
         if (!this.mesh) return null;
-
-        // Assume que gameInstance.getMonsters() retorna um array de instâncias de MonsterController
-        const monsterControllers = this.scene.gameInstance?.getMonsters();
-        // Se não há outros monstros, não há necessidade de evitar
-        if (!monsterControllers || monsterControllers.length <= 1) return null;
-
-        let totalAvoidance = BABYLON.Vector3.Zero(); // Vetor acumulador para a direção de evitação
-        let nearbyMonsterCount = 0; // Contador de monstros próximos
-
+    
+        // Recuperar o sistema de grid da instância do jogo, ou criá-lo se não existir
+        if (!this.scene.gameInstance.spatialGrid) {
+            // Inicializar o grid na primeira vez (10x10 células com 5 unidades por célula)
+            this.scene.gameInstance.spatialGrid = {
+                cellSize: 5,
+                monsterCells: new Map(), // Mapa de células para monstros
+                lastUpdateTime: 0,
+                updateInterval: 500, // Atualizar posições a cada 500ms
+            };
+        }
+    
+        const grid = this.scene.gameInstance.spatialGrid;
+        const now = Date.now();
         const currentPosition = this.getPosition();
-        // Pré-calcular o quadrado do raio para evitar Math.sqrt em cada verificação
+        
+        // Atualizar o grid periodicamente para reduzir chamadas de função
+        if (now - grid.lastUpdateTime > grid.updateInterval) {
+            grid.monsterCells.clear();
+            
+            // Populate grid with monsters
+            const monsters = this.scene.gameInstance?.getMonsters() || [];
+            for (const controller of monsters) {
+                if (!controller.model || controller.isDisposed) continue;
+                
+                const pos = controller.model.getPosition();
+                if (!pos) continue;
+                
+                // Calcular célula baseado na posição
+                const cellX = Math.floor(pos.x / grid.cellSize);
+                const cellZ = Math.floor(pos.z / grid.cellSize);
+                const cellKey = `${cellX},${cellZ}`;
+                
+                // Adicionar monster à célula
+                if (!grid.monsterCells.has(cellKey)) {
+                    grid.monsterCells.set(cellKey, []);
+                }
+                grid.monsterCells.get(cellKey).push(controller);
+            }
+            
+            grid.lastUpdateTime = now;
+        }
+        
+        // Obter célula atual e células vizinhas para verificação
+        const cellX = Math.floor(currentPosition.x / grid.cellSize);
+        const cellZ = Math.floor(currentPosition.z / grid.cellSize);
+        
+        // Criar lista de células a verificar (atual + 8 adjacentes)
+        const cellsToCheck = [];
+        for (let x = -1; x <= 1; x++) {
+            for (let z = -1; z <= 1; z++) {
+                const key = `${cellX + x},${cellZ + z}`;
+                if (grid.monsterCells.has(key)) {
+                    cellsToCheck.push(...grid.monsterCells.get(key));
+                }
+            }
+        }
+        
+        let totalAvoidance = BABYLON.Vector3.Zero();
+        let nearbyCount = 0;
         const avoidanceRadiusSq = this.monsterAvoidanceRadius * this.monsterAvoidanceRadius;
-
-        for (const otherController of monsterControllers) {
-            // Pular a verificação se for o próprio monstro
+        
+        // Verificar apenas monstros nas células adjacentes
+        for (const otherController of cellsToCheck) {
+            // Evitar verificar a si mesmo
             if (otherController.model === this) continue;
-
-            // Garantir que o outro monstro é válido e tem um modelo
-            if (!otherController.model || otherController.isDisposed) continue;
-
-            const otherModel = otherController.model;
-            const otherPosition = otherModel.getPosition();
-            // Pular se a posição do outro monstro não for válida
-            if (!otherPosition) continue;
-
-            // Usar DistanceSquared para otimização (evita raiz quadrada)
-            const distanceSq = BABYLON.Vector3.DistanceSquared(currentPosition, otherPosition);
-
-            // Verificar se está dentro do raio de evitação (e não exatamente na mesma posição)
-            // Usar 0.0001 como um pequeno epsilon para evitar problemas com distância zero
+            
+            const otherPos = otherController.model.getPosition();
+            const distanceSq = BABYLON.Vector3.DistanceSquared(currentPosition, otherPos);
+            
+            // Verificar apenas monstros realmente próximos
             if (distanceSq < avoidanceRadiusSq && distanceSq > 0.0001) {
-                // Calcular a distância real apenas quando necessário (para o cálculo da força)
+                // Reutilizar um vetor temporário para otimizar a memória
+                if (!this._tempAwayDir) {
+                    this._tempAwayDir = new BABYLON.Vector3();
+                }
+                
+                // Calcular direção de afastamento
+                this._tempAwayDir.copyFrom(currentPosition);
+                this._tempAwayDir.subtractInPlace(otherPos);
+                
+                // Calcular força baseado na proximidade (quanto mais próximo, mais forte)
                 const distance = Math.sqrt(distanceSq);
-
-                // Calcular vetor apontando PARA LONGE do outro monstro
-                // Reutilizar um vetor temporário pode ser mais otimizado em cenários extremos,
-                // mas a criação aqui é geralmente aceitável.
-                const awayDirection = currentPosition.subtract(otherPosition);
-
-                // Normalizar o vetor de direção (modifica o vetor 'awayDirection' diretamente)
-                awayDirection.normalize();
-
-                // Calcular a força da evitação (mais forte quanto mais perto)
                 const strength = (this.monsterAvoidanceRadius - distance) / this.monsterAvoidanceRadius;
-
-                // Adicionar o vetor de evitação escalado ao total
-                // scaleInPlace modifica 'awayDirection' e addInPlace modifica 'totalAvoidance'
-                totalAvoidance.addInPlace(awayDirection.scaleInPlace(strength));
-                nearbyMonsterCount++;
+                
+                this._tempAwayDir.normalizeToNew(this._tempAwayDir);
+                this._tempAwayDir.scaleInPlace(strength);
+                
+                totalAvoidance.addInPlace(this._tempAwayDir);
+                nearbyCount++;
             }
         }
-
-        // Se algum monstro próximo contribuiu para a evitação, normalizar o vetor final
-        if (nearbyMonsterCount > 0) {
-            // Evitar normalizar um vetor zero (caso as forças se cancelem perfeitamente)
-            if (totalAvoidance.lengthSquared() > 0.0001) {
-                 totalAvoidance.normalize(); // Normalizar a direção final
-                 return totalAvoidance;
-            }
+        
+        // Normalizar apenas se houver forças aplicadas
+        if (nearbyCount > 0 && totalAvoidance.lengthSquared() > 0.0001) {
+            totalAvoidance.normalize();
+            return totalAvoidance;
         }
-
-        // Nenhum monstro próximo ou as forças se cancelaram, retornar null
+        
         return null;
     }
     

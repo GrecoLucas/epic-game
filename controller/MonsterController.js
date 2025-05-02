@@ -53,40 +53,47 @@ class MonsterController {
         this.startPatrolBehavior();
     }
     
-    // Renomeado de checkWallCollision - MÉTODO CORRIGIDO
+    // Verificar colisões com obstáculos - mantendo a estrutura original com otimizações
     checkObstacle_collision() {
         if (this.isDisposed || this.isStunned || !this.model || !this.model.getMesh()) return;
     
         const monsterPosition = this.model.getPosition();
         const collisionRadius = 1.5; // Manter raio de verificação
         
+        // Verificar se é hora de executar esta verificação (limitação de frequência)
+        const now = Date.now();
+        if (now - this.lastObstacleCollisionCheck < this.obstacleCheckInterval) return;
+        this.lastObstacleCollisionCheck = now;
         
         // Direções para verificar (8 direções horizontais + direção para baixo)
-        const directions = [
-            new BABYLON.Vector3(1, 0, 0),    // direita
-            new BABYLON.Vector3(-1, 0, 0),   // esquerda
-            new BABYLON.Vector3(0, 0, 1),    // frente
-            new BABYLON.Vector3(0, 0, -1),   // trás
-            new BABYLON.Vector3(0.7, 0, 0.7), // diagonal frente-direita
-            new BABYLON.Vector3(-0.7, 0, 0.7), // diagonal frente-esquerda
-            new BABYLON.Vector3(0.7, 0, -0.7), // diagonal trás-direita
-            new BABYLON.Vector3(-0.7, 0, -0.7),  // diagonal trás-esquerda
-            new BABYLON.Vector3(0, -1, 0)    // direção para baixo (detectar barricadas baixas)
-        ];
+        // OTIMIZAÇÃO 1: Reutilizar array de direções em vez de recriar a cada chamada
+        if (!this._directions) {
+            this._directions = [
+                new BABYLON.Vector3(1, 0, 0),    // direita
+                new BABYLON.Vector3(-1, 0, 0),   // esquerda
+                new BABYLON.Vector3(0, 0, 1),    // frente
+                new BABYLON.Vector3(0, 0, -1),   // trás
+                new BABYLON.Vector3(0.7, 0, 0.7), // diagonal frente-direita
+                new BABYLON.Vector3(-0.7, 0, 0.7), // diagonal frente-esquerda
+                new BABYLON.Vector3(0.7, 0, -0.7), // diagonal trás-direita
+                new BABYLON.Vector3(-0.7, 0, -0.7),  // diagonal trás-esquerda
+                new BABYLON.Vector3(0, -1, 0)    // direção para baixo
+            ];
+        }
         
         // Função para determinar quais objetos considerar para colisão
-        const predicate = (mesh) => {
-            // Procurar por meshes cujo nome começa com "wall_", "ramp_", "playerWall_", "playerRamp_" ou "playerBarricade_"
-            const isValid = mesh.isPickable &&
-                   mesh.checkCollisions &&
-                   (mesh.name.startsWith("wall_") || 
+        // OTIMIZAÇÃO 2: Reutilizar predicado para evitar criar função a cada chamada
+        if (!this._obstaclePredicate) {
+            this._obstaclePredicate = (mesh) => {
+                return mesh.isPickable &&
+                    mesh.checkCollisions &&
+                    (mesh.name.startsWith("wall_") || 
                     mesh.name.startsWith("ramp_") || 
                     mesh.name.startsWith("playerWall_") || 
                     mesh.name.startsWith("playerRamp_") ||
                     mesh.name.startsWith("playerBarricade_"));
-            
-            return isValid;
-        };
+            };
+        }
     
         // Determinar o modo de jogo atual (Open World ou Maze)
         const isOpenWorldMode = this.scene.gameInstance?.gameMode === 'openworld';
@@ -101,38 +108,32 @@ class MonsterController {
                 mazeController = maze.controller;
             }
         }
-
-        const now = Date.now();
+    
         const currentHits = new Set(); // Paredes atingidas nesta verificação
     
+        // OTIMIZAÇÃO 3: Armazenar ray para reutilização
+        if (!this._collisionRay) {
+            this._collisionRay = new BABYLON.Ray();
+        }
+        
         // Verificar cada direção
-        for (const direction of directions) {
+        for (const direction of this._directions) {
             // Determinar origem do raio com base na direção
-            let rayOrigin;
-            let rayLength;
+            let rayLength = direction.y < 0 ? 2.0 : collisionRadius;
             
-            // Para a direção para baixo, ajustar a origem e comprimento do raio
-            if (direction.y < 0) {
-                // Ajustar para detectar barricadas baixas abaixo do monstro
-                rayOrigin = monsterPosition.clone();
-                rayLength = 2.0; // Comprimento maior para garantir detecção de barricadas baixas
-            } else {
-                rayOrigin = monsterPosition.clone();
-                rayLength = collisionRadius;
-            }
+            // OTIMIZAÇÃO 4: Reutilizar o ray em vez de criar um novo
+            this._collisionRay.origin = monsterPosition.clone();
+            this._collisionRay.direction = direction;
+            this._collisionRay.length = rayLength;
             
-            // Criar um raio a partir da posição do monstro na direção específica
-            const ray = new BABYLON.Ray(rayOrigin, direction, rayLength);
-            
-            // Verificar colisão
-            const hit = this.scene.pickWithRay(ray, predicate);
+            // Verificar colisão - MANTEMOS o pickWithRay da cena original que está funcionando
+            const hit = this.scene.pickWithRay(this._collisionRay, this._obstaclePredicate);
             
             if (hit && hit.hit && hit.pickedMesh) {
                 // Usar o nome do mesh atingido para identificar o obstáculo
                 const obstacleName = hit.pickedMesh.name;
-                const obstacleMesh = hit.pickedMesh; // Guardar referência ao mesh
-                const obstacleCenterPosition = obstacleMesh.position; // Posição central do obstáculo
-                
+                const obstacleMesh = hit.pickedMesh;
+                const obstacleCenterPosition = obstacleMesh.position;
                 
                 currentHits.add(obstacleName); // Marcar como atingida nesta verificação
     
@@ -172,7 +173,7 @@ class MonsterController {
                             // Reduzir a saúde da estrutura do jogador
                             const oldHealth = obstacleMesh.metadata.health;
                             obstacleMesh.metadata.health -= this.OBSTACLE_DAMAGE_AMOUNT;
-
+    
                             // Verificar se a estrutura foi destruída
                             if (obstacleMesh.metadata.health <= 0) {
                                 wasDestroyed = true;
@@ -241,6 +242,7 @@ class MonsterController {
                             obstacleMesh.metadata.initialHealth = 100;
                             obstacleMesh.metadata.health = 100 - this.OBSTACLE_DAMAGE_AMOUNT;
                         }
+                        
                         // Simular formato de retorno para consistência com código existente
                         damageResult = { 
                             destroyed: wasDestroyed, 
@@ -256,7 +258,6 @@ class MonsterController {
                         }
                     } else {
                         // Fallback para obstáculos genéricos no modo Open World 
-                        // Aplicar dano a qualquer mesh de obstáculo
                         if (!obstacleMesh.metadata) {
                             obstacleMesh.metadata = { health: 100, initialHealth: 100 };
                         }
@@ -290,7 +291,6 @@ class MonsterController {
             }
         }
     }
-    
     // Novo método para efeito visual básico de dano no Open World
     _applyBasicDamageVisual(mesh) {
         if (!mesh || !mesh.material) return;
