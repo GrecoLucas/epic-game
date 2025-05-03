@@ -7,6 +7,7 @@ class GunModel {
         this.totalAmmo = maxAmmo; // Quantidade de munição total 
         this.reloadTime = reloadTime;
         this.isPickedUp = false;
+        this.isInInventory = false;
         this.isAutomatic = false; // Nova propriedade para controlar o disparo automático
         this.position = { x: 0, y: 0, z: 0 };
         
@@ -108,7 +109,17 @@ class GunModel {
 
     getTotalAmmo() {
         return this.totalAmmo;
-    }''
+    }
+    addToInventory() {
+        this.isInInventory = true;
+        this.isPickedUp = false; 
+        return this;
+    }
+
+    removeFromInventory() {
+        this.isInInventory = false;
+        return this;
+    }
 }
 
 export default GunModel;

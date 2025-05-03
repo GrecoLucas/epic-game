@@ -33,9 +33,12 @@ class Gun {
         return this.controller.checkPickupProximity(playerPosition, interactionDistance);
     }
 
-    // Métodos para facilitar o acesso às funcionalidades do controlador
     pickup() {
-        return this.controller.pickup();
+        const result = this.controller.pickup();
+        if (result) {
+            this.model.addToInventory(); // Garantir que está no inventário
+        }
+        return result;
     }
 
     drop(x, y, z) {

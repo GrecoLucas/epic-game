@@ -66,11 +66,20 @@ class GunView {
     updateVisibility() {
         // Se estamos usando meshes físicos (root nodes)
         if (this.groundMesh && this.handMesh) {
-            // Habilitar/desabilitar a arma no chão baseada no estado 'picked up'
-            // Use setEnabled para melhor performance e controle da hierarquia
-            this.groundMesh.setEnabled(!this.model.isPickedUp);
-
-            // Habilitar/desabilitar a arma na mão baseada no estado 'picked up'
+            // A arma no chão só é visível se NÃO estiver no inventário E NÃO estiver equipada
+            const showOnGround = !this.model.isInInventory && !this.model.isPickedUp;
+            this.groundMesh.setEnabled(showOnGround);
+            
+            // Desabilitar todas as interações se a arma estiver no inventário
+            if (this.physicalMeshes && this.model.isInInventory) {
+                this.physicalMeshes.forEach(mesh => {
+                    if (mesh && mesh.actionManager && mesh.name.includes("gun_ground")) {
+                        mesh.isPickable = false;
+                    }
+                });
+            }
+            
+            // A arma na mão só é visível se estiver equipada
             this.handMesh.setEnabled(this.model.isPickedUp);
         }
     }

@@ -1,6 +1,7 @@
 import BuildingController from './BuildingController.js'; // Importar a nova classe
 import ShootController from './ShootController/ShootController.js'; // Importar o novo ShootController
 import Pause from '../objects/Pause.js'; // Importar o objeto de pausa
+import HotBar from '../objects/HotBar.js';
 
 class PlayerController {
     constructor(scene, playerModel, playerView) {
@@ -73,6 +74,9 @@ class PlayerController {
         setTimeout(() => {
             this.initializeBuildingController();
         }, 2000); // Atraso de 2 segundos para garantir que o jogo foi inicializado
+
+        this.hotbar = new HotBar(this.scene);
+        this.hotbar.initialize();
 
         // Set up pointer lock change detection
         this.setupPointerLockHandling();
@@ -215,7 +219,7 @@ class PlayerController {
             // --- DETECÇÃO DE ARMAS ---
             // Obter todas as armas na cena (qualquer mesh que contenha "gun_ground")
             const gunMeshes = this.scene.meshes.filter(mesh => 
-                mesh.name && mesh.name.includes("gun_ground")
+                mesh.name && mesh.name.includes("gun_ground") && mesh.isEnabled() && mesh.isVisible
             );
             
             // Resetar a arma mais próxima
@@ -230,13 +234,21 @@ class PlayerController {
                 const gunGroups = {};
                 
                 for (const gunMesh of gunMeshes) {
-                    // Pular armas que já foram coletadas (invisíveis)
-                    if (!gunMesh.isVisible) continue;
+                    // Pular armas que já foram coletadas (invisíveis ou desativadas)
+                    if (!gunMesh.isVisible || !gunMesh.isEnabled()) continue;
                     
                     // Encontrar o mesh raiz que contém todas as partes
                     let rootMesh = gunMesh;
                     while (rootMesh.parent && rootMesh.parent.name && rootMesh.parent.name.includes("gun_ground")) {
                         rootMesh = rootMesh.parent;
+                    }
+                    
+                    // Verificar se a arma já está no inventário verificando o gunLoader
+                    if (this.scene.gameInstance && this.scene.gameInstance.gunLoader) {
+                        const gunInstance = this.findGunInstanceByMesh(rootMesh);
+                        if (gunInstance && gunInstance.model.isInInventory) {
+                            continue; // Pular armas que já estão no inventário
+                        }
                     }
                     
                     // Usar o ID do rootMesh como chave para agrupar
@@ -512,19 +524,26 @@ class PlayerController {
         if (this.nearbyGun) {
             try {
                 // Encontrar a instância Gun associada a este mesh
-                // Percorrer todas as instâncias de Gun no GunLoader através do sistema de metadados
                 const gunInstance = this.findGunInstanceByMesh(this.nearbyGun);
                 
                 if (gunInstance) {
-                    // Chamar o método pickup da instância Gun
-                    gunInstance.pickup();
-                    console.log("Arma coletada com a tecla E");
-                } else {
-                    // Alternativa: disparar o evento de clique no mesh da arma
-                    if (this.nearbyGun.actionManager) {
-                        this.nearbyGun.actionManager.processTrigger(BABYLON.ActionManager.OnPickTrigger);
-                        console.log("Ação de pickup disparada via ActionManager");
+                    // Marcar a arma como adicionada ao inventário
+                    gunInstance.model.addToInventory();
+                    
+                    // Atualizar visibilidade imediatamente para remover do chão
+                    gunInstance.view.updateVisibility();
+                    
+                    // Adicionar à hotbar e obter o índice do slot onde foi adicionada
+                    const slotIndex = this.hotbar.addWeapon(gunInstance);
+                    
+                    // Equipar a arma diretamente (em vez de apenas adicioná-la ao inventário)
+                    if (slotIndex !== -1) {
+                        this.hotbar.controller.selectSlot(slotIndex);
+                        gunInstance.pickup(); // Garantir que a arma está equipada
                     }
+    
+                    // Limpar a referência para a arma próxima para evitar interação duplicada
+                    this.nearbyGun = null;
                 }
             } catch (error) {
                 console.log("Erro ao pegar arma próxima:", error);
@@ -564,9 +583,15 @@ class PlayerController {
     
     // Método para obter a arma que o jogador está segurando (se houver)
     getPlayerEquippedGun() {
-        // Verificar se temos o GunLoader no game
+        if (this.hotbar) {
+            const selectedWeapon = this.hotbar.getSelectedWeapon();
+            if (selectedWeapon) {
+                return selectedWeapon;
+            }
+        }
+        
+        // Fallback para o método antigo se não houver hotbar ou arma selecionada
         if (this.scene.gameInstance && this.scene.gameInstance.gunLoader) {
-            // Obter a arma que está sendo carregada pelo jogador (isPickedUp = true)
             return this.scene.gameInstance.gunLoader.getPlayerGun();
         }
         return null;
