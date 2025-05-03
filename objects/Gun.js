@@ -6,7 +6,7 @@ import GunController from '../controller/GunController.js';
 class Gun {
     constructor(scene, type = 'pistol', x = 0, y = 0, z = 0) {
         // Inicializar o modelo com posição
-        this.model = new GunModel(type);
+        this.model = new GunModel(type,);
         this.model.setPosition(x, y, z);
         
         // Inicializar a view com o modelo

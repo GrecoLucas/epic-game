@@ -1,5 +1,5 @@
 class GunModel {
-    constructor(type = 'pistol', damage = 50, ammo = 15, maxAmmo = 15, reloadTime = 2) { // Changed default damage to 50
+    constructor(type = 'pistol', name = "pistol", damage = 50, ammo = 15, maxAmmo = 15, reloadTime = 2) { // Changed default damage to 50
         this.type = type;
         this.damage = damage;
         this.ammo = ammo;
@@ -19,26 +19,29 @@ class GunModel {
     configureGunType(type) {
         switch(type.toLowerCase()) {
             case 'shotgun':
-                this.damage = 80; // Ensure shotgun also does 50 base damage
+                this.damage = 80;
                 this.ammo = 8;
                 this.maxAmmo = 8;
                 this.reloadTime = 2.5;
                 this.isAutomatic = false;
+                this.name = "Shotgun"; // Nome para shotgun
                 break;
             case 'assault_rifle':
-                this.damage = 15; // Ensure rifle also does 50 base damage
+                this.damage = 15;
                 this.ammo = 20;
                 this.maxAmmo = 20;
                 this.reloadTime = 1.8;
-                this.isAutomatic = true; // Rifle de assalto com disparo automático
+                this.isAutomatic = true;
+                this.name = "Assault Rifle";
                 break;
             case 'pistol':
             default:
-                this.damage = 20; 
+                this.damage = 20;
                 this.ammo = 15;
                 this.maxAmmo = 15;
                 this.reloadTime = 2;
                 this.isAutomatic = false;
+                this.name = "Pistol"; 
                 break;
         }
     }

@@ -83,11 +83,16 @@ class HotBarController {
 
     // Desequipar a arma atual
     unequipCurrentWeapon() {
-        const currentWeapon = this.model.getSelectedWeapon();
-        if (currentWeapon) {
-            currentWeapon.model.isPickedUp = false;
-            currentWeapon.view.updateVisibility();
-        }
+        // Obter todas as armas do jogo
+        const allGuns = this.getAllWeapons();
+
+        // Desativar TODAS as armas para garantir que nenhuma fique visível
+        allGuns.forEach(gun => {
+            if (gun && gun.model) {
+                gun.model.isPickedUp = false;
+                gun.view.updateVisibility();
+            }
+        });
         
         // Atualizar a exibição de munição
         if (this.scene.gameInstance && this.scene.gameInstance.player) {

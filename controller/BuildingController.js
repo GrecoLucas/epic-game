@@ -50,19 +50,20 @@ class BuildingController {
         // Criar uma UI fullscreen para mostrar informações do modo de construção
         const advancedTexture = BABYLON.GUI.AdvancedDynamicTexture.CreateFullscreenUI("buildModeUI");
         
-        // Criar um painel para a parte inferior da tela
+        // Criar um painel para o lado esquerdo da tela
         const panel = new BABYLON.GUI.StackPanel();
-        panel.width = "400px";
-        panel.height = "150px";
-        panel.horizontalAlignment = BABYLON.GUI.Control.HORIZONTAL_ALIGNMENT_CENTER;
-        panel.verticalAlignment = BABYLON.GUI.Control.VERTICAL_ALIGNMENT_BOTTOM;
-        panel.paddingBottom = "20px";
+        panel.width = "420px";
+        panel.height = "300px";
+        panel.horizontalAlignment = BABYLON.GUI.Control.HORIZONTAL_ALIGNMENT_LEFT;
+        panel.verticalAlignment = BABYLON.GUI.Control.VERTICAL_ALIGNMENT_TOP;
+        panel.paddingLeft = "20px";
+        panel.paddingTop = "100px";
         panel.isVisible = false; // Inicialmente invisível
         advancedTexture.addControl(panel);
         
         // Fundo do painel (retângulo semi-transparente)
         const background = new BABYLON.GUI.Rectangle();
-        background.width = "400px";
+        background.width = "100%";
         background.height = "120px";
         background.cornerRadius = 10;
         background.color = "white";

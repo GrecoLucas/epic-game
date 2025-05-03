@@ -178,7 +178,7 @@ class PlayerController {
         hintText.fontFamily = "Arial";
         hintText.textHorizontalAlignment = BABYLON.GUI.Control.HORIZONTAL_ALIGNMENT_CENTER;
         hintText.textVerticalAlignment = BABYLON.GUI.Control.VERTICAL_ALIGNMENT_BOTTOM;
-        hintText.paddingBottom = "30px";
+        hintText.paddingBottom = "120px";
         hintText.alpha = 0; // Inicialmente invisível
         
         advancedTexture.addControl(hintText);
