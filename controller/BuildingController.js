@@ -2,6 +2,7 @@
 import BlockController from './BlocksController/BlockController.js';
 import RampController from './BlocksController/RampController.js';
 import BarricadeController from './BlocksController/BarricadeController.js';
+import TurretController from './BlocksController/TurretController.js';
 
 class BuildingController {
     constructor(scene, camera, collisionSystem, mazeView, mazeModel) {
@@ -24,12 +25,14 @@ class BuildingController {
         this.blockController = new BlockController(scene, camera, collisionSystem, mazeView, mazeModel);
         this.rampController = new RampController(scene, camera, collisionSystem, mazeView, mazeModel);
         this.barricadeController = new BarricadeController(scene, camera, collisionSystem, mazeView, mazeModel);
+        this.turretController = new TurretController(scene, camera, collisionSystem, mazeView, mazeModel);
 
         // Sistema de materiais disponíveis
         this.availableMaterials = {
             wall: 0,
             ramp: 0,
-            barricade: 0
+            barricade: 0,
+            turret: 2
         };
 
         this.currentPlacementValid = false;
@@ -121,9 +124,25 @@ class BuildingController {
         barricadeText.textHorizontalAlignment = BABYLON.GUI.Control.HORIZONTAL_ALIGNMENT_LEFT;
         materialsPanel.addControl(barricadeText);
         
+        // Segunda linha para as torretas
+        const materialsPanel2 = new BABYLON.GUI.StackPanel();
+        materialsPanel2.isVertical = false;
+        materialsPanel2.height = "30px";
+        contentContainer.addControl(materialsPanel2);
+        
+        // Texto para torretas
+        const turretText = new BABYLON.GUI.TextBlock();
+        turretText.text = "Torretas: 0";
+        turretText.color = "white";
+        turretText.fontSize = 16;
+        turretText.width = "150px";
+        turretText.paddingLeft = "30px";
+        turretText.textHorizontalAlignment = BABYLON.GUI.Control.HORIZONTAL_ALIGNMENT_LEFT;
+        materialsPanel2.addControl(turretText);
+        
         // Dicas de controle (na parte inferior)
         const controlsText = new BABYLON.GUI.TextBlock();
-        controlsText.text = "1: Bloco | 2: Rampa | 3: Barricada | B: Alternar | Botão Direito: Rotacionar";
+        controlsText.text = "1: Bloco | 2: Rampa | 3: Barricada | 4: Torreta | B: Alternar | Botão Direito: Rotacionar";
         controlsText.color = "yellow";
         controlsText.fontSize = 12;
         controlsText.height = "30px";
@@ -135,15 +154,17 @@ class BuildingController {
             panel: panel,
             wallText: wallText,
             rampText: rampText,
-            barricadeText: barricadeText
+            barricadeText: barricadeText,
+            turretText: turretText
         };
     }
     
     // Adicionar materiais ao inventário do jogador
-    addMaterials(wallCount, rampCount, barricadeCount) {
+    addMaterials(wallCount, rampCount, barricadeCount, turretCount = 0) {
         this.availableMaterials.wall += wallCount;
         this.availableMaterials.ramp += rampCount;
         this.availableMaterials.barricade += barricadeCount;
+        this.availableMaterials.turret += turretCount;
         this._updateBuildModeUI();
     }
     
@@ -155,6 +176,7 @@ class BuildingController {
         this.buildModeUI.wallText.text = `Blocos: ${this.availableMaterials.wall}`;
         this.buildModeUI.rampText.text = `Rampas: ${this.availableMaterials.ramp}`;
         this.buildModeUI.barricadeText.text = `Barricadas: ${this.availableMaterials.barricade}`;
+        this.buildModeUI.turretText.text = `Torretas: ${this.availableMaterials.turret}`;
         
         // Atualizar visibilidade da UI
         this.buildModeUI.panel.isVisible = this.isEnabled;
@@ -178,6 +200,8 @@ class BuildingController {
             this.rampController.dispose();
         } else if (this.selectedItem === 'barricade') {
             this.barricadeController.dispose();
+        } else if (this.selectedItem === 'turret') {
+            this.turretController.dispose();
         }
         
         this.currentPlacementValid = false;
@@ -195,7 +219,7 @@ class BuildingController {
     }
 
     setSelectedItem(itemType) {
-        if (!this.isEnabled || !['wall', 'ramp', 'barricade'].includes(itemType)) return;
+        if (!this.isEnabled || !['wall', 'ramp', 'barricade', 'turret'].includes(itemType)) return;
         if (this.selectedItem !== itemType) {
             // Limpar preview anterior
             if (this.selectedItem === 'wall') {
@@ -204,6 +228,8 @@ class BuildingController {
                 this.rampController.dispose();
             } else if (this.selectedItem === 'barricade') {
                 this.barricadeController.dispose();
+            } else if (this.selectedItem === 'turret') {
+                this.turretController.dispose();
             }
             
             this.selectedItem = itemType;
@@ -242,6 +268,12 @@ class BuildingController {
                 this.currentPlacementValid = this.barricadeController.isValidPlacement(this.currentPlacementPosition);
                 this.barricadeController.updatePreviewMesh(this.currentPlacementPosition, this.currentPlacementValid);
             }
+        } else if (this.selectedItem === 'turret') {
+            this.currentPlacementPosition = this.turretController.getPlacementPosition(ray);
+            if (this.currentPlacementPosition) {
+                this.currentPlacementValid = this.turretController.isValidPlacement(this.currentPlacementPosition);
+                this.turretController.updatePreviewMesh(this.currentPlacementPosition, this.currentPlacementValid);
+            }
         }
     }
 
@@ -271,6 +303,12 @@ class BuildingController {
             return false;
         }
         
+        if (this.selectedItem === 'turret' && this.availableMaterials.turret <= 0) {
+            console.log("Sem torretas disponíveis!");
+            this._showNotification("Sem torretas disponíveis!", "red");
+            return false;
+        }
+        
         let success = false;
         
         // Delegar a criação do item para o controlador específico
@@ -280,6 +318,8 @@ class BuildingController {
             success = this.rampController.placeRamp(this.currentPlacementPosition, 150);
         } else if (this.selectedItem === 'barricade') {
             success = this.barricadeController.placeBarricade(this.currentPlacementPosition, 50);
+        } else if (this.selectedItem === 'turret') {
+            success = this.turretController.placeTurret(this.currentPlacementPosition, 150);
         }
         
         if (success) {
@@ -290,13 +330,18 @@ class BuildingController {
                 this.availableMaterials.ramp--;
             } else if (this.selectedItem === 'barricade') {
                 this.availableMaterials.barricade--;
+            } else if (this.selectedItem === 'turret') {
+                this.availableMaterials.turret--;
             }
             
             // Atualizar a UI
             this._updateBuildModeUI();
             
             // Mostrar notificação de sucesso
-            this._showNotification(`${this.selectedItem === 'wall' ? 'Bloco' : this.selectedItem === 'ramp' ? 'Rampa' : 'Barricada'} construído com sucesso!`, "green");
+            const itemName = this.selectedItem === 'wall' ? 'Bloco' : 
+                            this.selectedItem === 'ramp' ? 'Rampa' : 
+                            this.selectedItem === 'barricade' ? 'Barricada' : 'Torreta';
+            this._showNotification(`${itemName} construído com sucesso!`, "green");
             
             return true;
         } else {
@@ -377,6 +422,13 @@ class BuildingController {
             // Re-validar posicionamento após a rotação
             if (this.currentPlacementPosition) {
                 this.currentPlacementValid = this.barricadeController.isValidPlacement(this.currentPlacementPosition);
+            }
+        } else if (this.selectedItem === 'turret') {
+            this.turretController.rotatePreview(clockwise);
+            
+            // Re-validar posicionamento após a rotação
+            if (this.currentPlacementPosition) {
+                this.currentPlacementValid = this.turretController.isValidPlacement(this.currentPlacementPosition);
             }
         }
     }

@@ -138,8 +138,8 @@ class PlayerController {
                 this.buildingController.cellSize = this.scene.gameInstance.chunkSize || 16;
                 this.buildingController.wallHeight = 4;
                 
-                // Adicionar materiais iniciais
-                this.buildingController.addMaterials(10, 5); // 10 blocos, 5 rampas
+                // Adicionar materiais iniciais - incluindo torretas
+                this.buildingController.addMaterials(10, 5, 5, 5); // 10 blocos, 5 rampas, 5 barricadas, 5 torretas
                 
                 console.log("BuildingController inicializado com sucesso no modo mundo aberto!");
             } else {
@@ -155,6 +155,10 @@ class PlayerController {
                 this.scene.gameInstance.maze.view,
                 this.scene.gameInstance.maze.model
             );
+            
+            // Adicionar materiais iniciais - incluindo torretas
+            this.buildingController.addMaterials(10, 5, 5, 5); // 10 blocos, 5 rampas, 5 barricadas, 5 torretas
+            
             console.log("BuildingController inicializado com sucesso no modo labirinto!");
         } else {
             // Caso ainda não tenha as dependências necessárias, tentar novamente mais tarde
@@ -475,21 +479,8 @@ class PlayerController {
                             if (key === "3") { // Selecionar Barricada
                                 this.buildingController.setSelectedItem('barricade');
                             }
-                            if (key === "4") { // Alternar direção da rampa (east ou south)
-                                if (this.buildingController.selectedItem === 'ramp' && 
-                                    this.buildingController.rampController) {
-                                    // Alternar entre east e south
-                                    const currentDirection = this.buildingController.rampController.rampDirection;
-                                    const newDirection = currentDirection === 'east' ? 'south' : 'east';
-                                    this.buildingController.rampController.setDirection(newDirection);
-                                    
-                                    // Ajustar rotação para a direção
-                                    if (newDirection === 'south') {
-                                        this.buildingController.currentPlacementRotation = Math.PI / 2; // 90 graus
-                                    } else {
-                                        this.buildingController.currentPlacementRotation = 0;
-                                    }
-                                }
+                            if (key === "4") { // Selecionar Torreta
+                                this.buildingController.setSelectedItem('turret');
                             }
                         }
                     }

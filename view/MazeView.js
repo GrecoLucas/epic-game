@@ -3,6 +3,7 @@
 import Block from './Blocks/Block.js';
 import Ramp from './Blocks/Ramp.js';
 import Barricade from './Blocks/Barricade.js';
+import Turret from './Blocks/Turret.js';
 
 class MazeView {
     constructor(scene) {
@@ -20,6 +21,7 @@ class MazeView {
         this.blockHandler = new Block(scene, { wallMaterial: this.wallMaterial });
         this.rampHandler = new Ramp(scene, { rampMaterial: this.rampMaterial });
         this.barricadeHandler = new Barricade(scene, { wallMaterial: this.wallMaterial });
+        this.turretHandler = new Turret(scene, { wallMaterial: this.wallMaterial });
     }
     
     // Initialize materials for walls, floor and ceiling
@@ -450,6 +452,40 @@ class MazeView {
         return result;
     }
 
+    // Method to destroy the *visual representation* of the turret
+    destroyTurretVisual(turretName, position) {
+        // Using the turret handler to destroy the turret
+        const result = this.turretHandler.destroyTurretVisual(
+            turretName, 
+            position, 
+            // Callback for destruction effect
+            (pos) => this.createWallDestructionEffect(pos),
+            // Callback for dependent block destruction
+            (dependentName, dependentPos) => {
+                if (dependentName.startsWith("playerWall_")) {
+                    return this.destroyWallVisual(dependentName, dependentPos);
+                } else if (dependentName.startsWith("playerRamp_")) {
+                    return this.destroyRampVisual(dependentName, dependentPos);
+                } else if (dependentName.startsWith("playerBarricade_")) {
+                    return this.destroyBarricadeVisual(dependentName, dependentPos);
+                } else if (dependentName.startsWith("playerTurret_")) {
+                    return this.destroyTurretVisual(dependentName, dependentPos);
+                }
+            }
+        );
+        
+        // If successful and it was in our meshes array, remove it
+        if (result) {
+            const turretMesh = this.scene.getMeshByName(turretName);
+            const index = this.meshes.indexOf(turretMesh);
+            if (index > -1) {
+                this.meshes.splice(index, 1);
+            }
+        }
+        
+        return result;
+    }
+
     // Method to apply visual damage effect to wall
     applyWallDamageVisual(wallName, remainingHealth, initialHealth) {
         this.blockHandler.applyWallDamageVisual(
@@ -474,6 +510,16 @@ class MazeView {
     applyBarricadeDamageVisual(barricadeName, remainingHealth, initialHealth) {
         this.barricadeHandler.applyBarricadeDamageVisual(
             barricadeName,
+            remainingHealth,
+            initialHealth,
+            (position) => this.createWallDamageImpactEffect(position)
+        );
+    }
+
+    // Method to apply visual damage effect to turret
+    applyTurretDamageVisual(turretName, remainingHealth, initialHealth) {
+        this.turretHandler.applyTurretDamageVisual(
+            turretName,
             remainingHealth,
             initialHealth,
             (position) => this.createWallDamageImpactEffect(position)
@@ -624,6 +670,20 @@ class MazeView {
         const barricade = this.barricadeHandler.createPlayerBarricade(position, cellSize, rotation, initialHealth);
         this.meshes.push(barricade);
         return barricade;
+    }
+    
+    /**
+     * Creates a single turret instance built by the player.
+     * @param {BABYLON.Vector3} position Central position of the turret.
+     * @param {number} cellSize Size of the grid cell.
+     * @param {number} rotation Rotation in radians on Y axis.
+     * @param {number} initialHealth Initial health of the turret.
+     * @returns {BABYLON.Mesh} The turret mesh.
+     */
+    createPlayerTurret(position, cellSize, rotation = 0, initialHealth = 150) {
+        const turret = this.turretHandler.createPlayerTurret(position, cellSize, rotation, initialHealth);
+        this.meshes.push(turret);
+        return turret;
     }
     
     // Return all meshes created by MazeView
