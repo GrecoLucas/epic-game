@@ -14,108 +14,62 @@ class Pistol extends GunView {
         // --- ARMA NO CHÃO ---
         const groundRoot = new BABYLON.TransformNode("gun_ground_root", scene);
 
-        // Corpo principal
-        const base = BABYLON.MeshBuilder.CreateBox("gun_ground_base", {
-            width: 0.15, height: 0.18, depth: 0.8
-        }, scene);
-        base.parent = groundRoot;
-        base.position.y = 0.05;
+        // Carregar o modelo OBJ da pistola para exibir no chão
+        BABYLON.SceneLoader.ImportMesh("", "models/Gun/pistol/", "Pistol.obj", scene, (meshes) => {
+            // Parent todos os meshes ao groundRoot
+            meshes.forEach(mesh => {
+                if (mesh.name !== "gun_ground_root") {
+                    mesh.parent = groundRoot;
+                    mesh.name = "gun_ground_" + mesh.name;
+                    mesh.isPickable = true;
+                    this.physicalMeshes.push(mesh);
+                    
+                    // Aplicar textura de Atlas para todas as partes da arma
+                    const material = new BABYLON.StandardMaterial("gunMaterial", scene);
+                    material.diffuseTexture = new BABYLON.Texture("models/Atlas.png", scene);
+                    material.emissiveColor = BABYLON.Color3.FromHexString('#1a1a1a');
+                    mesh.material = material;
 
-        // Slide
-        const slide = BABYLON.MeshBuilder.CreateBox("gun_ground_slide", {
-            width: 0.14, height: 0.1, depth: 0.61 
-        }, scene);
-        slide.parent = base;
-        slide.position = new BABYLON.Vector3(0, 0.1, -0.1);
+                    // Configurar ActionManager para cada parte individual
+                    mesh.actionManager = new BABYLON.ActionManager(scene);
 
-        // Cabo
-        const handle = BABYLON.MeshBuilder.CreateBox("gun_ground_handle", {
-            width: 0.12, height: 0.4, depth: 0.15
-        }, scene);
-        handle.parent = groundRoot;
-        handle.position = new BABYLON.Vector3(0, -0.15, -0.2);
-        handle.rotation.x = -0.2;
+                    // Ação de pickup
+                    mesh.actionManager.registerAction(new BABYLON.ExecuteCodeAction(
+                        BABYLON.ActionManager.OnPickTrigger,
+                        () => {
+                            if (this.onPickupCallback) {
+                                console.log(`Pickup acionado na parte: ${mesh.name}`);
+                                this.onPickupCallback();
+                            }
+                        }
+                    ));
 
-        // Cano
-        const barrel = BABYLON.MeshBuilder.CreateCylinder("gun_ground_barrel", {
-            height: 0.5, diameter: 0.06
-        }, scene);
-        barrel.parent = groundRoot;
-        barrel.rotation.x = Math.PI / 2;
-        barrel.position = new BABYLON.Vector3(0, 0.08, 0.55);
+                    // Efeito de hover
+                    mesh.actionManager.registerAction(new BABYLON.ExecuteCodeAction(
+                        BABYLON.ActionManager.OnPointerOverTrigger,
+                        () => {
+                            meshes.forEach(p => {
+                                if (p.material) p.material.emissiveColor = BABYLON.Color3.FromHexString('#555555');
+                            });
+                            document.body.style.cursor = 'pointer';
+                        }
+                    ));
 
-        // Miras
-        const rearSight = BABYLON.MeshBuilder.CreateBox("gun_ground_rear_sight", { width: 0.08, height: 0.04, depth: 0.02 }, scene);
-        rearSight.parent = slide;
-        rearSight.position = new BABYLON.Vector3(0, 0.07, -0.25);
-
-        const frontSight = BABYLON.MeshBuilder.CreateBox("gun_ground_front_sight", { width: 0.02, height: 0.05, depth: 0.02 }, scene);
-        frontSight.parent = slide;
-        frontSight.position = new BABYLON.Vector3(0, 0.07, 0.25);
-
-        // --- Materiais ---
-        const baseColor = this.meshOnGround.color; // '#303030'
-        const handleColor = '#4a4a4a'; // Slightly lighter gray for handle
-        const slideColor = '#252525'; // Darker gray for slide/barrel
-        const sightColor = '#101010'; // Very dark gray for sights
-
-        const baseMaterial = this.createMaterial(baseColor, scene, { emissive: '#1a1a1a' });
-        const handleMaterial = this.createMaterial(handleColor, scene, { emissive: '#202020' });
-        const slideMaterial = this.createMaterial(slideColor, scene, { emissive: '#101010' });
-        const sightMaterial = this.createMaterial(sightColor, scene, { emissive: '#050505' });
-
-        // Aplicar materiais às partes do chão
-        base.material = baseMaterial;
-        slide.material = slideMaterial;
-        handle.material = handleMaterial;
-        barrel.material = slideMaterial; // Re-use slide material for barrel
-        rearSight.material = sightMaterial;
-        frontSight.material = sightMaterial;
-
-        const groundGunParts = [base, slide, handle, barrel, rearSight, frontSight];
-        groundGunParts.forEach(part => {
-            // part.material is already set above
-            part.isPickable = true;
-            this.physicalMeshes.push(part);
-
-            // Configurar ActionManager para cada parte individual
-            part.actionManager = new BABYLON.ActionManager(scene);
-
-            // Ação de pickup
-            part.actionManager.registerAction(new BABYLON.ExecuteCodeAction(
-                BABYLON.ActionManager.OnPickTrigger,
-                () => {
-                    if (this.onPickupCallback) {
-                        console.log(`Pickup acionado na parte: ${part.name}`);
-                        this.onPickupCallback();
-                    }
+                    mesh.actionManager.registerAction(new BABYLON.ExecuteCodeAction(
+                        BABYLON.ActionManager.OnPointerOutTrigger,
+                        () => {
+                            meshes.forEach(p => {
+                                if (p.material) p.material.emissiveColor = BABYLON.Color3.FromHexString('#1a1a1a');
+                            });
+                            document.body.style.cursor = 'auto';
+                        }
+                    ));
                 }
-            ));
+            });
 
-            // Efeito de hover - Aplicar a todas as partes para consistência
-            part.actionManager.registerAction(new BABYLON.ExecuteCodeAction(
-                BABYLON.ActionManager.OnPointerOverTrigger,
-                () => {
-                    groundGunParts.forEach(p => {
-                        if (p.material) p.material.emissiveColor = BABYLON.Color3.FromHexString('#555555'); // Brilho uniforme no hover
-                    });
-                    document.body.style.cursor = 'pointer';
-                }
-            ));
-
-            part.actionManager.registerAction(new BABYLON.ExecuteCodeAction(
-                BABYLON.ActionManager.OnPointerOutTrigger,
-                () => {
-                    // Restaurar emissive original baseado no material da parte
-                    groundGunParts.forEach(p => {
-                        if (p.material === baseMaterial) p.material.emissiveColor = BABYLON.Color3.FromHexString('#1a1a1a');
-                        else if (p.material === handleMaterial) p.material.emissiveColor = BABYLON.Color3.FromHexString('#202020');
-                        else if (p.material === slideMaterial) p.material.emissiveColor = BABYLON.Color3.FromHexString('#101010');
-                        else if (p.material === sightMaterial) p.material.emissiveColor = BABYLON.Color3.FromHexString('#050505');
-                    });
-                    document.body.style.cursor = 'auto';
-                }
-            ));
+            // Ajustar tamanho e posição do modelo
+            groundRoot.scaling = new BABYLON.Vector3(2, 2, 2); // Aumentado de 0.2 para 0.4
+            groundRoot.rotation = new BABYLON.Vector3(0, Math.PI / 2, 0);
         });
 
         groundRoot.position = new BABYLON.Vector3(
@@ -140,62 +94,44 @@ class Pistol extends GunView {
         handRoot.parent = scene.activeCamera;
         
         // Posição temporária modificada para visualização completa da arma
-        handRoot.position = new BABYLON.Vector3(0.5, -0.25, 1);  // Movida para a frente e para o lado
+        handRoot.position = new BABYLON.Vector3(1.0, -0.6, 1.2);  // Movida para a frente e para o lado
         handRoot.rotation = new BABYLON.Vector3(-0.01, -0.1, 0);  // Ângulo modificado para melhor visualização
 
-        // Replicar a estrutura e materiais da arma do chão para a mão
-        const handBase = base.clone("gun_hand_base");
-        handBase.material = baseMaterial.clone("handBaseMat"); // Clone material
-        handBase.parent = handRoot;
+        // Carregar o modelo OBJ da pistola para segurar na mão
+        BABYLON.SceneLoader.ImportMesh("", "models/Gun/pistol/", "Pistol.obj", scene, (meshes) => {
+            // Parent todos os meshes ao handRoot
+            meshes.forEach(mesh => {
+                if (mesh.name !== "gun_hand_root") {
+                    mesh.parent = handRoot;
+                    mesh.name = "gun_hand_" + mesh.name;
+                    mesh.isPickable = false;
+                    this.physicalMeshes.push(mesh);
+                    
+                    // Aplicar textura de Atlas para todas as partes da arma
+                    const material = new BABYLON.StandardMaterial("gunHandMaterial", scene);
+                    material.diffuseTexture = new BABYLON.Texture("models/Atlas.png", scene);
+                    material.emissiveColor = BABYLON.Color3.FromHexString('#1a1a1a');
+                    mesh.material = material;
+                }
+            });
 
-        const handSlide = slide.clone("gun_hand_slide");
-        handSlide.material = slideMaterial.clone("handSlideMat"); // Clone material
-        handSlide.parent = handBase;
-
-        const handHandle = handle.clone("gun_hand_handle");
-        handHandle.material = handleMaterial.clone("handHandleMat"); // Clone material
-        handHandle.parent = handRoot;
-
-        const handBarrel = barrel.clone("gun_hand_barrel");
-        handBarrel.material = slideMaterial.clone("handBarrelMat"); // Clone material (same as slide)
-        handBarrel.parent = handRoot;
-
-        const handRearSight = rearSight.clone("gun_hand_rear_sight");
-        handRearSight.material = sightMaterial.clone("handRearSightMat"); // Clone material
-        handRearSight.parent = handSlide;
-
-        const handFrontSight = frontSight.clone("gun_hand_front_sight");
-        handFrontSight.material = sightMaterial.clone("handFrontSightMat"); // Clone material
-        handFrontSight.parent = handSlide;
-
-        const handGunParts = [handBase, handSlide, handHandle, handBarrel, handRearSight, handFrontSight];
-        handGunParts.forEach(part => {
-            part.isPickable = false;
-            this.physicalMeshes.push(part);
-            // Remover ActionManager dos clones da mão
-            part.actionManager = null;
+            // Ajustar tamanho e posição do modelo
+            handRoot.scaling = new BABYLON.Vector3(2, 2, 2); // Aumentado de 0.15 para 0.3
+            handRoot.rotation.x = -0.2;
+            handRoot.rotation.y = -0.1;
+            handRoot.rotation.z = 0;
+            
+            // Criar ponto de muzzle (boca do cano) para efeitos de tiro
+            const muzzle = BABYLON.MeshBuilder.CreateSphere("muzzle_point", {diameter: 0.01}, scene);
+            muzzle.parent = handRoot;
+            muzzle.position = new BABYLON.Vector3(0, 0.025, 0.8); // Ajuste esta posição conforme necessário para o modelo
+            muzzle.isVisible = false;
+            this.muzzlePoint = muzzle;
+            this.physicalMeshes.push(muzzle);
         });
 
-        // Ajustar emissiveColor dos materiais clonados da mão (se necessário, pode ser igual ao do chão)
-        handBase.material.emissiveColor = BABYLON.Color3.FromHexString('#1a1a1a');
-        handSlide.material.emissiveColor = BABYLON.Color3.FromHexString('#101010');
-        handHandle.material.emissiveColor = BABYLON.Color3.FromHexString('#202020');
-        handBarrel.material.emissiveColor = BABYLON.Color3.FromHexString('#101010');
-        handRearSight.material.emissiveColor = BABYLON.Color3.FromHexString('#050505');
-        handFrontSight.material.emissiveColor = BABYLON.Color3.FromHexString('#050505');
-
-        // handRoot.isVisible = false; // Visibility is handled by setEnabled now
         this.handMesh = handRoot;
         this.physicalMeshes.push(handRoot);
-
-        // Ponto de efeito para o tiro
-        const muzzle = BABYLON.MeshBuilder.CreateSphere("muzzle_point", {diameter: 0.01}, scene);
-        muzzle.parent = handRoot;
-        // Use handBarrel which is already parented to handRoot
-        muzzle.position = handBarrel.position.add(new BABYLON.Vector3(0, 0, handBarrel.scaling.y * 0.25)); // Adjusted based on cylinder height (0.5 / 2)
-        muzzle.isVisible = false;
-        this.muzzlePoint = muzzle;
-        this.physicalMeshes.push(muzzle);
 
         this.updateVisibility(); // Atualizar visibilidade inicial
 

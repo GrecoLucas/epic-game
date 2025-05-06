@@ -1,6 +1,6 @@
 // Model - Responsável pelos dados e comportamento do monstro
 class MonsterModel {
-    constructor(scene, startPosition = new BABYLON.Vector3(0, 1, 0), modelPath = "textures/models/Zombie_Basic.obj") {
+    constructor(scene, startPosition = new BABYLON.Vector3(0, 1, 0)) {
         this.scene = scene;
         this.position = startPosition;
         this.mesh = null;
@@ -36,7 +36,7 @@ class MonsterModel {
         try {
             const result = await BABYLON.SceneLoader.ImportMeshAsync(
                 "", 
-                "textures/models/", 
+                "models/Zombie/", 
                 "Zombie_Basic.obj", 
                 this.scene
             );
@@ -45,24 +45,29 @@ class MonsterModel {
                 for (let i = 1; i < result.meshes.length; i++) {
                     result.meshes[i].parent = root;
                     result.meshes[i].isPickable = true;
+                    
+                    // Apply Atlas texture to all parts of the monster
+                    if (result.meshes[i].material) {
+                        const atlasMaterial = new BABYLON.StandardMaterial("monsterAtlasMat", this.scene);
+                        atlasMaterial.diffuseTexture = new BABYLON.Texture("models/Atlas.png", this.scene);
+                        
+                        // Otimização: Configurar material para iluminação ambiente adequada
+                        atlasMaterial.ambientColor = new BABYLON.Color3(0.5, 0.5, 0.5);
+                        atlasMaterial.useEmissiveAsIllumination = false;
+                        atlasMaterial.disableLighting = false;
+                        
+                        // Evitar especular forte que poderia causar brilho excessivo
+                        atlasMaterial.specularColor = new BABYLON.Color3(0.2, 0.2, 0.2);
+                        atlasMaterial.specularPower = 50;
+                        
+                        result.meshes[i].material = atlasMaterial;
+                    }
                 }
                 
                 root.scaling = new BABYLON.Vector3(3.5, 3.5, 3.5);
                 root.checkCollisions = true;
                 root.ellipsoid = new BABYLON.Vector3(1.8, 3.9, 1.2);
                 root.ellipsoidOffset = new BABYLON.Vector3(0, 3.9, 0);
-                
-                const monsterLight = new BABYLON.PointLight("monsterLight", new BABYLON.Vector3(0, 2, 0), this.scene);
-                monsterLight.parent = root;
-                monsterLight.intensity = 0.5;
-                monsterLight.diffuse = new BABYLON.Color3(0.7, 0.3, 0.3);
-                monsterLight.range = 8;
-                
-                this.scene.registerBeforeRender(() => {
-                    if (monsterLight && !monsterLight.isDisposed()) {
-                        monsterLight.intensity = 0.3 + Math.sin(performance.now() * 0.002) * 0.2;
-                    }
-                });
             }
             
             this.mesh = root;

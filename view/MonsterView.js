@@ -103,18 +103,18 @@ class MonsterView {
         const light = this.mesh.getChildMeshes(false, (node) => node.name === "monsterLight")[0];
         
         if (isChasing) {
-            // Vermelho vivo quando perseguindo
+            // Vermelho vivo quando perseguindo, mas com emissão reduzida
             material.diffuseColor = new BABYLON.Color3(1, 0, 0);
-            material.emissiveColor = new BABYLON.Color3(0.5, 0, 0);
+            material.emissiveColor = new BABYLON.Color3(0.3, 0, 0); // Reduzido de 0.5 para 0.3
 
-            // Aumentar intensidade da luz
+            // Reduzir intensidade da luz
             if (light && light instanceof BABYLON.PointLight) {
-                light.intensity = 1.2;
+                light.intensity = 0.5; // Reduzido de 1.2 para 0.5
             }
         } else {
-            // Cor original quando patrulhando
+            // Cor original quando patrulhando, com emissão ainda mais reduzida
             material.diffuseColor = new BABYLON.Color3(0.5, 0.1, 0.1);
-            material.emissiveColor = new BABYLON.Color3(0.3, 0.05, 0.05);
+            material.emissiveColor = new BABYLON.Color3(0.2, 0.03, 0.03); // Reduzido de 0.3/0.05 para 0.2/0.03
         }
     }
 

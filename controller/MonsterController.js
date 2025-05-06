@@ -34,6 +34,17 @@ class MonsterController {
         // Inicializar o texto de vida
         this.updateHealthText();
         
+        // Remover qualquer luz existente que possa estar prejudicando a performance
+        const monsterMesh = this.model.getMesh();
+        if (monsterMesh) {
+            const lightMeshes = monsterMesh.getChildMeshes(false, (node) => node.name === "monsterLight");
+            for (const light of lightMeshes) {
+                if (light) {
+                    light.dispose();
+                }
+            }
+        }
+        
         // Registrar para atualização a cada frame
         this.scene.registerBeforeRender(() => {
             if (this.isDisposed || this.isStunned) return;
