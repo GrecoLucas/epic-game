@@ -15,10 +15,10 @@ class MonsterController {
         this.lastObstacleCollisionCheck = 0; // Renomeado de lastWallCollisionCheck
         this.obstacleCheckInterval = 100; // Renomeado de wallCheckInterval
 
-        this.obstacleContactTimers = {}; // Renomeado de wallContactTimers { obstacleName: { startTime: timestamp, lastDamageTime: timestamp } }
-        this.OBSTACLE_CONTACT_DAMAGE_THRESHOLD = 2500; // Tempo que o monstro precisa ficar em contato antes de causar dano (aumentado para 2.5 segundos)
-        this.OBSTACLE_DAMAGE_AMOUNT = 15; // Reduzido o dano por ataque
-        this.OBSTACLE_DAMAGE_COOLDOWN = 3000; // Tempo entre ataques (aumentado para 3 segundos)
+        this.obstacleContactTimers = {}; 
+        this.OBSTACLE_CONTACT_DAMAGE_THRESHOLD = 2500; 
+        this.OBSTACLE_DAMAGE_AMOUNT = 15;
+        this.OBSTACLE_DAMAGE_COOLDOWN = 3000;
     
         
         // Inicializar o controlador
@@ -91,7 +91,8 @@ class MonsterController {
                     mesh.name.startsWith("ramp_") || 
                     mesh.name.startsWith("playerWall_") || 
                     mesh.name.startsWith("playerRamp_") ||
-                    mesh.name.startsWith("playerBarricade_"));
+                    mesh.name.startsWith("playerBarricade_") ||
+                    mesh.name.startsWith("playerTurret_"));
             };
         }
     
@@ -151,7 +152,7 @@ class MonsterController {
                     let wasDestroyed = false;
     
                     // Verificar se é uma estrutura construída pelo jogador
-                    if (obstacleName.startsWith("playerWall_") || obstacleName.startsWith("playerRamp_") || obstacleName.startsWith("playerBarricade_")) {
+                    if (obstacleName.startsWith("playerWall_") || obstacleName.startsWith("playerRamp_") || obstacleName.startsWith("playerBarricade_") || obstacleName.startsWith("playerTurret_")) {
                            
                         // Verificação segura antes de acessar as propriedades
                         if (!obstacleMesh) {
@@ -200,6 +201,14 @@ class MonsterController {
                                         // Fallback para modo Open World - remover o mesh diretamente
                                         obstacleMesh.dispose();
                                     }
+                                } else if (obstacleName.startsWith("playerTurret_")) {
+                                    // Novo: Suporte para destruir torretas
+                                    if (mazeController) {
+                                        mazeController.getView().destroyTurretVisual(obstacleName, obstacleCenterPosition);
+                                    } else {
+                                        // Fallback para modo Open World - remover o mesh diretamente
+                                        obstacleMesh.dispose();
+                                    }
                                 }
                                 
                                 // Remover do sistema de colisão se necessário
@@ -226,6 +235,13 @@ class MonsterController {
                                             obstacleName,
                                             obstacleMesh.metadata.health,
                                             obstacleMesh.metadata.initialHealth || 75
+                                        );
+                                    } else if (obstacleName.startsWith("playerTurret_")) {
+                                        // Novo: Suporte para aplicar efeito visual de dano às torretas
+                                        mazeController.getView().applyTurretDamageVisual(
+                                            obstacleName,
+                                            obstacleMesh.metadata.health,
+                                            obstacleMesh.metadata.initialHealth || 150
                                         );
                                     }
                                 } else {

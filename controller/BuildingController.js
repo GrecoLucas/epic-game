@@ -32,7 +32,7 @@ class BuildingController {
             wall: 0,
             ramp: 0,
             barricade: 0,
-            turret: 2
+            turret: 0
         };
 
         this.currentPlacementValid = false;

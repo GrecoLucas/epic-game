@@ -3,7 +3,7 @@
 class TurretModel {
     constructor() {
         // Propriedades principais da torreta
-        this.damage = 40; // Dano por tiro
+        this.damage = 20; // Dano por tiro
         this.range = 500; // Alcance em unidades de mundo
         this.fireRate = 3; // Taxa base de disparo (tiros por segundo)
         this.cooldownTime = 1000 / this.fireRate; // Em milissegundos

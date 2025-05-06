@@ -206,32 +206,52 @@ class Turret {
                 onDestroy(position);
             }
             
-            // Desativar antes de destruir para evitar problemas
-            turretMesh.setEnabled(false);
+            // Encontrar a entrada da torreta na lista de torretas rastreadas
+            const turretIndex = this.turrets.findIndex(t => t.mesh && t.mesh.name === turretName);
             
-            // Remover da lista de torretas rastreadas
-            const turretIndex = this.turrets.findIndex(t => t.mesh.name === turretName);
             if (turretIndex !== -1) {
                 const turretData = this.turrets[turretIndex];
                 
-                // Limpar todos os componentes da torreta
-                if (turretData.components) {
-                    for (const key in turretData.components) {
-                        if (turretData.components[key] && !turretData.components[key].isDisposed()) {
-                            turretData.components[key].dispose();
-                        }
+                // Torreta encontrada na lista - garantir destruição de todos os componentes
+                if (turretData.mesh && turretData.mesh.metadata && turretData.mesh.metadata.components) {
+                    const components = turretData.mesh.metadata.components;
+                    
+                    // Destruir explicitamente cada componente na ordem inversa (de fora para dentro)
+                    if (components.muzzle && !components.muzzle.isDisposed()) components.muzzle.dispose();
+                    if (components.barrel && !components.barrel.isDisposed()) components.barrel.dispose();
+                    if (components.body && !components.body.isDisposed()) components.body.dispose();
+                    if (components.base && !components.base.isDisposed()) components.base.dispose();
+                    
+                    // Por fim, destruir o nó raiz que contém tudo
+                    if (components.root && !components.root.isDisposed()) {
+                        components.root.dispose();
                     }
                 }
                 
-                // Remover da lista
+                // Remover da lista de torretas
                 this.turrets.splice(turretIndex, 1);
+                
+                console.log(`Torreta ${turretName} completamente destruída.`);
             } else {
-                // Se não encontrou na lista de componentes, apenas destruir o mesh diretamente
-                setTimeout(() => {
+                // Se não encontrou na lista, verificar se tem nó raiz no nome
+                const rootNode = this.scene.getTransformNodeByName(`playerTurretRoot_${turretName.split('_')[1]}`);
+                
+                if (rootNode) {
+                    // Destruir hierarquia de meshes
+                    rootNode.getChildMeshes().forEach(mesh => {
+                        if (mesh && !mesh.isDisposed()) {
+                            mesh.dispose();
+                        }
+                    });
+                    
+                    // Destruir o nó raiz
+                    rootNode.dispose();
+                } else {
+                    // Último recurso: destruir apenas o mesh principal da torreta
                     if (turretMesh && !turretMesh.isDisposed()) {
                         turretMesh.dispose();
                     }
-                }, 100);
+                }
             }
             
             return true;
@@ -243,17 +263,42 @@ class Turret {
     applyTurretDamageVisual(turretName, remainingHealth, initialHealth, onDamage) {
         const turretMesh = this.scene.getMeshByName(turretName);
         
-        if (!turretMesh || !turretMesh.material) return;
+        if (!turretMesh || !turretMesh.metadata) return;
         
-        // Aplicar efeito visual de dano (escurecer e ficar mais vermelho conforme o dano aumenta)
+        // Calcular o índice de dano (0 = sem dano, 1 = destruído)
         const damageRatio = 1 - (remainingHealth / initialHealth);
         
-        // Modificar a cor para indicar dano
-        turretMesh.material.diffuseColor = new BABYLON.Color3(
-            0.3 + damageRatio * 0.2,  // Mais vermelho
-            0.3 - damageRatio * 0.2,  // Menos verde
-            0.3 - damageRatio * 0.2   // Menos azul
+        // Nova cor baseada no dano (fica mais vermelha conforme o dano aumenta)
+        const damageColor = new BABYLON.Color3(
+            0.3 + damageRatio * 0.7,  // Mais vermelho
+            0.3 - damageRatio * 0.3,  // Menos verde
+            0.3 - damageRatio * 0.3   // Menos azul
         );
+        
+        // Obter todos os componentes da torreta a partir dos metadados
+        if (turretMesh.metadata.components) {
+            const components = turretMesh.metadata.components;
+            
+            // Aplicar cor de dano a todos os componentes visíveis
+            for (const key in components) {
+                const component = components[key];
+                if (component && component.material && component !== components.root && !component.isDisposed()) {
+                    component.material.diffuseColor = damageColor;
+                    
+                    // Aumentar o brilho com base no dano para efeito visual
+                    if (damageRatio > 0.5) {
+                        component.material.emissiveColor = new BABYLON.Color3(
+                            damageRatio * 0.3, 0, 0
+                        );
+                    }
+                }
+            }
+        } else {
+            // Fallback para o método antigo se não tiver components
+            if (turretMesh.material) {
+                turretMesh.material.diffuseColor = damageColor;
+            }
+        }
         
         // Criar partículas de dano
         if (onDamage && turretMesh.position) {
@@ -261,9 +306,7 @@ class Turret {
         }
         
         // Salvar o valor de saúde atualizado
-        if (turretMesh.metadata) {
-            turretMesh.metadata.health = remainingHealth;
-        }
+        turretMesh.metadata.health = remainingHealth;
     }
     
     
@@ -278,6 +321,9 @@ class Turret {
         const monsters = typeof getMonsters === 'function' ? getMonsters() : [];
         if (monsters.length === 0) return; // Se não há monstros, sair imediatamente
         
+        // Array para rastrear as torretas que precisam ser removidas
+        const turretsToDestroy = [];
+
         // Para cada torreta ativa, buscar alvos e atirar se possível
         for (let turret of this.turrets) {
             // Verificar se a torreta ainda é válida (não destruída)
@@ -286,6 +332,15 @@ class Turret {
             const metadata = turret.mesh.metadata;
             const components = metadata.components;
             const healthRatio = metadata.health / metadata.initialHealth;
+            
+            // NOVO: Verificar se a torreta está destruída (saúde <= 0)
+            if (metadata.health <= 0) {
+                turretsToDestroy.push({
+                    name: turret.mesh.name,
+                    position: turret.mesh.position.clone()
+                });
+                continue; // Pular o resto do processamento para esta torreta
+            }
             
             // Garantir que cada torreta tenha um modelo válido e com munição infinita
             if (!turret.model) {
@@ -357,12 +412,18 @@ class Turret {
                     continue;
                 }
                 
-                // Calcular direção para o alvo (apenas no plano horizontal - rotação Y)
-                const direction = targetPos.subtract(turretPos);
-                direction.y = 0; // Ignorar diferença de altura na rotação
+                const direction = new BABYLON.Vector3(
+                    targetPos.x - turretPos.x,  // Componente X
+                    0,                          // Ignoramos completamente a altura (Y)
+                    targetPos.z - turretPos.z   // Componente Z
+                );
+                
+                // Normalizar o vetor de direção
+                direction.normalize();
                 
                 // Rotacionar suavemente apenas o corpo da torreta (não a base)
                 if (components.body) {
+                    // Calcular o ângulo no plano XZ usando Math.atan2
                     const angle = Math.atan2(direction.x, direction.z);
                     
                     // Interpolação da rotação atual para a rotação desejada (movimento mais suave)
@@ -398,14 +459,7 @@ class Turret {
                         
                         // Obter dano do modelo
                         const damage = turretModel.damage;
-                        
-                        // Adicionar efeito visual de disparo se necessário
-                        if (components.muzzle && !components.muzzle.isDisposed()) {
-                            // Efeito simples: Criar uma partícula ou luz temporária
-                            const muzzlePos = components.muzzle.getAbsolutePosition();
-                            this.createMuzzleFlash(muzzlePos);
-                        }
-                        
+                                                
                         // Aplicar dano diretamente ao controlador do monstro
                         if (controller && typeof controller.takeDamage === 'function') {
                             console.log(`Torreta aplicando ${damage} de dano ao monstro`);
@@ -415,36 +469,49 @@ class Turret {
                 }
             }
         }
-    }
-    
-    // Novo método para efeito visual de disparo da torreta
-    createMuzzleFlash(position) {
-        // Verificar se já temos muitos efeitos ativos (limitar para performance)
-        if (this.activeEffects.size > 20) return;
-        
-        // Criar um sistema de partículas simples para o flash do disparo
-        const effectId = `muzzleFlash_${Date.now()}`;
-        
-        // Usar um mesh simples com material emissivo para o flash
-        const flash = BABYLON.MeshBuilder.CreateSphere(effectId, {diameter: 0.2}, this.scene);
-        flash.position = position.clone();
-        
-        // Material emissivo para o flash
-        const flashMaterial = new BABYLON.StandardMaterial(`${effectId}_material`, this.scene);
-        flashMaterial.emissiveColor = new BABYLON.Color3(1, 0.7, 0);
-        flashMaterial.alpha = 0.8;
-        flash.material = flashMaterial;
-        
-        // Guardar referência para limpeza posterior
-        this.activeEffects.set(effectId, flash);
-        
-        // Remover após um curto período
-        setTimeout(() => {
-            if (flash && !flash.isDisposed()) {
-                flash.dispose();
-                this.activeEffects.delete(effectId);
+
+        // Destruir as torretas que foram marcadas para remoção
+        if (turretsToDestroy.length > 0) {
+            for (const turretData of turretsToDestroy) {
+                console.log(`Destruindo torreta ${turretData.name} por falta de saúde`);
+                this.destroyTurretVisual(
+                    turretData.name, 
+                    turretData.position,
+                    // Função de callback para efeitos de destruição
+                    (position) => {
+                        // Criar efeito de explosão básico
+                        const particleSystem = new BABYLON.ParticleSystem("turretDestruction", 50, this.scene);
+                        particleSystem.emitter = position;
+                        particleSystem.minEmitBox = new BABYLON.Vector3(-1, 0, -1);
+                        particleSystem.maxEmitBox = new BABYLON.Vector3(1, 2, 1);
+                        
+                        // Aparência das partículas
+                        particleSystem.color1 = new BABYLON.Color4(1, 0.5, 0, 1.0);
+                        particleSystem.color2 = new BABYLON.Color4(1, 0.2, 0, 1.0);
+                        particleSystem.colorDead = new BABYLON.Color4(0, 0, 0, 0.0);
+                        
+                        // Tamanho
+                        particleSystem.minSize = 0.3;
+                        particleSystem.maxSize = 1.0;
+                        
+                        // Tempo de vida
+                        particleSystem.minLifeTime = 0.5;
+                        particleSystem.maxLifeTime = 1.5;
+                        
+                        // Emissão
+                        particleSystem.emitRate = 100;
+                        particleSystem.start();
+                        
+                        // Parar após curto período
+                        setTimeout(() => {
+                            particleSystem.stop();
+                            setTimeout(() => particleSystem.dispose(), 2000);
+                        }, 200);
+                    },
+                    null // Não precisamos de destroyDependentBlock aqui
+                );
             }
-        }, 50); // 50ms - flash muito rápido
+        }
     }
 }
 

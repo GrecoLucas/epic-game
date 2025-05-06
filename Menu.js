@@ -569,7 +569,7 @@ class Menu {
         
         // Sombra do título (para efeito de profundidade)
         const titleShadow = new BABYLON.GUI.TextBlock();
-        titleShadow.text = "ESCAPE ROOM 3D";
+        titleShadow.text = "Demon survivor horror";
         titleShadow.color = "rgba(0,0,0,0.7)";
         titleShadow.fontSize = 76;
         titleShadow.fontFamily = "Impact, Anton, sans-serif";
@@ -579,7 +579,7 @@ class Menu {
         
         // Título principal
         const title = new BABYLON.GUI.TextBlock();
-        title.text = "ESCAPE ROOM 3D";
+        title.text = "Demon survivor horror";
         title.color = "linear-gradient(180deg, #ffffff, #b3e0ff)";
         title.fontSize = 76;
         title.fontFamily = "Impact, Anton, sans-serif";
@@ -975,7 +975,7 @@ class Menu {
         panel.addControl(footerContainer);
         
         const footerText = new BABYLON.GUI.TextBlock();
-        footerText.text = "© 2025 Escape Room 3D | v1.2.0 | Desenvolvido com Babylon.js";
+        footerText.text = "© 2025 Demon survivor horror | v1.2.0 | Desenvolvido com Babylon.js";
         footerText.color = "rgba(255, 255, 255, 0.7)";
         footerText.fontSize = 14;
         footerText.fontFamily = "Segoe UI, Arial, sans-serif";

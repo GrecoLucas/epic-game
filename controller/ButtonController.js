@@ -172,7 +172,7 @@ class ButtonController {
                     player.updateMoneyDisplay();
                     
                     // Adicionar materiais ao inventário de construção (2 blocos e 1 rampa)
-                    buildingController.addMaterials(2, 2,2);
+                    buildingController.addMaterials(2, 2, 2, 1);
                     
                     this.showSuccessNotification("Kit de Barricadas comprado!", "blue");
                     // Exibir mensagem de ajuda
