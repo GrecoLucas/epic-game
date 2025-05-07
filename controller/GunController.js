@@ -127,18 +127,38 @@ class GunController {
         
         console.log("Recarregando...");
         this.reloading = true;
-        this.view.playReloadEffect();
+        
+        // Verificar se o método existe na view antes de chamá-lo
+        if (typeof this.view.playReloadEffect === 'function') {
+            this.view.playReloadEffect(() => {
+                // Este callback será executado quando a animação terminar
+                this.model.reload();
+                this.reloading = false;
+                console.log(`Recarga completa. Munição: ${this.model.ammo}`);
+            });
+            
+            // Safety timeout como fallback se a animação não chamar o callback
+            this.reloadTimeout = setTimeout(() => {
+                // Verificar se ainda está recarregando (animação não chamou o callback)
+                if (this.reloading) {
+                    this.model.reload();
+                    this.reloading = false;
+                    console.log(`Recarga completa (fallback). Munição: ${this.model.ammo}`);
+                }
+            }, this.model.reloadTime * 1000 + 100); // Pequena margem extra
+        } else {
+            // Se não existir, simplesmente usar o timeout sem efeitos visuais
+            setTimeout(() => {
+                this.model.reload();
+                this.reloading = false;
+                console.log(`Recarga completa. Munição: ${this.model.ammo}`);
+            }, this.model.reloadTime * 1000);
+        }
         
         // Tocar som de recarga
         if (this.playSoundCallback) {
             this.playSoundCallback('reload');
         }
-        
-        setTimeout(() => {
-            this.model.reload();
-            this.reloading = false;
-            console.log(`Recarga completa. Munição: ${this.model.ammo}`);
-        }, this.model.reloadTime * 1000);
         
         return true;
     }

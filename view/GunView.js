@@ -94,43 +94,10 @@ class GunView {
         this.updateVisibility();
     }
 
-    // Método para criar um efeito visual quando a arma é pega
-    playPickupEffect(gunMesh) {
-        if (!gunMesh) return;
-        
-        // Criar sistema de partículas para efeito de "brilho" ao pegar a arma
-        const particleSystem = new BABYLON.ParticleSystem("pickupParticles", 50, this.scene);
-        particleSystem.particleTexture = new BABYLON.Texture("textures/smoke.png", this.scene);
-        particleSystem.emitter = gunMesh.position.clone(); // Posição atual da arma
-        
-        // Configuração das partículas
-        particleSystem.color1 = new BABYLON.Color4(1, 0.8, 0, 1);
-        particleSystem.color2 = new BABYLON.Color4(1, 0.5, 0, 1);
-        particleSystem.colorDead = new BABYLON.Color4(0, 0, 0, 0);
-        
-        particleSystem.minSize = 0.1;
-        particleSystem.maxSize = 0.5;
-        
-        particleSystem.minLifeTime = 0.3;
-        particleSystem.maxLifeTime = 1.5;
-        
-        particleSystem.emitRate = 100;
-        particleSystem.blendMode = BABYLON.ParticleSystem.BLENDMODE_ADD;
-        
-        particleSystem.direction1 = new BABYLON.Vector3(-1, 1, -1);
-        particleSystem.direction2 = new BABYLON.Vector3(1, 1, 1);
-        
-        particleSystem.minEmitPower = 1;
-        particleSystem.maxEmitPower = 3;
-        
-        // Iniciar o sistema de partículas e parar após um curto período
-        particleSystem.start();
-        
-        setTimeout(() => {
-            particleSystem.stop();
-            // Limpar recursos após as partículas terminarem
-            setTimeout(() => particleSystem.dispose(), 2000);
-        }, 300);
+    
+    // Método para definir o callback de pickup
+    setPickupCallback(callback) {
+        this.onPickupCallback = callback;
     }
 
     // Método para mostrar efeito de tiro
@@ -261,12 +228,6 @@ class GunView {
                 }, 1000); // Tempo reduzido para que todas as partículas desapareçam
             }, 100);
         }, 50);
-    }
-
-    
-    // Método para definir o callback de pickup
-    setPickupCallback(callback) {
-        this.onPickupCallback = callback;
     }
 }
 

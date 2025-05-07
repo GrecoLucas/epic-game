@@ -138,119 +138,139 @@ class Pistol extends GunView {
         return this.physicalMeshes;
     }
 
-    // Método para mostrar efeito de recarga específico para a pistola
-    playReloadEffect() {
-        if (!this.model.isPickedUp || !this.handMesh) return;
+    // Método para criar efeito visual ao recarregar a pistola
+    playReloadEffect(onCompleteCallback) {
+        if (!this.model.isPickedUp || !this.handMesh) {
+            // Se a pistola não estiver em mãos, chamar o callback imediatamente
+            if (onCompleteCallback) onCompleteCallback();
+            return;
+        }
         
-        // Encontrar o cabo e o slide da arma na mão
-        const handHandle = this.physicalMeshes.find(mesh => mesh.name === "gun_hand_handle");
-        const handSlide = this.physicalMeshes.find(mesh => mesh.name === "gun_hand_slide");
+        // Salvar a posição e rotação original da arma
+        const originalPosition = this.handMesh.position.clone();
+        const originalRotation = this.handMesh.rotation.clone();
         
-        if (!handHandle || !handSlide) return;
-        
-        // Salvar posições originais
-        const originalHandlePosition = handHandle.position.clone();
-        const originalSlidePosition = handSlide.position.clone();
-        
-
-        // Animação de remoção do carregador
+        // Animação de movimento para simular recarga
         const frames = 15;
         let frame = 0;
         
-        // Animar a remoção do carregador
-        const animateOut = () => {
+        // Primeira fase: baixar a arma e rotacionar como se estivesse removendo o carregador
+        const animateDown = () => {
             frame++;
             const progress = frame / frames;
             
-            // Mover o carregador para baixo
-            handHandle.position.y = originalHandlePosition.y - 0.4 * progress;
-            
-            // Inclinar levemente a arma durante a recarga
-            this.handMesh.rotation.x = Math.sin(progress * Math.PI) * 0.2;
+            // Mover a arma para baixo e rotacionar
+            this.handMesh.position.y = originalPosition.y - 0.2 * progress;
+            this.handMesh.rotation.x = originalRotation.x - 0.3 * progress;
             
             if (frame < frames) {
-                requestAnimationFrame(animateOut);
+                requestAnimationFrame(animateDown);
             } else {
-                // Iniciar animação do slide
-                this.animateSlide(handSlide, originalSlidePosition, () => {
-                    // Quando terminar o slide, iniciar animação de inserção do novo carregador
+                // Segunda fase: simular a inserção de um novo carregador
+                setTimeout(() => {
                     frame = 0;
-                    setTimeout(() => {
-                        // Efeito sonoro de "clique" ao colocar carregador (via vibração visual)
-                        this.handMesh.position.y -= 0.02;
-                        setTimeout(() => this.handMesh.position.y += 0.02, 100);
+                    
+                    // Efeito visual de "clique" ao inserir carregador
+                    this.handMesh.position.z -= 0.05;
+                    setTimeout(() => this.handMesh.position.z += 0.05, 100);
+                    
+                    const animateUp = () => {
+                        frame++;
+                        const progress = frame / frames;
                         
-                        const animateIn = () => {
-                            frame++;
-                            const progress = frame / frames;
-                            
-                            // Retornar o carregador à posição original
-                            handHandle.position.y = originalHandlePosition.y - 0.4 * (1 - progress);
-                            
-                            // Retornar a inclinação da arma ao normal
-                            this.handMesh.rotation.x = Math.sin((1-progress) * Math.PI) * 0.2;
-                            
-                            if (frame < frames) {
-                                requestAnimationFrame(animateIn);
-                            } else {
-                                // Animação final do slide voltando
+                        // Retornar a arma à posição original
+                        this.handMesh.position.y = originalPosition.y - 0.2 * (1 - progress);
+                        this.handMesh.rotation.x = originalRotation.x - 0.3 * (1 - progress);
+                        
+                        if (frame < frames) {
+                            requestAnimationFrame(animateUp);
+                        } else {
+                            // Animação final: puxar o slide da pistola
+                            setTimeout(() => {
+                                // Simular o puxar do slide
+                                this.handMesh.position.z -= 0.1;
+                                
                                 setTimeout(() => {
-                                    this.animateSlideReturn(handSlide, originalSlidePosition);
-                                }, 150);
-                            }
-                        };
-                        
-                        animateIn();
-                    }, 300);
-                });
+                                    // Simular o soltar do slide com um movimento rápido
+                                    const slideFrames = 5;
+                                    let slideFrame = 0;
+                                    
+                                    const animateSlide = () => {
+                                        slideFrame++;
+                                        const slideProgress = slideFrame / slideFrames;
+                                        
+                                        this.handMesh.position.z = originalPosition.z - 0.1 * (1 - slideProgress);
+                                        
+                                        if (slideFrame < slideFrames) {
+                                            requestAnimationFrame(animateSlide);
+                                        } else {
+                                            // Aqui é onde a animação termina completamente
+                                            // Chamar o callback para sincronizar com o modelo
+                                            if (onCompleteCallback) {
+                                                onCompleteCallback();
+                                            }
+                                        }
+                                    };
+                                    
+                                    animateSlide();
+                                }, 200);
+                            }, 200);
+                        }
+                    };
+                    
+                    animateUp();
+                }, 300);
             }
         };
         
-        // Iniciar animação de recarga e efeitos
-        animateOut();
-        
+        // Iniciar a animação
+        animateDown();
     }
     
-    // Método auxiliar para animar o slide da arma
-    animateSlide(slide, originalPosition, callback) {
-        const slideFrames = 10;
-        let slideFrame = 0;
-        
-        const animateSlideBack = () => {
-            slideFrame++;
-            const progress = slideFrame / slideFrames;
-            
-            // Mover o slide para trás
-            slide.position.z = originalPosition.z - 0.15 * progress;
-            
-            if (slideFrame < slideFrames) {
-                requestAnimationFrame(animateSlideBack);
-            } else if (callback) {
-                callback();
-            }
-        };
-        
-        animateSlideBack();
+    // Método para obter a duração total da animação de recarga
+    getReloadAnimationDuration() {
+        // Calcular a duração total baseada nos frames e tempos de espera:
+        // frames iniciais (15) + delay (300) + 
+        // frames de retorno (15) + delay (200) + frames do slide (5) + delay (200)
+        // Assumindo ~16.7ms por frame (60fps)
+        const framesTime = (15 + 15 + 5) * 16.7;
+        const delaysTime = 300 + 200 + 200;
+        return framesTime + delaysTime;
     }
-    
-    // Método auxiliar para animar o retorno do slide
-    animateSlideReturn(slide, originalPosition) {
-        const slideFrames = 8;
-        let slideFrame = 0;
+
+    // Sobrescrevendo o método playShootEffect para a pistola
+    playShootEffect() {
+        if (!this.model.isPickedUp || !this.handMesh) return;
         
-        const animateSlideForward = () => {
-            slideFrame++;
-            const progress = slideFrame / slideFrames;
-            
-            // Retornar o slide à posição original rapidamente
-            slide.position.z = originalPosition.z - 0.15 * (1 - progress);
-            
-            if (slideFrame < slideFrames) {
-                requestAnimationFrame(animateSlideForward);
-            }
-        };
+        // Usar o método da classe pai como base
+        super.playShootEffect();
         
-        animateSlideForward();
+        // Adicionar efeitos específicos da pistola
+        if (this.handMesh) {
+            const originalRotation = this.handMesh.rotation.clone();
+            
+            // Adicionar rotação para simular recuo mais leve (pistola)
+            this.handMesh.rotation.x += 0.025;
+            
+            // Animar retorno à posição original
+            setTimeout(() => {
+                const frames = 4; // Menos frames para pistola (recuperação mais rápida)
+                let frame = 0;
+                
+                const animateRecoil = () => {
+                    frame++;
+                    const progress = frame / frames;
+                    
+                    this.handMesh.rotation.x = originalRotation.x + 0.025 * (1 - progress);
+                    
+                    if (frame < frames) {
+                        requestAnimationFrame(animateRecoil);
+                    }
+                };
+                
+                animateRecoil();
+            }, 25); // Tempo menor para pistola
+        }
     }
 }
 
