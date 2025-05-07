@@ -9,6 +9,7 @@ import ZombieS from './objects/ZombieS.js';
 import SkySphere from "./objects/SkySphere.js";
 import SkySphereController from "./controller/SkySphereController.js";
 import InvisibleWall from "./objects/InvisibleWall.js"; // Adicionar importação para InvisibleWall
+import TurretController from './controller/BlocksController/TurretController.js'; // Importar o TurretController
 
 class Game {
     constructor(engine, scene) {
@@ -24,6 +25,7 @@ class Game {
         this.zombieSpawner = null; // Referência ao sistema de hordas
         this.skySphereController = null; // Controlador da SkySphere
         this.invisibleWall = null; // Referência às paredes invisíveis
+        this.turretController = null; // Controlador de torretas
         
         // Armazenar referência ao Game na cena
         this.scene.gameInstance = this;
@@ -126,6 +128,9 @@ class Game {
         // Inicializar o sistema de hordas de zumbis
         this.initializeZombieSpawner();
         
+        // Inicializar o controlador de torretas
+        this.initializeTurretController();
+        
         // Marcar o jogo como inicializado
         this.isInitialized = true;
         
@@ -146,6 +151,13 @@ class Game {
         // O sistema de hordas agora aguarda que o jogador pressione H
         // Não precisa mais iniciar automaticamente com timeout
         console.log("Sistema de hordas inicializado! Pressione H para começar quando estiver pronto.");
+    }
+    
+    // Método para inicializar o controlador de torretas
+    initializeTurretController() {
+        this.turretController = new TurretController(this.scene, this.player);
+        this.turretController.initialize();
+        console.log("Controlador de torretas inicializado com sucesso!");
     }
     
     // Método para criar monstros baseados no labirinto
@@ -399,6 +411,7 @@ class Game {
         this.zombieSpawner = null;
         this.skySphereController = null;
         this.invisibleWall = null;
+        this.turretController = null;
         
         // Marcar como não inicializado
         this.isInitialized = false;

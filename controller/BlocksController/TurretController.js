@@ -45,6 +45,22 @@ class TurretController {
         });
     }
     
+    // Inicializar o controlador de torretas
+    initialize() {
+        console.log("Inicializando controlador de torretas");
+        // Qualquer configuração adicional pode ser feita aqui
+        
+        // Se o controlador precisa acessar monstros para atualização das torretas
+        if (this.scene && this.scene.gameInstance) {
+            // Registrar atualização periódica de torretas
+            this.scene.registerBeforeRender(() => {
+                this.updateTurrets(0.016); // Aproximadamente 60 fps (1/60 = 0.016)
+            });
+        }
+        
+        return true;
+    }
+    
     _createPreviewMaterials() {
         // Create valid placement material (green)
         this.previewMaterialValid = new BABYLON.StandardMaterial("turretPreviewValid", this.scene);
@@ -374,6 +390,84 @@ class TurretController {
         this.turretHandler.updateTurrets(deltaTime, getMonsters);
     }
 
+    // Método para comprar munição para uma torreta específica
+    buyAmmoForSpecificTurret(turretMesh, amountToBuy, playerResources, updatePlayerResources) {
+        // Verificar se o objeto é uma torreta válida
+        if (!turretMesh || !turretMesh.metadata || !turretMesh.metadata.isTurret) {
+            console.warn("Objeto selecionado não é uma torreta válida");
+            return {
+                success: false,
+                message: "Selecione uma torreta válida para comprar munição."
+            };
+        }
+        
+        // Definir custo fixo por pacote de munição (100 por 40 unidades)
+        const costPerPack = 100;
+        const ammoPerPack = 40;
+        
+        // Delegamos para o método na classe Turret com os novos valores
+        return this.turretHandler.buyAmmoForTurret(
+            turretMesh,
+            ammoPerPack,
+            costPerPack,
+            playerResources,
+            updatePlayerResources
+        );
+    }
+  
+    // Método para obter informações sobre a munição da torreta
+    getTurretAmmoInfo(turretMesh) {
+        if (!turretMesh || !turretMesh.metadata || !turretMesh.metadata.isTurret) {
+            return null;
+        }
+        
+        // Verificar primeiro se temos o modelo nos metadados
+        if (turretMesh.metadata.turretModel) {
+            const model = turretMesh.metadata.turretModel;
+            return {
+                currentAmmo: model.ammo,
+                maxAmmo: model.maxAmmo,
+                unlimitedAmmo: model.unlimitedAmmo,
+                needsReload: !model.unlimitedAmmo && model.ammo < model.maxAmmo
+            };
+        }
+        
+        // Tentar encontrar na lista de torretas rastreadas
+        const turretData = this.turretHandler.turrets.find(
+            t => t.mesh && t.mesh.name === turretMesh.name
+        );
+        
+        if (!turretData || !turretData.model) {
+            // Verificação através dos componentes
+            if (turretMesh.metadata.components && turretMesh.metadata.components.ammoIndicator) {
+                const turretModel = turretMesh.metadata.components.ammoIndicator.turretModel;
+                if (turretModel) {
+                    return {
+                        currentAmmo: turretModel.ammo,
+                        maxAmmo: turretModel.maxAmmo,
+                        unlimitedAmmo: turretModel.unlimitedAmmo,
+                        needsReload: !turretModel.unlimitedAmmo && turretModel.ammo < turretModel.maxAmmo
+                    };
+                }
+            }
+            
+            // Retornar valores padrão se não conseguir encontrar o modelo
+            return {
+                currentAmmo: 0,
+                maxAmmo: 100,
+                unlimitedAmmo: false,
+                needsReload: true
+            };
+        }
+        
+        return {
+            currentAmmo: turretData.model.ammo,
+            maxAmmo: turretData.model.maxAmmo,
+            unlimitedAmmo: turretData.model.unlimitedAmmo,
+            needsReload: !turretData.model.unlimitedAmmo && turretData.model.ammo < turretData.model.maxAmmo
+        };
+    }
+    
     // Método para limpar recursos quando não está mais em uso
     dispose() {
         // Esconder o preview se existir

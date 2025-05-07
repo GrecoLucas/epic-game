@@ -11,6 +11,7 @@ class PlayerController {
         this.inputMap = {};
         this.nearbyButton = null;
         this.nearbyGun = null;
+        this.nearbyTurret = null; // Nova variável para rastrear torretas próximas
         this.interactionDistance = 5;
         this.interactionHint = null;
         this.groundCheckDistance = 0.5;
@@ -93,12 +94,10 @@ class PlayerController {
                 document.webkitPointerLockElement === canvas ||
                 document.msPointerLockElement === canvas) {
                 // Pointer lock is active
-                console.log("Pointer lock active");
                 this.scene.alreadyLocked = true;
                 this.pointerLockActive = true;
             } else {
                 // Pointer lock is no longer active
-                console.log("Pointer lock inactive - press click to re-enable");
                 this.scene.alreadyLocked = false;
                 this.pointerLockActive = false;
                 
@@ -162,7 +161,6 @@ class PlayerController {
             console.log("BuildingController inicializado com sucesso no modo labirinto!");
         } else {
             // Caso ainda não tenha as dependências necessárias, tentar novamente mais tarde
-            console.warn("Dependências para BuildingController ainda não disponíveis, reagendando...");
             setTimeout(() => {
                 this.initializeBuildingController();
             }, 2000);
@@ -276,8 +274,55 @@ class PlayerController {
                 // Se encontrou uma arma próxima, atualizar referência
                 this.nearbyGun = closestGun;
             }
+
+            // --- DETECÇÃO DE TORRETAS ---
+            // Obter todas as torretas na cena
+            const turretMeshes = this.scene.meshes.filter(mesh => 
+                mesh.name && mesh.name.startsWith("playerTurret_") && 
+                mesh.metadata && mesh.metadata.isTurret
+            );
             
-            // Atualizar dica baseado na proximidade (prioridade: arma > botão)
+            // Resetar a torreta mais próxima
+            this.nearbyTurret = null;
+            
+            // Verificar distância para cada torreta
+            if (turretMeshes.length > 0) {
+                let closestDistance = this.interactionDistance;
+;
+                let closestTurret = null;
+                
+                for (const turretMesh of turretMeshes) {
+                    // Pegar o centro real da torreta (pode ser diferente da posição do mesh base)
+                    let turretPosition;
+                    
+                    // Verificar se a torreta tem componentes e usar a posição central
+                    if (turretMesh.metadata && turretMesh.metadata.components && turretMesh.metadata.components.root) {
+                        // Usar o nó raiz para uma posição mais centralizada
+                        turretPosition = turretMesh.metadata.components.root.getAbsolutePosition();
+                        
+                        // Ajustar a altura para considerar o centro vertical da torreta
+                        if (turretMesh.metadata.components.body) {
+                            turretPosition.y = turretMesh.metadata.components.body.getAbsolutePosition().y;
+                        }
+                    } else {
+                        // Caso não encontre components, usar a posição do próprio mesh
+                        turretPosition = turretMesh.position.clone();
+                    }
+                    
+                    // Calcular a distância a partir da posição real do jogador ao centro da torreta
+                    const distance = BABYLON.Vector3.Distance(playerPosition, turretPosition);
+                    
+                    if (distance < closestDistance) {
+                        closestDistance = distance;
+                        closestTurret = turretMesh;
+                    }
+                }
+                
+                // Se encontrou uma torreta próxima, atualizar referência
+                this.nearbyTurret = closestTurret;
+            }
+            
+            // Atualizar dica baseado na proximidade (prioridade: arma > botão > torreta)
             if (this.interactionHint) {
                 if (this.nearbyGun) {
                     this.interactionHint.text = "Pressione E para pegar a arma";
@@ -285,6 +330,17 @@ class PlayerController {
                 } else if (this.nearbyButton) {
                     this.interactionHint.text = "Pressione E para ativar";
                     this.interactionHint.alpha = 1;
+                } else if (this.nearbyTurret) {
+                    // Verificar se a torreta precisa de munição
+                    if (this.scene.gameInstance && 
+                        this.scene.gameInstance.turretController) {
+                        
+                        this.interactionHint.text = "Pressione E para comprar munição (100$)";
+                        this.interactionHint.alpha = 1;
+                        
+                    } else {
+                        this.interactionHint.alpha = 0;
+                    }
                 } else {
                     this.interactionHint.alpha = 0;
                 }
@@ -441,6 +497,7 @@ class PlayerController {
                         if (!this.buildingController?.isEnabled) { // Só interage se NÃO estiver construindo
                             if (this.nearbyGun) this.pickupNearbyGun();
                             else if (this.nearbyButton) this.activateNearbyButton();
+                            else if (this.nearbyTurret) this.interactWithNearbyTurret();
                         }
                     }
                     if (key === " ") {
@@ -586,6 +643,106 @@ class PlayerController {
             return this.scene.gameInstance.gunLoader.getPlayerGun();
         }
         return null;
+    }
+    
+    // Novo método para interagir com torreta próxima (compra de munição)
+    interactWithNearbyTurret() {
+        if (!this.nearbyTurret) return;
+        
+        // Obter o jogador
+        const player = this.scene.gameInstance?.player;
+        if (!player) return;
+        
+        // Obter referência para o controlador de torretas
+        let turretController;
+        if (this.scene.gameInstance && this.scene.gameInstance.turretController) {
+            turretController = this.scene.gameInstance.turretController;
+        } else if (this.buildingController && this.buildingController.turretController) {
+            turretController = this.buildingController.turretController;
+        }
+        
+        if (!turretController) {
+            console.warn("Controlador de torretas não encontrado.");
+            this.showNotification("Erro ao interagir com a torreta.", "red");
+            return;
+        }
+        
+        // Verificar informações da munição da torreta
+        const ammoInfo = turretController.getTurretAmmoInfo(this.nearbyTurret);
+        if (!ammoInfo)
+            return;
+             
+        // Definir valor fixo para comprar (40 munições por 100 dinheiro)
+        const ammoAmount = 40;
+        const cost = 100;
+        
+        // Verificar se o jogador tem dinheiro suficiente
+        if (player.money < cost) {
+            this.showNotification(`Você precisa de 100 dinheiro para comprar munição para a torreta.`, "red");
+            return;
+        }
+        
+        // Comprar a munição
+        const result = turretController.buyAmmoForSpecificTurret(
+            this.nearbyTurret, 
+            ammoAmount, 
+            player.money, 
+            (newAmount) => {
+                player.money = newAmount;
+                player.updateMoneyDisplay();
+            }
+        );
+        
+        // Mostrar mensagem de resultado
+        if (result && result.success) {
+            this.showNotification(`Comprou ${ammoAmount} munições para a torreta por 100 dinheiro.`, "green");
+        } else {
+            this.showNotification(result?.message || "Falha ao comprar munição.", "red");
+        }
+    
+    }
+    
+    // Método para mostrar notificações
+    showNotification(message, color = "white", duration = 3000) {
+        // Criar uma GUI texture para a notificação
+        const notificationTexture = BABYLON.GUI.AdvancedDynamicTexture.CreateFullscreenUI("notificationUI", true);
+        
+        // Criar o texto da notificação
+        const notification = new BABYLON.GUI.TextBlock("notification", message);
+        notification.color = color;
+        notification.fontSize = 18;
+        notification.fontFamily = "Arial";
+        notification.textHorizontalAlignment = BABYLON.GUI.Control.HORIZONTAL_ALIGNMENT_CENTER;
+        notification.textVerticalAlignment = BABYLON.GUI.Control.VERTICAL_ALIGNMENT_TOP;
+        notification.paddingTop = "30px";
+        notification.resizeToFit = true;
+        
+        // Adicionar o texto à GUI
+        notificationTexture.addControl(notification);
+        
+        // Configurar animação de fade-out
+        setTimeout(() => {
+            // Criar animação de fade-out
+            const fadeOut = () => {
+                let alpha = notification.alpha;
+                alpha -= 0.05;
+                notification.alpha = alpha;
+                
+                if (alpha <= 0) {
+                    clearInterval(fadeInterval);
+                    notificationTexture.dispose();
+                }
+            };
+            
+            const fadeInterval = setInterval(fadeOut, 50);
+        }, duration - 500); // Começar a desaparecer 500ms antes do término
+        
+        // Remover a notificação após a duração
+        setTimeout(() => {
+            if (notificationTexture) {
+                notificationTexture.dispose();
+            }
+        }, duration);
     }
     
     updateMovement() {

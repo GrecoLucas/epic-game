@@ -390,8 +390,129 @@ class Turret {
         // Salvar o valor de saúde atualizado
         turretMesh.metadata.health = remainingHealth;
     }
-  
-
+    
+    // Método para recarregar munição de uma torreta específica
+    reloadTurretAmmo(turretMesh, ammoAmount) {
+        if (!turretMesh || !turretMesh.metadata || !turretMesh.metadata.isTurret) {
+            console.warn("Tentativa de recarregar uma não-torreta");
+            return false;
+        }
+        
+        // Encontrar a torreta na nossa lista
+        const turretData = this.turrets.find(t => t.mesh && t.mesh.name === turretMesh.name);
+        if (!turretData) {
+            console.warn(`Torreta ${turretMesh.name} não encontrada na lista de torretas.`);
+            return false;
+        }
+        
+        // Verificar se o modelo existe
+        if (!turretData.model) {
+            turretData.model = turretMesh.metadata.turretModel || new TurretModel();
+        }
+        
+        // Adicionar munição ao modelo
+        const oldAmmo = turretData.model.ammo;
+        turretData.model.addAmmo(ammoAmount);
+        const newAmmo = turretData.model.ammo;
+        const ammoAdded = newAmmo - oldAmmo;
+        
+        // Atualizar o indicador de munição
+        const components = turretMesh.metadata.components;
+        if (components && components.ammoIndicator) {
+            components.ammoIndicator.update();
+        }
+                
+        
+        return true;
+    }
+    
+    
+    // Método para comprar munição para uma torreta específica
+    buyAmmoForTurret(turretMesh, amountToBuy, costPerRound, playerResources, updatePlayerResources) {
+        if (!turretMesh || !turretMesh.metadata || !turretMesh.metadata.isTurret) {
+            return {
+                success: false,
+                message: "Objeto inválido. Não é uma torreta."
+            };
+        }
+        
+        // Procurar o modelo da torreta nas várias fontes possíveis
+        let turretModel = null;
+        
+        // 1. Verificar metadados diretos
+        if (turretMesh.metadata.turretModel) {
+            turretModel = turretMesh.metadata.turretModel;
+        } 
+        // 2. Verificar componentes
+        else if (turretMesh.metadata.components?.ammoIndicator?.turretModel) {
+            turretModel = turretMesh.metadata.components.ammoIndicator.turretModel;
+        } 
+        // 3. Verificar na lista de torretas rastreadas
+        else {
+            const turretData = this.turrets.find(t => t.mesh && t.mesh.name === turretMesh.name);
+            if (turretData?.model) {
+                turretModel = turretData.model;
+            }
+        }
+        
+        // Se não encontrou modelo, criar um novo
+        if (!turretModel) {
+            turretModel = new TurretModel();
+            turretModel.ammo = 100;
+            turretModel.maxAmmo = Infinity; // Definir limite como infinito
+            
+            // Armazenar o modelo para uso futuro
+            turretMesh.metadata.turretModel = turretModel;
+            
+            // Adicionar à lista de torretas se não estiver lá
+            if (!this.turrets.some(t => t.mesh && t.mesh.name === turretMesh.name)) {
+                this.turrets.push({
+                    mesh: turretMesh,
+                    components: turretMesh.metadata.components || {},
+                    lastTargetUpdate: 0,
+                    currentTarget: null,
+                    lastShootTime: 0,
+                    model: turretModel
+                });
+            }
+        } else {
+            // Configurar modelo existente para ter limite infinito
+            turretModel.maxAmmo = Infinity;
+        }
+        
+        // Calcular o custo total
+        const totalCost = costPerRound;
+        
+        // Verificar se o jogador tem recursos suficientes
+        if (playerResources < totalCost) {
+            return {
+                success: false,
+                message: `Recursos insuficientes. Necessário ${totalCost} para ${amountToBuy} munições.`
+            };
+        }
+        
+        // Deduzir os recursos do jogador
+        if (typeof updatePlayerResources === 'function') {
+            updatePlayerResources(playerResources - totalCost);
+        }
+        
+        // Adicionar a munição à torreta
+        turretModel.addAmmo(amountToBuy);
+        
+        // Atualizar o indicador de munição
+        if (turretMesh.metadata.components?.ammoIndicator?.update) {
+            turretMesh.metadata.components.ammoIndicator.update();
+        }
+        
+        
+        return {
+            success: true,
+            message: `Comprou ${amountToBuy} munições por ${totalCost} recursos.`,
+            ammoAdded: amountToBuy,
+            costPaid: totalCost,
+            currentAmmo: turretModel.ammo
+        };
+    }
     
     // Atualiza todas as torretas (rotação para alvo, disparos, etc.)
     updateTurrets(deltaTime, getMonsters) {
