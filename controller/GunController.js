@@ -4,76 +4,60 @@ class GunController {
         this.view = view;
         this.cooldown = false;
         this.reloading = false;
-        
-        // Referência para a função de disparo de áudio (será definida externamente)
         this.playSoundCallback = null;
         
         // Configurar o callback de pickup para a view
         this.view.setPickupCallback(() => this.pickup());
     }
 
-    update(playerPosition, playerDirection) {
-        // Se a arma estiver na mão, atualizar posição relativa ao jogador
-        if (this.model.isPickedUp && playerPosition) {
-            // A posição da arma já é relativa à câmera, então não precisamos fazer mais nada aqui
-        }
-        
-        // Atualizar a view
+    update(playerPosition) {
+        // Manter sincronizada a visualização da arma
         this.view.update();
     }
 
     // Verificar se o jogador está perto o suficiente para pegar a arma
     checkPickupProximity(playerPosition, interactionDistance = 2) {
-        if (this.model.isPickedUp) {
-            return false; // Já está pega
-        }
+        if (this.model.isPickedUp) return false;
         
-        // Calcular distância entre o jogador e a arma
-        const dx = this.model.position.x - playerPosition.x;
-        const dy = this.model.position.y - playerPosition.y;
-        const dz = this.model.position.z - playerPosition.z;
-        const distance = Math.sqrt(dx*dx + dy*dy + dz*dz);
+        const distance = BABYLON.Vector3.Distance(
+            this.model.position,
+            playerPosition
+        );
         
         return distance <= interactionDistance;
     }
 
     // Pegar a arma do chão
     pickup() {
-        if (!this.model.isPickedUp) {
-            this.model.pickup();
-            this.view.updateVisibility();
-            
-            // Tocar som de pegar arma se callback existir
-            if (this.playSoundCallback) {
-                this.playSoundCallback('pickup');
-            }
-            
-            console.log("Arma pega com sucesso");
-            return true;
+        if (this.model.isPickedUp) return false;
+        
+        this.model.pickup();
+        this.view.updateVisibility();
+        
+        if (this.playSoundCallback) {
+            this.playSoundCallback('pickup');
         }
-        return false;
+        
+        return true;
     }
 
     // Largar a arma no chão
-    drop(x, y, z) {
-        if (this.model.isPickedUp) {
-            // Se a posição não for especificada, usar a posição atual do jogador
-            if (x !== null && y !== null && z !== null) {
-                this.model.setPosition(x, y, z);
-            }
-            
-            this.model.drop();
-            this.view.updateVisibility();
-            
-            // Tocar som de soltar arma
-            if (this.playSoundCallback) {
-                this.playSoundCallback('drop');
-            }
-            
-            console.log("Arma largada no chão");
-            return true;
+    drop(position) {
+        if (!this.model.isPickedUp) return false;
+        
+        // Se a posição for fornecida, usar ela
+        if (position) {
+            this.model.setPosition(position.x, position.y, position.z);
         }
-        return false;
+        
+        this.model.drop();
+        this.view.updateVisibility();
+        
+        if (this.playSoundCallback) {
+            this.playSoundCallback('drop');
+        }
+        
+        return true;
     }
 
     // Atirar com a arma
@@ -87,24 +71,20 @@ class GunController {
             this.view.playShootEffect();
             this.setCooldown();
             
-            // Tocar som de tiro
             if (this.playSoundCallback) {
                 this.playSoundCallback('shoot');
             }
             
-            console.log(`Tiro disparado. Munição restante: ${this.model.ammo}`);
-            
-            // Se acabou a munição, recarregar automaticamente
+            // Auto-reload quando acabar a munição
             if (this.model.ammo === 0) {
                 this.reload();
             }
         } else {
-            // Tocar som de "click" (sem munição)
+            // Som de "click" (sem munição)
             if (this.playSoundCallback) {
                 this.playSoundCallback('empty');
             }
             
-            console.log("Sem munição");
             this.reload();
         }
         
@@ -116,51 +96,60 @@ class GunController {
         this.cooldown = true;
         setTimeout(() => {
             this.cooldown = false;
-        }, 200); // 200ms de cooldown entre tiros
+        }, this.model.fireRate || 200);
     }
 
     // Recarregar a arma
     reload() {
-        if (!this.model.isPickedUp || this.reloading || this.model.ammo === this.model.maxAmmo) {
+        if (!this.model.isPickedUp || 
+            this.reloading || 
+            this.model.ammo === this.model.maxAmmo ||
+            this.model.totalAmmo === 0) {
             return false;
         }
         
-        console.log("Recarregando...");
         this.reloading = true;
         
-        // Verificar se o método existe na view antes de chamá-lo
-        if (typeof this.view.playReloadEffect === 'function') {
-            this.view.playReloadEffect(() => {
-                // Este callback será executado quando a animação terminar
-                this.model.reload();
-                this.reloading = false;
-                console.log(`Recarga completa. Munição: ${this.model.ammo}`);
-            });
+        const reloadMethod = typeof this.view.playReloadEffect === 'function' 
+            ? this._reloadWithAnimation.bind(this)
+            : this._reloadWithoutAnimation.bind(this);
             
-            // Safety timeout como fallback se a animação não chamar o callback
-            this.reloadTimeout = setTimeout(() => {
-                // Verificar se ainda está recarregando (animação não chamou o callback)
-                if (this.reloading) {
-                    this.model.reload();
-                    this.reloading = false;
-                    console.log(`Recarga completa (fallback). Munição: ${this.model.ammo}`);
-                }
-            }, this.model.reloadTime * 1000 + 100); // Pequena margem extra
-        } else {
-            // Se não existir, simplesmente usar o timeout sem efeitos visuais
-            setTimeout(() => {
-                this.model.reload();
-                this.reloading = false;
-                console.log(`Recarga completa. Munição: ${this.model.ammo}`);
-            }, this.model.reloadTime * 1000);
-        }
+        reloadMethod();
         
-        // Tocar som de recarga
         if (this.playSoundCallback) {
             this.playSoundCallback('reload');
         }
         
         return true;
+    }
+    
+    _reloadWithAnimation() {
+        this.view.playReloadEffect(() => {
+            this.model.reload();
+            this.reloading = false;
+        });
+        
+        // Safety timeout como fallback
+        const duration = this.view.getReloadAnimationDuration?.() || 
+                         this.model.reloadTime * 1000 + 100;
+                         
+        this._setReloadTimeout(duration);
+    }
+    
+    _reloadWithoutAnimation() {
+        setTimeout(() => {
+            this.model.reload();
+            this.reloading = false;
+        }, this.model.reloadTime * 1000);
+    }
+    
+    _setReloadTimeout(duration) {
+        this.reloadTimeout = setTimeout(() => {
+            if (this.reloading) {
+                this.model.reload();
+                this.reloading = false;
+            }
+        }, duration);
     }
     
     // Método para definir callback de sons

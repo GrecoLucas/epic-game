@@ -4,51 +4,33 @@ class GunView {
         this.model = model;
         this.meshOnGround = null;
         this.meshInHand = null;
+        this.groundMesh = null;
+        this.handMesh = null;
+        this.muzzlePoint = null;
         this.physicalMeshes = [];
         this.onPickupCallback = null; 
         this.init();
     }
 
     init() {
-        // Criar meshes para a arma no chão e na mão
-        this.createGroundMesh();
-        this.createHandMesh();
-        
         // Inicialmente, mostrar apenas a arma no chão se não estiver pega
         this.updateVisibility();
     }
 
-    createGroundMesh() {
-        // Method to be overridden by specific gun types
-        this.meshOnGround = {
-            type: 'box',
-            width: 0.5,
-            height: 0.2,
-            depth: 1.5,
-            color: '#303030',
-            position: this.model.position,
-            rotation: { x: 0, y: 0, z: 0 }
-        };
+    // Métodos a serem implementados pelas subclasses específicas de armas
+    createPhysicalMeshes(scene) {
+        console.warn("createPhysicalMeshes deve ser implementado pelas subclasses");
+        return [];
     }
-
-    createHandMesh() {
-        // Method to be overridden by specific gun types
-        this.meshInHand = {
-            type: 'box',
-            width: 0.4,
-            height: 0.2,
-            depth: 1.2,
-            color: '#303030',
-            position: { x: 0.5, y: -0.3, z: 0.8 },
-            rotation: { x: 0, y: 0, z: 0 }
-        };
-    }
-        
+    
+    // Material compartilhado para as armas
     createMaterial(color, scene, options = {}) {
         const mat = new BABYLON.StandardMaterial("gunMaterial", scene);
         mat.diffuseColor = BABYLON.Color3.FromHexString(color);
         mat.specularColor = new BABYLON.Color3(0.5, 0.5, 0.5);
-        mat.emissiveColor = BABYLON.Color3.FromHexString(options.emissive || '#000000');
+        mat.emissiveColor = options.emissive ? 
+                            BABYLON.Color3.FromHexString(options.emissive) : 
+                            BABYLON.Color3.Black();
         mat.alpha = options.alpha || 1.0;
 
         if (options.bumpTexture) {
@@ -57,31 +39,22 @@ class GunView {
         return mat;
     }
 
-    createPhysicalMeshes(scene) {
-        // Abstract method that should be implemented by subclasses
-        console.warn("createPhysicalMeshes should be implemented by subclasses");
-        return [];
-    }
-
     updateVisibility() {
-        // Se estamos usando meshes físicos (root nodes)
-        if (this.groundMesh && this.handMesh) {
-            // A arma no chão só é visível se NÃO estiver no inventário E NÃO estiver equipada
-            const showOnGround = !this.model.isInInventory && !this.model.isPickedUp;
-            this.groundMesh.setEnabled(showOnGround);
-            
-            // Desabilitar todas as interações se a arma estiver no inventário
-            if (this.physicalMeshes && this.model.isInInventory) {
-                this.physicalMeshes.forEach(mesh => {
-                    if (mesh && mesh.actionManager && mesh.name.includes("gun_ground")) {
-                        mesh.isPickable = false;
-                    }
-                });
-            }
-            
-            // A arma na mão só é visível se estiver equipada
-            this.handMesh.setEnabled(this.model.isPickedUp);
+        if (!this.groundMesh || !this.handMesh) return;
+        
+        // A arma no chão só é visível se NÃO estiver no inventário E NÃO estiver equipada
+        const showOnGround = !this.model.isInInventory && !this.model.isPickedUp;
+        this.groundMesh.setEnabled(showOnGround);
+        
+        // Desabilitar interações se a arma estiver no inventário
+        if (this.model.isInInventory && this.physicalMeshes) {
+            this.physicalMeshes
+                .filter(mesh => mesh?.name?.includes("gun_ground"))
+                .forEach(mesh => mesh.isPickable = false);
         }
+        
+        // A arma na mão só é visível se estiver equipada
+        this.handMesh.setEnabled(this.model.isPickedUp);
     }
         
     update() {
@@ -93,100 +66,28 @@ class GunView {
         
         this.updateVisibility();
     }
-
     
     // Método para definir o callback de pickup
     setPickupCallback(callback) {
         this.onPickupCallback = callback;
     }
 
-    // Método para mostrar efeito de tiro
+    // Método base para mostrar efeito de tiro
     playShootEffect() {
         if (!this.model.isPickedUp || !this.handMesh) return;
         
-        // Encontrar o cano da arma na mão para posicionar o efeito
-        const handBarrel = this.physicalMeshes.find(mesh => mesh.name === "gun_hand_barrel");
-        const muzzlePoint = this.muzzlePoint;
+        // Encontrar o ponto de referência para efeitos visuais
+        const emitterNode = this._createEmitterNode();
+        if (!emitterNode) return;
         
-        if (!handBarrel && !muzzlePoint) return;
+        // Flash no cano - usando parametrização
+        const flashParams = this.getMuzzleFlashParams();
+        const flash = this._createMuzzleFlash(emitterNode, flashParams);
         
-        // Criar um emissor fixo que será parent de todos os efeitos visuais
-        const emitterNode = new BABYLON.TransformNode("muzzleEmitter", this.scene);
+        // Sistema de partículas de fumaça
+        const smokeSystem = this._createSmokeSystem(emitterNode);
         
-        // Anexar o emissor ao ponto correto (muzzlePoint ou ponta do cano)
-        if (muzzlePoint) {
-            emitterNode.parent = muzzlePoint.parent;
-            emitterNode.position = muzzlePoint.position.clone();
-        } else {
-            emitterNode.parent = this.handMesh;
-            // Posicionar na ponta do cano
-            const barrelEnd = handBarrel.getAbsolutePosition().subtract(this.handMesh.getAbsolutePosition());
-            emitterNode.position = new BABYLON.Vector3(
-                barrelEnd.x,
-                barrelEnd.y,
-                barrelEnd.z + handBarrel.scaling.y * 0.25
-            );
-        }
-        
-        // Flash no cano - agora usando o mesmo emissor como referência
-        const flash = BABYLON.MeshBuilder.CreateDisc("muzzleFlash", {
-            radius: 0.1,
-            tessellation: 12
-        }, this.scene);
-        
-        // Adicionar material ao flash para torná-lo visível
-        const flashMaterial = new BABYLON.StandardMaterial("flashMaterial", this.scene);
-        flashMaterial.emissiveColor = new BABYLON.Color3(1, 0.7, 0);
-        flashMaterial.diffuseColor = new BABYLON.Color3(1, 0.7, 0);
-        flashMaterial.specularColor = new BABYLON.Color3(1, 1, 1);
-        flashMaterial.backFaceCulling = false;
-        flash.material = flashMaterial;
-        
-        // Orientar o flash para ficar perpendicular ao cano
-        flash.parent = emitterNode;
-        flash.rotation.x = Math.PI / 2;
-        flash.position = new BABYLON.Vector3(0, 0, 0); // Centralizado no emissor
-        
-        // SISTEMA DE PARTÍCULAS DE FUMAÇA - usando o mesmo emissor (reduzido)
-        const smokeSystem = new BABYLON.ParticleSystem("muzzleSmoke", 30, this.scene); // Reduzido para 30 partículas
-        smokeSystem.particleTexture = new BABYLON.Texture("textures/smoke.png", this.scene);
-        smokeSystem.emitter = emitterNode; // Usar o nó emissor como fonte das partículas
-        
-        // Configurar partículas de fumaça com cores cinza mais sutis
-        smokeSystem.color1 = new BABYLON.Color4(0.8, 0.8, 0.8, 0.6); // Mais transparente
-        smokeSystem.color2 = new BABYLON.Color4(0.7, 0.7, 0.7, 0.4); // Mais transparente
-        smokeSystem.colorDead = new BABYLON.Color4(0.5, 0.5, 0.5, 0); // Desaparece no final
-        
-        // Partículas menores para fumaça mais sutil
-        smokeSystem.minSize = 0.1;
-        smokeSystem.maxSize = 0.2;
-        
-        // Menor duração para a fumaça
-        smokeSystem.minLifeTime = 0.5;
-        smokeSystem.maxLifeTime = 1.0;
-        
-        // Emitir menos partículas
-        smokeSystem.emitRate = 50;
-        
-        // Direcionar a fumaça na direção do cano com leve variação
-        smokeSystem.direction1 = new BABYLON.Vector3(0, 0.1, 1);
-        smokeSystem.direction2 = new BABYLON.Vector3(0, 0.2, 1);
-        
-        // Velocidade reduzida para fumaça mais sutil
-        smokeSystem.minEmitPower = 0.5;
-        smokeSystem.maxEmitPower = 1.5;
-        
-        // Gravidade positiva para a fumaça subir
-        smokeSystem.gravity = new BABYLON.Vector3(0, 0.1, 0);
-        
-        // Rotação para movimento natural
-        smokeSystem.minAngularSpeed = -0.2;
-        smokeSystem.maxAngularSpeed = 0.2;
-        
-        // Propriedades de blending para fumaça
-        smokeSystem.blendMode = BABYLON.ParticleSystem.BLENDMODE_STANDARD;
-        
-        // Efeito de recuo da arma
+        // Efeito de recuo da arma (básico - as subclasses podem adicionar mais complexidade)
         if (this.handMesh) {
             const originalPosition = this.handMesh.position.clone();
             this.handMesh.position.z -= 0.1; // Movimento de recuo
@@ -210,22 +111,189 @@ class GunView {
             }, 50);
         }
         
-        // Iniciar o sistema de partículas
+        // Gerenciar ciclo de vida dos efeitos visuais
+        this._manageEffectLifecycle(flash, smokeSystem, emitterNode);
+    }
+    
+    // Método para obter parâmetros do flash - pode ser sobrescrito pelas subclasses
+    getMuzzleFlashParams() {
+        return {
+            // Parâmetros do flash principal
+            radius: 0.05,
+            tessellation: 16,
+            emissiveColor: new BABYLON.Color3(1, 0.5, 0.1),
+            diffuseColor: new BABYLON.Color3(1, 0.5, 0.1),
+            specularColor: new BABYLON.Color3(1, 0.7, 0.3),
+            position: new BABYLON.Vector3(0, 0.2, -0.1),
+            
+            // Parâmetros Fresnel para brilho
+            fresnelBias: 0.4,
+            fresnelPower: 2,
+            emissiveIntensity: 2.0,
+            
+            // Parâmetros do flash interior
+            innerRadius: 0.03,
+            innerTessellation: 8,
+            innerEmissiveColor: new BABYLON.Color3(1, 0.9, 0.5),
+            innerDiffuseColor: new BABYLON.Color3(1, 0.9, 0.5),
+            innerSpecularColor: new BABYLON.Color3(1, 1, 1)
+        };
+    }
+
+    _createEmitterNode() {
+        // Criar um emissor fixo para todos os efeitos visuais
+        const emitterNode = new BABYLON.TransformNode("muzzleEmitter", this.scene);
+        
+        // Anexar ao ponto correto
+        if (this.muzzlePoint) {
+            emitterNode.parent = this.muzzlePoint.parent;
+            emitterNode.position = this.muzzlePoint.position.clone();
+            return emitterNode;
+        }
+        
+        // Fallback para encontrar o cano da arma
+        const handBarrel = this.physicalMeshes.find(mesh => mesh.name === "gun_hand_barrel");
+        if (handBarrel && this.handMesh) {
+            emitterNode.parent = this.handMesh;
+            // Posicionar na ponta do cano
+            const barrelEnd = handBarrel.getAbsolutePosition().subtract(this.handMesh.getAbsolutePosition());
+            emitterNode.position = new BABYLON.Vector3(
+                barrelEnd.x,
+                barrelEnd.y,
+                barrelEnd.z + handBarrel.scaling.y * 0.25
+            );
+            return emitterNode;
+        }
+        
+        // Último recurso: posição padrão
+        if (this.handMesh) {
+            emitterNode.parent = this.handMesh;
+            emitterNode.position = new BABYLON.Vector3(0, 0.1, 1);
+            return emitterNode;
+        }
+        
+        emitterNode.dispose();
+        return null;
+    }
+    
+    _createMuzzleFlash(emitterNode, params) {
+        // Disco principal com parâmetros customizados
+        const flash = BABYLON.MeshBuilder.CreateDisc("muzzleFlash", {
+            radius: params.radius,
+            tessellation: params.tessellation
+        }, this.scene);
+        
+        const flashMaterial = new BABYLON.StandardMaterial("flashMaterial", this.scene);
+        flashMaterial.emissiveColor = params.emissiveColor;
+        flashMaterial.diffuseColor = params.diffuseColor;
+        flashMaterial.specularColor = params.specularColor;
+        flashMaterial.backFaceCulling = false;
+        
+        // Configuração do brilho baseada nos parâmetros
+        flashMaterial.emissiveFresnelParameters = new BABYLON.FresnelParameters();
+        flashMaterial.emissiveFresnelParameters.bias = params.fresnelBias;
+        flashMaterial.emissiveFresnelParameters.power = params.fresnelPower;
+        flashMaterial.emissiveIntensity = params.emissiveIntensity;
+        
+        flash.material = flashMaterial;
+        
+        // Orientar o flash perpendicular ao cano com posição customizada
+        flash.parent = emitterNode;
+        flash.rotation.x = 0;
+        flash.position = params.position;
+        
+        // Adicionar um segundo flash menor no centro para maior realismo
+        const innerFlash = BABYLON.MeshBuilder.CreateDisc("innerFlash", {
+            radius: params.innerRadius,
+            tessellation: params.innerTessellation
+        }, this.scene);
+        
+        const innerMaterial = new BABYLON.StandardMaterial("innerFlashMaterial", this.scene);
+        innerMaterial.emissiveColor = params.innerEmissiveColor; 
+        innerMaterial.diffuseColor = params.innerDiffuseColor;
+        innerMaterial.specularColor = params.innerSpecularColor;
+        innerMaterial.backFaceCulling = false;
+        innerFlash.material = innerMaterial;
+        
+        innerFlash.parent = flash;
+        innerFlash.position.z = 0.01; // Ligeiramente à frente do flash principal
+        
+        // Animação de pulsação para todos os flashes
+        BABYLON.Animation.CreateAndStartAnimation(
+            "flashPulse",
+            flash,
+            "scaling",
+            60,
+            5,
+            new BABYLON.Vector3(0.8, 0.8, 0.8),
+            new BABYLON.Vector3(1.2, 1.2, 1.2),
+            BABYLON.Animation.ANIMATIONLOOPMODE_CONSTANT
+        );
+        
+        // Encadenar o flash interior no flash exterior para limpar automaticamente
+        this.scene.onBeforeRenderObservable.addOnce(() => {
+            flash.getChildMeshes().forEach(child => {
+                if (child === innerFlash) {
+                    innerFlash.parent = flash;
+                }
+            });
+        });
+        
+        return flash;
+    }
+
+    _createSmokeSystem(emitterNode) {
+        // Sistema de partículas de fumaça otimizado
+        const smokeSystem = new BABYLON.ParticleSystem("muzzleSmoke", 30, this.scene);
+        smokeSystem.particleTexture = new BABYLON.Texture("textures/smoke.png", this.scene);
+        smokeSystem.emitter = emitterNode;
+        
+        // Cores e opacidade
+        smokeSystem.color1 = new BABYLON.Color4(0.8, 0.8, 0.8, 0.6);
+        smokeSystem.color2 = new BABYLON.Color4(0.7, 0.7, 0.7, 0.4);
+        smokeSystem.colorDead = new BABYLON.Color4(0.5, 0.5, 0.5, 0);
+        
+        // Tamanho e duração das partículas
+        smokeSystem.minSize = 0.1;
+        smokeSystem.maxSize = 0.2;
+        smokeSystem.minLifeTime = 0.5;
+        smokeSystem.maxLifeTime = 1.0;
+        
+        // Taxa e direção de emissão
+        smokeSystem.emitRate = 50;
+        smokeSystem.direction1 = new BABYLON.Vector3(0, 0.1, 1);
+        smokeSystem.direction2 = new BABYLON.Vector3(0, 0.2, 1);
+        smokeSystem.minEmitPower = 0.5;
+        smokeSystem.maxEmitPower = 1.5;
+        
+        // Gravidade e rotação
+        smokeSystem.gravity = new BABYLON.Vector3(0, 0.1, 0);
+        smokeSystem.minAngularSpeed = -0.2;
+        smokeSystem.maxAngularSpeed = 0.2;
+        
+        // Mode de mesclagem para fumaça
+        smokeSystem.blendMode = BABYLON.ParticleSystem.BLENDMODE_STANDARD;
+        
+        // Iniciar o sistema
         smokeSystem.start();
         
-        // Gerenciamento de recursos: remover o flash rapidamente
+        return smokeSystem;
+    }
+    
+    _manageEffectLifecycle(flash, smokeSystem, emitterNode) {
+        // Remover o flash rapidamente
         setTimeout(() => {
-            flash.dispose();
+            if (flash) flash.dispose();
             
             // Continuar a emissão de fumaça por menos tempo
             setTimeout(() => {
-                smokeSystem.stop(); // Parar fumaça depois de 100ms
+                if (smokeSystem) smokeSystem.stop();
                 
                 // Limpar todos os recursos após todas partículas terminarem
                 setTimeout(() => {
-                    smokeSystem.dispose();
-                    emitterNode.dispose();
-                }, 1000); // Tempo reduzido para que todas as partículas desapareçam
+                    if (smokeSystem) smokeSystem.dispose();
+                    if (emitterNode) emitterNode.dispose();
+                }, 1000);
             }, 100);
         }, 50);
     }

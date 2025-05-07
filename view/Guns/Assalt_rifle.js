@@ -140,39 +140,34 @@ class AssaultRifle extends GunView {
     
     // Método para obter a duração total da animação de recarga
     getReloadAnimationDuration() {
-        // Calcular a duração total baseada nos frames e tempos de espera
-        // frames iniciais (15) + animação do ferrolho (8) + delay (400) + 
-        // frames de retorno (15) + delay final (200) + frames do ferrolho de retorno (5)
-        // Assumindo ~16.7ms por frame (60fps)
         const framesTime = (15 + 8 + 15 + 5) * 16.7;
         const delaysTime = 400 + 200;
         return framesTime + delaysTime;
     }
 
-    // Sobrescrevendo o método playShootEffect para a pistola
+    // Sobrescrevendo o método playShootEffect para o rifle de assalto
     playShootEffect() {
         if (!this.model.isPickedUp || !this.handMesh) return;
         
         // Usar o método da classe pai como base
         super.playShootEffect();
         
-        // Adicionar efeitos específicos da pistola
         if (this.handMesh) {
             const originalRotation = this.handMesh.rotation.clone();
             
-            // Adicionar rotação para simular recuo mais leve (pistola)
-            this.handMesh.rotation.x += 0.025;
+            // Recuo mais forte para rifle de assalto
+            this.handMesh.rotation.x += 0.05;
             
             // Animar retorno à posição original
             setTimeout(() => {
-                const frames = 4; // Menos frames para pistola (recuperação mais rápida)
+                const frames = 6; // Mais frames para rifle (recuperação mais lenta)
                 let frame = 0;
                 
                 const animateRecoil = () => {
                     frame++;
                     const progress = frame / frames;
                     
-                    this.handMesh.rotation.x = originalRotation.x + 0.025 * (1 - progress);
+                    this.handMesh.rotation.x = originalRotation.x + 0.05 * (1 - progress);
                     
                     if (frame < frames) {
                         requestAnimationFrame(animateRecoil);
@@ -180,13 +175,12 @@ class AssaultRifle extends GunView {
                 };
                 
                 animateRecoil();
-            }, 25); // Tempo menor para pistola
+            }, 40);
         }
     }
 
     playReloadEffect(onCompleteCallback) {
         if (!this.model.isPickedUp || !this.handMesh) {
-            // Se a pistola não estiver em mãos, chamar o callback imediatamente
             if (onCompleteCallback) onCompleteCallback();
             return;
         }
@@ -230,13 +224,13 @@ class AssaultRifle extends GunView {
                         if (frame < frames) {
                             requestAnimationFrame(animateUp);
                         } else {
-                            // Animação final: puxar o slide da pistola
+                            // Animação final: puxar o ferrolho
                             setTimeout(() => {
-                                // Simular o puxar do slide
+                                // Simular o puxar do ferrolho
                                 this.handMesh.position.z -= 0.1;
                                 
                                 setTimeout(() => {
-                                    // Simular o soltar do slide com um movimento rápido
+                                    // Simular o soltar do ferrolho com um movimento rápido
                                     const slideFrames = 5;
                                     let slideFrame = 0;
                                     
@@ -249,8 +243,6 @@ class AssaultRifle extends GunView {
                                         if (slideFrame < slideFrames) {
                                             requestAnimationFrame(animateSlide);
                                         } else {
-                                            // Aqui é onde a animação termina completamente
-                                            // Chamar o callback para sincronizar com o modelo
                                             if (onCompleteCallback) {
                                                 onCompleteCallback();
                                             }
