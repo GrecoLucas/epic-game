@@ -83,7 +83,7 @@ class BuildingController {
         
         // Texto de título (Modo Construção)
         const titleText = new BABYLON.GUI.TextBlock();
-        titleText.text = "MODO CONSTRUÇÃO";
+        titleText.text = "MODO CONSTRUÇÃO (pressione B)";
         titleText.color = "white";
         titleText.fontSize = 20;
         titleText.height = "30px";

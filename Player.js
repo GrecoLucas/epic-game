@@ -16,7 +16,7 @@ class Player {
         this.ammoText = null; // Add property for ammo text
         
         // Sistema monetário
-        this.money = 100;
+        this.money = 1000;
         this.moneyText = null;
         
         // Inicializar barra de vida e munição

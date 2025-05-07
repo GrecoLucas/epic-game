@@ -12,6 +12,7 @@ class ButtonController {
         this.medkitCost = 60; // Custo do MedKit (botão 2)
         this.ammoCost = 50;   // Custo da Munição (botão 3)
         this.barricadeCost = 70; // Custo da Barricada (botão 4)
+        this.turretCost = 500; // Custo da Torreta (botão 5)
     }
     
     // Adiciona um botão ao controlador
@@ -172,12 +173,41 @@ class ButtonController {
                     player.updateMoneyDisplay();
                     
                     // Adicionar materiais ao inventário de construção (2 blocos e 1 rampa)
-                    buildingController.addMaterials(2, 2, 2, 1);
+                    buildingController.addMaterials(2, 2, 2, 0);
                     
                     this.showSuccessNotification("Kit de Barricadas comprado!", "blue");
                     // Exibir mensagem de ajuda
                     setTimeout(() => {
                         this.showSuccessNotification("B para construir", "yellow");
+                    }, 2000);
+                } else {
+                    // Jogador não tem dinheiro suficiente
+                    this.showErrorNotification("Dinheiro insuficiente!");
+                }
+                break;
+
+            case 5: // Turret - compra torreta com custo de 80$
+                // Verificar se o jogador tem dinheiro suficiente
+                if (player.money >= this.turretCost) {
+                    // Obter referência ao controlador de construção
+                    const buildingController = player.controller.buildingController;
+                    
+                    if (!buildingController) {
+                        this.showErrorNotification("Sistema de construção não disponível!");
+                        break;
+                    }
+                    
+                    // Deduzir 80$ do dinheiro do jogador
+                    player.money -= this.turretCost;
+                    player.updateMoneyDisplay();
+                    
+                    // Adicionar torretas ao inventário de construção
+                    buildingController.addMaterials(0, 0, 0, 1); // Adiciona apenas 1 torreta
+                    
+                    this.showSuccessNotification("Torreta comprada!", "yellow");
+                    // Exibir mensagem de ajuda
+                    setTimeout(() => {
+                        this.showSuccessNotification("B para construir, 4 para selecionar torreta", "yellow");
                     }, 2000);
                 } else {
                     // Jogador não tem dinheiro suficiente

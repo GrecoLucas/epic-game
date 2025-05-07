@@ -12,9 +12,10 @@ class TurretModel {
         this.initialHealth = 150; // Saúde inicial para cálculos de dano
         this.lastFireTime = 0; // Timestamp do último disparo
         
-        // IMPORTANTE: Sempre usar munição ilimitada para as torretas
-        this.unlimitedAmmo = true;
-        this.ammo = Infinity;
+        // Configuração de munição - agora com valor padrão limitado
+        this.unlimitedAmmo = false;
+        this.ammo = 100; // Valor padrão de munição para cada torreta
+        this.maxAmmo = 100; // Capacidade máxima de munição
         
         // Cache para performance
         this.lastTargetUpdateTime = 0;
@@ -23,14 +24,22 @@ class TurretModel {
 
     // Verificar se a torreta pode disparar com base no cooldown
     canFire(currentTime) {
-        return this.isActive && (currentTime - this.lastFireTime >= this.cooldownTime);
+        return this.isActive && (currentTime - this.lastFireTime >= this.cooldownTime) && (this.unlimitedAmmo || this.ammo > 0);
     }
 
     // Registrar um disparo e atualizar o timestamp
     recordFire(currentTime) {
         this.lastFireTime = currentTime;
-        // As torres sempre têm munição infinita, então não decrementamos
-        return true;
+        
+        // Decrementar munição se não for infinita
+        if (!this.unlimitedAmmo && this.ammo > 0) {
+            // Não decrementar aqui, isso é feito na classe Turret agora
+            return true;
+        } else if (this.unlimitedAmmo) {
+            return true;
+        }
+        
+        return false; // Sem munição
     }
 
     // Tenta aplicar dano à torreta, retorna true se destruída
@@ -65,6 +74,18 @@ class TurretModel {
         this.lastTargetUpdateTime = currentTime;
     }
 
+    // Adicionar munição à torreta
+    addAmmo(amount) {
+        if (!this.unlimitedAmmo) {
+            this.ammo = Math.min(this.ammo + amount, this.maxAmmo);
+        }
+    }
+    
+    // Verificar se a torreta está sem munição
+    isOutOfAmmo() {
+        return !this.unlimitedAmmo && this.ammo <= 0;
+    }
+
     // Atualizar as propriedades da torreta (pode ser usado para upgrades)
     updateProperties(properties) {
         if (properties.damage !== undefined) this.damage = properties.damage;
@@ -82,9 +103,10 @@ class TurretModel {
         if (properties.initialHealth !== undefined) this.initialHealth = properties.initialHealth;
         if (properties.isActive !== undefined) this.isActive = properties.isActive;
         
-        // As torretas SEMPRE usam munição infinita
-        this.unlimitedAmmo = true;
-        this.ammo = Infinity;
+        // Atualizar configuração de munição
+        if (properties.unlimitedAmmo !== undefined) this.unlimitedAmmo = properties.unlimitedAmmo;
+        if (properties.ammo !== undefined) this.ammo = properties.ammo;
+        if (properties.maxAmmo !== undefined) this.maxAmmo = properties.maxAmmo;
     }
 }
 

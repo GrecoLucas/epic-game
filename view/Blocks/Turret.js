@@ -90,11 +90,12 @@ class Turret {
         muzzlePoint.position.z = gunBarrel.scaling.y; // Posicionar na ponta do cano
         muzzlePoint.isVisible = false;
         
+        // 5. Criar indicador de munição        
         // Criar um modelo individual para esta torreta
         const turretModelInstance = new TurretModel();
         turretModelInstance.health = initialHealth;
         turretModelInstance.initialHealth = initialHealth;
-
+        const ammoIndicator = this.createAmmoIndicator(turretRoot, cellSize, turretModelInstance);
         // Adicionar metadados para identificação e comportamento
         base.metadata = {
             isTurret: true,
@@ -109,7 +110,8 @@ class Turret {
                 base: base,
                 body: turretBody,
                 barrel: gunBarrel,
-                muzzle: muzzlePoint
+                muzzle: muzzlePoint,
+                ammoIndicator: ammoIndicator  // Adicionar referência ao indicador de munição
             },
             // Armazenar modelo desta torreta específica
             turretModel: turretModelInstance
@@ -164,6 +166,83 @@ class Turret {
     }
 
 
+    // Método para criar o indicador de munição
+    createAmmoIndicator(parentNode, cellSize, turretModel) {
+        // Criar um plano dinâmico acima da torreta, mas transparente
+        const plane = BABYLON.MeshBuilder.CreatePlane(`ammoIndicator_${Date.now()}`, {
+            width: cellSize * 0.7,
+            height: cellSize * 0.25
+        }, this.scene);
+        
+        // Posicionar acima da torreta
+        plane.parent = parentNode;
+        plane.position.y = cellSize * 0.5; // Ajuste esta altura conforme necessário
+        plane.position.x = -0.25; 
+        plane.billboardMode = BABYLON.Mesh.BILLBOARDMODE_Y; // Sempre olha para a câmera (eixo Y)
+        
+        // Criar material dinâmico completamente transparente (sem fundo preto)
+        const dynamicTexture = new BABYLON.DynamicTexture(`ammoTexture_${Date.now()}`, 
+            {width: 256, height: 64}, this.scene, true);
+        const material = new BABYLON.StandardMaterial(`ammoMaterial_${Date.now()}`, this.scene);
+        
+        // Configurações para remover o fundo e só mostrar o texto
+        material.diffuseTexture = dynamicTexture;
+        material.specularColor = new BABYLON.Color3(0, 0, 0);
+        material.emissiveColor = new BABYLON.Color3(1, 1, 1); // Fazer o texto brilhar
+        material.opacityTexture = dynamicTexture; // Usar a mesma textura para transparência
+        material.useAlphaFromDiffuseTexture = true;
+        material.diffuseTexture.hasAlpha = true;
+        material.backFaceCulling = false;
+        material.alpha = 1.0;
+        
+        plane.material = material;
+        
+        // Atualizar texto de munição
+        this.updateAmmoText(dynamicTexture, turretModel);
+        
+        // Retornar objeto com referências necessárias para atualização
+        return {
+            mesh: plane,
+            texture: dynamicTexture,
+            turretModel: turretModel,
+            update: () => this.updateAmmoText(dynamicTexture, turretModel)
+        };
+    }
+
+    // Método para atualizar o texto de munição
+    updateAmmoText(dynamicTexture, turretModel) {
+        // Limpar a textura completamente (garantir que não há fundo)
+        dynamicTexture.clear();
+        
+        // Deixar a área ao redor do texto transparente
+        const ctx = dynamicTexture.getContext();
+        ctx.clearRect(0, 0, dynamicTexture.getSize().width, dynamicTexture.getSize().height);
+        
+        // Se tiver munição infinita, mostrar símbolo de infinito
+        if (turretModel.unlimitedAmmo) {
+            // Desenhar símbolo de infinito com sombra para melhor visibilidade
+            dynamicTexture.drawText("∞", 128, 32, "bold 42px Arial", "white", null, true, true);
+        } else {
+            // Caso contrário, mostrar quantidade atual/máxima com sombra para melhor visibilidade
+            const ammoText = `${turretModel.ammo}`;
+            
+            // Adicionar sombra para fazer o texto se destacar sem fundo
+            ctx.shadowColor = "rgba(0, 0, 0, 0.7)";
+            ctx.shadowBlur = 7;
+            ctx.shadowOffsetX = 2;
+            ctx.shadowOffsetY = 2;
+            
+            // Desenhar o número centralizado com fonte maior e mais visível
+            dynamicTexture.drawText(ammoText, 128, 34, "bold 36px Arial", "white", null, true, true);
+            
+            // Resetar sombra após desenho
+            ctx.shadowColor = "transparent";
+            ctx.shadowBlur = 0;
+            ctx.shadowOffsetX = 0;
+            ctx.shadowOffsetY = 0;
+        }
+    }
+    
     destroyTurretVisual(turretName, position, onDestroy, destroyDependentBlock) {
         const turretMesh = this.scene.getMeshByName(turretName);
 
@@ -204,6 +283,9 @@ class Turret {
             // Criar efeito de destruição
             if (onDestroy && position) {
                 onDestroy(position);
+            }
+            if (components.ammoIndicator && components.ammoIndicator.mesh && !components.ammoIndicator.mesh.isDisposed()) {
+                components.ammoIndicator.mesh.dispose();
             }
             
             // Encontrar a entrada da torreta na lista de torretas rastreadas
@@ -308,7 +390,8 @@ class Turret {
         // Salvar o valor de saúde atualizado
         turretMesh.metadata.health = remainingHealth;
     }
-    
+  
+
     
     // Atualiza todas as torretas (rotação para alvo, disparos, etc.)
     updateTurrets(deltaTime, getMonsters) {
@@ -333,6 +416,13 @@ class Turret {
             const components = metadata.components;
             const healthRatio = metadata.health / metadata.initialHealth;
             
+            // Atualizar o indicador de munição
+            if (components && components.ammoIndicator) {
+                components.ammoIndicator.update();
+                // Sempre exibir o indicador de munição
+                components.ammoIndicator.mesh.setEnabled(true);
+            }
+
             // NOVO: Verificar se a torreta está destruída (saúde <= 0)
             if (metadata.health <= 0) {
                 turretsToDestroy.push({
@@ -342,14 +432,21 @@ class Turret {
                 continue; // Pular o resto do processamento para esta torreta
             }
             
-            // Garantir que cada torreta tenha um modelo válido e com munição infinita
+            // Garantir que cada torreta tenha um modelo válido
             if (!turret.model) {
                 turret.model = new TurretModel(); // Criar um modelo novo se não existir
+                turret.model.unlimitedAmmo = false; // Definir munição limitada
+                turret.model.ammo = 100; // Definir munição inicial
+                turret.model.maxAmmo = 100; // Capacidade máxima
             }
             
-            // Forçar munição infinita para todos os modelos de torreta
-            turret.model.unlimitedAmmo = true;
-            turret.model.ammo = Infinity;
+            // Garantir que a munição não seja infinita
+            turret.model.unlimitedAmmo = false;
+            
+            // Se estiver sem munição, pular o resto do processamento
+            if (turret.model.ammo <= 0) {
+                continue;
+            }
             
             const turretModel = turret.model;
             const turretPos = turret.mesh.getAbsolutePosition();
@@ -452,23 +549,29 @@ class Turret {
                     const isAimed = Math.abs(angleDiff) < aimTolerance;
                     
                     // Verificar se pode disparar (usando o modelo)
-                    if (isAimed && turretModel.canFire(now)) {
+                    if (isAimed && turretModel.canFire(now) && turretModel.ammo > 0) {
                         // Registrar disparo no modelo
                         turretModel.recordFire(now);
                         turret.lastShootTime = now;
                         
                         // Obter dano do modelo
                         const damage = turretModel.damage;
-                                                
+                        
+                        // Reduzir a munição e atualizar o indicador
+                        turretModel.ammo -= 1;
+                        if (components.ammoIndicator) {
+                            components.ammoIndicator.update();
+                        }
+                        
                         // Aplicar dano diretamente ao controlador do monstro
                         if (controller && typeof controller.takeDamage === 'function') {
-                            console.log(`Torreta aplicando ${damage} de dano ao monstro`);
+                            console.log(`Torreta aplicando ${damage} de dano ao monstro. Munição restante: ${turretModel.ammo}`);
                             controller.takeDamage(damage);
                         }
                     }
                 }
             }
-        }
+      }
 
         // Destruir as torretas que foram marcadas para remoção
         if (turretsToDestroy.length > 0) {

@@ -17,7 +17,10 @@ class ButtonModel {
                 this.infoText = "50 Ammo 40$";
                 break;
             case 4:
-                this.infoText = "Barricade 60$";
+                this.infoText = "Barricades 60$";
+                break;
+            case 5:
+                this.infoText = "Turret 500$";
                 break;
             default:
                 this.infoText = "Botão de ação";

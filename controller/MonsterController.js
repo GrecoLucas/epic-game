@@ -237,6 +237,37 @@ class MonsterController {
         }
     }
 
+    // Método para criar sangue no chão ao levar dano
+    createBloodEffect() {
+        if (!this.model || !this.model.getPosition()) return;
+
+        const bloodPosition = this.model.getPosition().clone();
+        bloodPosition.y = 0.1; // Ajustar para o chão
+
+        // Aleatorizar entre Blood_1.obj e Blood_2.obj
+        const bloodModel = Math.random() < 0.5 ? "Blood_1.obj" : "Blood_2.obj";
+
+        BABYLON.SceneLoader.ImportMeshAsync(
+            "",
+            "models/Blood/",
+            bloodModel,
+            this.scene
+        ).then((result) => {
+            if (result.meshes.length > 0) {
+                const bloodMesh = result.meshes[0];
+                bloodMesh.position = bloodPosition;
+                bloodMesh.scaling = new BABYLON.Vector3(0.5, 0.5, 0.5); // Ajustar escala
+                bloodMesh.rotation = new BABYLON.Vector3(0, Math.random() * Math.PI * 2, 0); // Rotação aleatória
+
+                // Configurar para desaparecer após um tempo
+                setTimeout(() => {
+                    bloodMesh.dispose();
+                }, 10000); // 10 segundos
+            }
+        }).catch((error) => {
+            console.error(`Erro ao carregar o modelo de sangue: ${error.message}`);
+        });
+    }
 
     // Atualizar o estado do monstro
     update() {
@@ -311,6 +342,10 @@ class MonsterController {
     // Aplicar dano ao monstro
     takeDamage(amount) {
         if (this.isDisposed) return false;
+
+        // Criar efeito de sangue
+        this.createBloodEffect();
+
         // Aplicar dano e verificar morte
         const isDead = this.model.takeDamage(amount);
         

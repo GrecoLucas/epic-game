@@ -12,7 +12,8 @@ class Buttons {
         this.colors = [
             BABYLON.Color3.Red(),      // Cor para botão 2
             BABYLON.Color3.Green(),    // Cor para botão 3
-            BABYLON.Color3.Blue()      // Cor para botão 4
+            BABYLON.Color3.Blue(),      // Cor para botão 4
+            BABYLON.Color3.Yellow()   // Cor para botão 5
         ];
     }
 
