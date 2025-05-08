@@ -37,9 +37,9 @@ class Turret {
         base.visibility = 0; // Make it invisible
         
         // Create a larger collision box for the entire turret
-        const collisionWidth = cellSize * 1.0; // Larger than base
+        const collisionWidth = cellSize * 0.5; // Larger than base
         const collisionHeight = cellSize * 1.5; // Tall enough to cover the model
-        const collisionDepth = cellSize * 1.0; // Larger than base
+        const collisionDepth = cellSize * 0.5; // Larger than base
         
         const collisionBox = BABYLON.MeshBuilder.CreateBox(`turretCollision_${Date.now()}`, {
             width: collisionWidth,
@@ -438,6 +438,79 @@ class Turret {
         };
     }
     
+    // Verificar se há um caminho livre entre a torreta e o alvo
+    hasLineOfSight(turretPosition, targetPosition) {
+        // Criar um raio da torreta até o alvo
+        const direction = targetPosition.subtract(turretPosition);
+        const distance = direction.length();
+        direction.normalize();
+        
+        // Ajustar a altura de origem para ficar no nível do cano da torreta
+        const sourcePosition = turretPosition.clone();
+        sourcePosition.y += 0.8; // Altura aproximada do cano da torreta
+        
+        // Obter o bloco que está suportando esta torreta (se houver)
+        let supportingBlock = null;
+        
+        // Verificar a área abaixo da torreta para encontrar blocos de suporte
+        const supportRay = new BABYLON.Ray(turretPosition, new BABYLON.Vector3(0, -1, 0), 1.5);
+        const supportHit = this.scene.pickWithRay(supportRay, (mesh) => {
+            return mesh.isPickable && 
+                   mesh.checkCollisions && 
+                   (mesh.name.startsWith("playerWall_") || 
+                    mesh.name.startsWith("playerRamp_") || 
+                    mesh.name.startsWith("playerBarricade_"));
+        });
+        
+        if (supportHit.pickedMesh) {
+            supportingBlock = supportHit.pickedMesh;
+        }
+        
+        // Criar o raio
+        const ray = new BABYLON.Ray(sourcePosition, direction, distance);
+        
+        // Função de predicado para determinar quais objetos bloqueiam a visão
+        const predicate = (mesh) => {
+            // Ignorar o bloco de suporte da própria torreta
+            if (supportingBlock && mesh.name === supportingBlock.name) {
+                return false;
+            }
+            
+            // Verificar apenas objetos sólidos que podem bloquear a visão
+            return mesh.isPickable && 
+                   mesh.checkCollisions && 
+                   !mesh.name.startsWith("preview_") && 
+                   (mesh.name.startsWith("playerWall_") || 
+                    mesh.name.startsWith("playerRamp_") || 
+                    mesh.name.startsWith("playerBarricade_") || 
+                    mesh.name.startsWith("wall_")) &&
+                    mesh.isVisible; // Ignorar meshes invisíveis
+        };
+        
+        // Realizar o raio de verificação
+        const hit = this.scene.pickWithRay(ray, predicate);
+        
+        // Verificação especial: se o alvo está próximo do bloco que serve de base para a torreta
+        if (hit.pickedMesh && supportingBlock) {
+            // Calcular distância horizontal entre o alvo e o centro do bloco de suporte
+            const supportPos = supportingBlock.position.clone();
+            const horizontalDistSq = 
+                Math.pow(targetPosition.x - supportPos.x, 2) + 
+                Math.pow(targetPosition.z - supportPos.z, 2);
+            
+            // Se o zumbi está muito próximo do bloco de suporte (1.5 unidades), considerar como visível
+            // mesmo que o bloco esteja bloqueando a linha de visão
+            const targetIsAttackingBase = horizontalDistSq < 2.25; // 1.5^2 = 2.25
+            
+            if (targetIsAttackingBase) {
+                return true; // O zumbi está atacando a base, considerar visível
+            }
+        }
+        
+        // Temos linha de visão se não houver nada bloqueando o raio
+        return !hit.pickedMesh;
+    }
+
     // Atualiza todas as torretas (rotação para alvo, disparos, etc.)
     updateTurrets(deltaTime, getMonsters) {
         if (!this.turrets.length) return;
@@ -498,12 +571,12 @@ class Turret {
             
             // Otimizar: Atualizar alvos com menos frequência para melhorar o desempenho
             if (turretModel.shouldUpdateTarget(now)) {
-                // Procurar pelo monstro mais próximo dentro do alcance
+                // Procurar pelo monstro mais próximo dentro do alcance E com linha de visão
                 const range = turretModel.range;
                 let closestDistance = range;
                 let closestMonster = null;
                 
-                // Percorrer todos os monstros e encontrar o mais próximo
+                // Percorrer todos os monstros e encontrar o mais próximo com linha de visão
                 for (const monster of monsters) {
                     const monsterMesh = monster.getMesh();
                     if (!monsterMesh || monsterMesh.isDisposed()) continue;
@@ -515,7 +588,8 @@ class Turret {
                     const distanceSquared = dx * dx + dz * dz; // Ignora Y para performance
                     const distance = Math.sqrt(distanceSquared); // Só calculamos a raiz uma vez
                     
-                    if (distance < closestDistance) {
+                    // Verificar se está dentro do alcance e se tem linha de visão
+                    if (distance < closestDistance && this.hasLineOfSight(turretPos, monsterPos)) {
                         closestDistance = distance;
                         closestMonster = monster;
                     }
@@ -544,12 +618,14 @@ class Turret {
                 // Posição do alvo e da torreta
                 const targetPos = targetMesh.position.clone();
                 
-                // Verificar se ainda está no alcance
+                // Verificar se ainda está no alcance e se ainda tem linha de visão
                 const dx = turretPos.x - targetPos.x;
                 const dz = turretPos.z - targetPos.z;
                 const distanceSquared = dx * dx + dz * dz;
                 
-                if (distanceSquared > turretModel.range * turretModel.range) {
+                // Se estiver fora de alcance ou sem linha de visão, procurar novo alvo
+                if (distanceSquared > turretModel.range * turretModel.range || 
+                    !this.hasLineOfSight(turretPos, targetPos)) {
                     turret.currentTarget = null;
                     continue;
                 }
@@ -616,7 +692,7 @@ class Turret {
                     }
                 }
             }
-      }
+        }
 
         // Destruir as torretas que foram marcadas para remoção
         if (turretsToDestroy.length > 0) {

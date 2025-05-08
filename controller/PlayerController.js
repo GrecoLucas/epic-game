@@ -695,7 +695,7 @@ class PlayerController {
         
         // Mostrar mensagem de resultado
         if (result && result.success) {
-            this.showNotification(`Comprou ${ammoAmount} munições para a torreta por 100 dinheiro.`, "green");
+            this.showNotification(`Comprou ${ammoAmount} munições para a torreta por 100$.`, "green");
         } else {
             this.showNotification(result?.message || "Falha ao comprar munição.", "red");
         }
