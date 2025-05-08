@@ -10,3 +10,15 @@ CC0 1.0 Universal (CC0 1.0)
 Public Domain Dedication
 https://creativecommons.org/publicdomain/zero/1.0/
 
+
+Model Information:
+* title:	Simple Turret
+* source:	https://sketchfab.com/3d-models/simple-turret-a70a82f70fe04fd6a89dca49aea2b118
+* author:	model_R (https://sketchfab.com/model_R)
+
+Model License:
+* license type:	CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)
+* requirements:	Author must be credited. Commercial use is allowed.
+
+If you use this 3D model in your project be sure to copy paste this credit wherever you share it:
+This work is based on "Simple Turret" (https://sketchfab.com/3d-models/simple-turret-a70a82f70fe04fd6a89dca49aea2b118) by model_R (https://sketchfab.com/model_R) licensed under CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)

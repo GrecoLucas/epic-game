@@ -13,17 +13,17 @@ class Turret {
     }
 
     createPlayerTurret(position, cellSize, rotation = 0, initialHealth = 150) {
-        // Use cellSize if provided, otherwise use default
-        const baseWidth = cellSize * 0.8 || 3.2;
-        const baseHeight = 0.5; // Base baixa
-        const baseDepth = cellSize * 0.8 || 3.2;
-        
         // Create turret components as a hierarchical structure
         const turretRoot = new BABYLON.TransformNode(`playerTurretRoot_${Date.now()}`, this.scene);
         turretRoot.position = position.clone();
         turretRoot.rotation.y = rotation;
         
-        // 1. Base/plataforma (box)
+        // Create base platform mesh for collision and picking
+        const baseWidth = cellSize * 0.8;
+        const baseHeight = 0.5;
+        const baseDepth = cellSize * 0.8;
+        
+        // Create invisible base for collision detection
         const base = BABYLON.MeshBuilder.CreateBox(`playerTurret_${Date.now()}`, {
             width: baseWidth,
             height: baseHeight,
@@ -31,97 +31,91 @@ class Turret {
         }, this.scene);
         
         base.parent = turretRoot;
-        base.position.y = -baseHeight/2; // Ajustar para alinhar o topo com o chão
+        base.position.y = -baseHeight/2;
         base.checkCollisions = true;
         base.isPickable = true;
+        base.visibility = 0; // Make it invisible
         
-        // Aplicar material base
-        base.material = this.wallMaterial ? 
-            this.wallMaterial.clone(`turretBaseMat_${base.uniqueId}`) : 
-            new BABYLON.StandardMaterial(`turretBaseMat_${base.uniqueId}`, this.scene);
+        // Create a larger collision box for the entire turret
+        const collisionWidth = cellSize * 1.0; // Larger than base
+        const collisionHeight = cellSize * 1.5; // Tall enough to cover the model
+        const collisionDepth = cellSize * 1.0; // Larger than base
         
-        // Customizar para dar aparência de torreta (cor mais escura que parede normal)
-        if (base.material) {
-            base.material.diffuseColor = new BABYLON.Color3(0.3, 0.3, 0.3);
-            base.material.specularColor = new BABYLON.Color3(0.2, 0.2, 0.2);
-        }
-        
-        // 2. Torre giratória (cilindro)
-        const turretBody = BABYLON.MeshBuilder.CreateCylinder(`turretBody_${Date.now()}`, {
-            height: cellSize * 0.4,
-            diameter: cellSize * 0.6,
-            tessellation: 16
+        const collisionBox = BABYLON.MeshBuilder.CreateBox(`turretCollision_${Date.now()}`, {
+            width: collisionWidth,
+            height: collisionHeight,
+            depth: collisionDepth
         }, this.scene);
         
+        collisionBox.parent = turretRoot;
+        collisionBox.position.y = collisionHeight/2 - baseHeight/2; // Center it vertically above base
+        collisionBox.checkCollisions = true;
+        collisionBox.isPickable = false; // Not pickable, just for collision
+        collisionBox.visibility = 0; // Make it invisible
+        
+        // Create turret body node for rotation
+        const turretBody = new BABYLON.TransformNode(`turretBody_${Date.now()}`, this.scene);
         turretBody.parent = turretRoot;
-        turretBody.position.y = baseHeight/2;
-        turretBody.checkCollisions = true;
         
-        // Material para o corpo
-        const bodyMaterial = new BABYLON.StandardMaterial(`turretBodyMat_${turretBody.uniqueId}`, this.scene);
-        bodyMaterial.diffuseColor = new BABYLON.Color3(0.2, 0.2, 0.2);
-        bodyMaterial.specularColor = new BABYLON.Color3(0.1, 0.1, 0.1);
-        turretBody.material = bodyMaterial;
+        // Create muzzle point for shooting effects
+        const muzzlePoint = new BABYLON.TransformNode(`turretMuzzle_${Date.now()}`, this.scene);
+        muzzlePoint.parent = turretBody;
+        muzzlePoint.position = new BABYLON.Vector3(0, 0.8, 1.2); // Position where bullets will come from
+    
+        // Load the 3D model
+        BABYLON.SceneLoader.ImportMeshAsync("", "models/Turret/", "scene.gltf", this.scene).then((result) => {
+            const turretModel = result.meshes[0]; // Root of imported model
+            turretModel.parent = turretBody;
+            
+            // Scale the model to fit the cell size
+            const scaleFactor = cellSize * 0.08; // Adjust this value based on model size
+            turretModel.scaling = new BABYLON.Vector3(scaleFactor, scaleFactor, scaleFactor);
+            
+            // Position adjustments if needed
+            turretModel.position.y = 0.2; // Adjust height as needed
+            
+            // Make model meshes not respond to collisions (the collision box handles this)
+            result.meshes.forEach(mesh => {
+                if (mesh !== turretModel) {
+                    mesh.isPickable = true; // Keep pickable for selection
+                    mesh.checkCollisions = false; // The collision box handles collisions
+                }
+            });
+        });
         
-        // 3. Cano da arma (cilindro)
-        const gunBarrel = BABYLON.MeshBuilder.CreateCylinder(`turretBarrel_${Date.now()}`, {
-            height: cellSize * 0.8,
-            diameter: cellSize * 0.15,
-            tessellation: 12
-        }, this.scene);
-        
-        gunBarrel.parent = turretBody;
-        gunBarrel.rotation.x = Math.PI / 2; // Rotacionar para horizontal
-        gunBarrel.position.z = cellSize * 0.4; // Estender para frente
-        gunBarrel.position.y = cellSize * 0.1; // Pequeno offset para cima
-        
-        // Material para o cano
-        const barrelMaterial = new BABYLON.StandardMaterial(`turretBarrelMat_${gunBarrel.uniqueId}`, this.scene);
-        barrelMaterial.diffuseColor = new BABYLON.Color3(0.15, 0.15, 0.15);
-        barrelMaterial.specularColor = new BABYLON.Color3(0.3, 0.3, 0.3);
-        gunBarrel.material = barrelMaterial;
-        
-        // 4. Ponto de disparo (invisível, mas usado para efeitos)
-        const muzzlePoint = BABYLON.MeshBuilder.CreateSphere(`turretMuzzle_${Date.now()}`, {
-            diameter: 0.1
-        }, this.scene);
-        muzzlePoint.parent = gunBarrel;
-        muzzlePoint.position.y = 0;
-        muzzlePoint.position.z = gunBarrel.scaling.y; // Posicionar na ponta do cano
-        muzzlePoint.isVisible = false;
-        
-        // 5. Criar indicador de munição        
-        // Criar um modelo individual para esta torreta
+        // Create a turret model instance for game logic
         const turretModelInstance = new TurretModel();
         turretModelInstance.health = initialHealth;
         turretModelInstance.initialHealth = initialHealth;
+        
+        // Create the ammo indicator
         const ammoIndicator = this.createAmmoIndicator(turretRoot, cellSize, turretModelInstance);
-        // Adicionar metadados para identificação e comportamento
+        
+        // Add metadata for identification and behavior
         base.metadata = {
             isTurret: true,
             isPlayerBuilt: true,
             initialHealth: initialHealth,
             health: initialHealth,
-            isBuildableSurface: true,  // Pode construir em cima
-            supportingBlock: null,      // Bloco abaixo (suporte)
-            dependentBlocks: [],        // Blocos acima (dependentes)
-            components: {              // Referências para os componentes da torreta
+            isBuildableSurface: true,
+            supportingBlock: null,
+            dependentBlocks: [],
+            components: {
                 root: turretRoot,
                 base: base,
                 body: turretBody,
-                barrel: gunBarrel,
                 muzzle: muzzlePoint,
-                ammoIndicator: ammoIndicator  // Adicionar referência ao indicador de munição
+                collisionBox: collisionBox, 
+                ammoIndicator: ammoIndicator
             },
-            // Armazenar modelo desta torreta específica
             turretModel: turretModelInstance
         };
         
-        // Raycast para verificar se tem suporte abaixo
+        // Raycast to check for support below
         const ray = new BABYLON.Ray(
             position.clone().add(new BABYLON.Vector3(0, -baseHeight/2, 0)),
             new BABYLON.Vector3(0, -1, 0),
-            0.2 // Pequena distância
+            0.2
         );
         
         const hit = this.scene.pickWithRay(ray, mesh => 
@@ -131,19 +125,17 @@ class Turret {
              mesh.name.startsWith("playerBarricade_"))
         );
         
-        // Registrar dependências
+        // Register dependencies
         if (hit && hit.pickedMesh) {
-            // Registrar o bloco abaixo como suporte
             base.metadata.supportingBlock = hit.pickedMesh.name;
             
-            // E este bloco como dependente do bloco abaixo
             if (hit.pickedMesh.metadata && Array.isArray(hit.pickedMesh.metadata.dependentBlocks)) {
                 hit.pickedMesh.metadata.dependentBlocks.push(base.name);
                 console.log(`${base.name} is supported by ${hit.pickedMesh.name}`);
             }
         }
         
-        // Adicionar física se necessário
+        // Add physics if necessary
         if (this.scene.getPhysicsEngine()?.getPhysicsPlugin()) {
             base.physicsImpostor = new BABYLON.PhysicsImpostor(base, BABYLON.PhysicsImpostor.BoxImpostor, 
                             { mass: 0, restitution: 0.1 }, this.scene);
@@ -151,20 +143,19 @@ class Turret {
             console.warn("Physics not enabled, skipping impostor for turret");
         }
         
-        // Adicionar a lista de torretas rastreadas
+        // Add to tracked turrets list
         this.turrets.push({
             mesh: base,
             components: base.metadata.components,
             lastTargetUpdate: 0,
             currentTarget: null,
             lastShootTime: 0,
-            model: turretModelInstance // Referência para o modelo desta torreta
+            model: turretModelInstance
         });
         
         console.log(`Created player turret at ${position} with health ${initialHealth}`);
         return base;
     }
-
 
     // Método para criar o indicador de munição
     createAmmoIndicator(parentNode, cellSize, turretModel) {
@@ -243,102 +234,36 @@ class Turret {
         }
     }
     
-    destroyTurretVisual(turretName, position, onDestroy, destroyDependentBlock) {
+    destroyTurretVisual(turretName, position, onDestroy) {
         const turretMesh = this.scene.getMeshByName(turretName);
-
+    
         if (turretMesh) {
-            if (turretMesh.metadata && turretMesh.metadata.isBeingDestroyed) {
-                return true; // Já está sendo destruído, evitar loop recursivo
-            }
-            
-            if (turretMesh.metadata) {
-                turretMesh.metadata.isBeingDestroyed = true;
-            }
-            
-            // Verificar se há blocos dependentes que precisam ser destruídos primeiro
-            if (turretMesh.metadata && turretMesh.metadata.dependentBlocks && turretMesh.metadata.dependentBlocks.length > 0) {
-                console.log(`${turretName} has ${turretMesh.metadata.dependentBlocks.length} dependent blocks that will be destroyed in cascade`);
-                
-                // Criar uma cópia da lista de dependentes para evitar problemas durante iteração
-                const dependentBlocks = [...turretMesh.metadata.dependentBlocks];
-                
-                // Destruir cada bloco dependente
-                for (const dependentBlockName of dependentBlocks) {
-                    const dependentMesh = this.scene.getMeshByName(dependentBlockName);
-                    if (dependentMesh) {
-                        // Determinar o tipo de estrutura para chamar o método correto
-                        if (dependentBlockName.startsWith("playerWall_")) {
-                            destroyDependentBlock(dependentBlockName, dependentMesh.position);
-                        } else if (dependentBlockName.startsWith("playerRamp_")) {
-                            destroyDependentBlock(dependentBlockName, dependentMesh.position);
-                        } else if (dependentBlockName.startsWith("playerBarricade_")) {
-                            this.destroyBarricadeVisual(dependentBlockName, dependentMesh.position, onDestroy, destroyDependentBlock);
-                        } else if (dependentBlockName.startsWith("playerTurret_")) {
-                            this.destroyTurretVisual(dependentBlockName, dependentMesh.position, onDestroy, destroyDependentBlock);
-                        }
+            // Dispose of all child meshes and the root node
+            const rootNode = turretMesh.parent; // Assuming the turret root is the parent node
+            if (rootNode) {
+                rootNode.getChildMeshes().forEach(mesh => {
+                    if (mesh && !mesh.isDisposed()) {
+                        mesh.dispose();
                     }
+                });
+                rootNode.dispose();
+            } else {
+                // If no parent node, dispose of the turret mesh directly
+                if (!turretMesh.isDisposed()) {
+                    turretMesh.dispose();
                 }
             }
-            
-            // Criar efeito de destruição
+    
+            // Trigger destruction effects if provided
             if (onDestroy && position) {
                 onDestroy(position);
             }
-            if (components.ammoIndicator && components.ammoIndicator.mesh && !components.ammoIndicator.mesh.isDisposed()) {
-                components.ammoIndicator.mesh.dispose();
-            }
-            
-            // Encontrar a entrada da torreta na lista de torretas rastreadas
-            const turretIndex = this.turrets.findIndex(t => t.mesh && t.mesh.name === turretName);
-            
-            if (turretIndex !== -1) {
-                const turretData = this.turrets[turretIndex];
-                
-                // Torreta encontrada na lista - garantir destruição de todos os componentes
-                if (turretData.mesh && turretData.mesh.metadata && turretData.mesh.metadata.components) {
-                    const components = turretData.mesh.metadata.components;
-                    
-                    // Destruir explicitamente cada componente na ordem inversa (de fora para dentro)
-                    if (components.muzzle && !components.muzzle.isDisposed()) components.muzzle.dispose();
-                    if (components.barrel && !components.barrel.isDisposed()) components.barrel.dispose();
-                    if (components.body && !components.body.isDisposed()) components.body.dispose();
-                    if (components.base && !components.base.isDisposed()) components.base.dispose();
-                    
-                    // Por fim, destruir o nó raiz que contém tudo
-                    if (components.root && !components.root.isDisposed()) {
-                        components.root.dispose();
-                    }
-                }
-                
-                // Remover da lista de torretas
-                this.turrets.splice(turretIndex, 1);
-                
-                console.log(`Torreta ${turretName} completamente destruída.`);
-            } else {
-                // Se não encontrou na lista, verificar se tem nó raiz no nome
-                const rootNode = this.scene.getTransformNodeByName(`playerTurretRoot_${turretName.split('_')[1]}`);
-                
-                if (rootNode) {
-                    // Destruir hierarquia de meshes
-                    rootNode.getChildMeshes().forEach(mesh => {
-                        if (mesh && !mesh.isDisposed()) {
-                            mesh.dispose();
-                        }
-                    });
-                    
-                    // Destruir o nó raiz
-                    rootNode.dispose();
-                } else {
-                    // Último recurso: destruir apenas o mesh principal da torreta
-                    if (turretMesh && !turretMesh.isDisposed()) {
-                        turretMesh.dispose();
-                    }
-                }
-            }
-            
+    
+            console.log(`Turret ${turretName} destroyed.`);
             return true;
         }
-        
+    
+        console.warn(`Turret ${turretName} not found for destruction.`);
         return false;
     }
 
@@ -425,7 +350,6 @@ class Turret {
         
         return true;
     }
-    
     
     // Método para comprar munição para uma torreta específica
     buyAmmoForTurret(turretMesh, amountToBuy, costPerRound, playerResources, updatePlayerResources) {
