@@ -29,13 +29,13 @@ class MonsterModel {
 
         // Seleção aleatória do tipo de zumbi: 80% para tipo 2 e 20% para tipo 1
         const zombieTypeRoll = Math.random();
-        this.zombieType = zombieTypeRoll <= 0.8 ? "Zombie2" : "Zombie1";
+        this.zombieType = zombieTypeRoll <= 0.5 ? "Zombie2" : "Zombie1";
         
         // Ajustar atributos com base no tipo
         if (this.zombieType === "Zombie1") {
             // Tipo 1: dobro de vida e metade da velocidade
-            this.health = 200;
-            this.speed = 0.1;
+            this.health = 80;
+            this.speed = 0.3;
         }
         
         // Configuração da barra de vida
@@ -51,10 +51,10 @@ class MonsterModel {
         const zombieConfig = {
             "Zombie1": {
                 path: "models/Zombie1/",
-                scaling: new BABYLON.Vector3(2, 2, 2),
+                scaling: new BABYLON.Vector3(4, 4, 4),
                 ellipsoid: new BABYLON.Vector3(1.8, 3.9, 1.2),
                 ellipsoidOffset: new BABYLON.Vector3(0, 3.9, 0),
-                healthBarHeight: 22 // Altura específica para a barra de vida do Zombie1
+                healthBarHeight: 4 // Altura específica para a barra de vida do Zombie1
             },
             "Zombie2": {
                 path: "models/Zombie2/",
