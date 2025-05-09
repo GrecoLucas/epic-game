@@ -37,14 +37,16 @@ If you use this 3D model in your project be sure to copy paste this credit where
 This work is based on "Zombie" (https://sketchfab.com/3d-models/zombie-0541416bd635486f95cb3d44f8f676c1) by πRat (https://sketchfab.com/GrimZu) licensed under CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)
 
 Model Information:
-* title:	Zombie
-* source:	https://sketchfab.com/3d-models/zombie-6ff73b06cf63405d9557720c78cf5e0c
-* author:	David Glynch (https://sketchfab.com/yaveselyigolovastic)
+* title:	Hammer
+* source:	https://sketchfab.com/3d-models/hammer-2faa70b89da743d2924670ffe7d80163
+* author:	FlukierJupiter (https://sketchfab.com/FlukierJupiter)
 
 Model License:
-* license type:	SKETCHFAB Standard (https://sketchfab.com/licenses)
-* requirements:	Under basic restrictions, use worldwide, on all types of media, commercially or not, and in all types of derivative works
+* license type:	CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)
+* requirements:	Author must be credited. Commercial use is allowed.
 
+If you use this 3D model in your project be sure to copy paste this credit wherever you share it:
+This work is based on "Hammer" (https://sketchfab.com/3d-models/hammer-2faa70b89da743d2924670ffe7d80163) by FlukierJupiter (https://sketchfab.com/FlukierJupiter) licensed under CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)
 
 Model Information:
 * title:	Zombie Dans

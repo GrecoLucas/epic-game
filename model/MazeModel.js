@@ -48,7 +48,7 @@ class MazeModel {
                         this.monsterPositions.push({ row: i, col: j });
                         // Considerar essa posição como chão (0)
                         processedRow.push(0);
-                    } else if (row[j] === 'G' || row[j] === 'G1' || row[j] === 'G2') {
+                    } else if (row[j] === 'H' || row[j] === 'G1' || row[j] === 'G2') {
                         // Armazenar a posição da arma com seu tipo
                         this.gunPositions.push({ 
                             row: i, 

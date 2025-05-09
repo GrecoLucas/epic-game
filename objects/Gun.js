@@ -2,6 +2,7 @@ import GunModel from '../model/GunModel.js';
 import Pistol from '../view/Guns/Pistol.js';
 import AssaultRifle from '../view/Guns/Assalt_rifle.js';
 import GunController from '../controller/GunController.js';
+import Hammer from '../view/Guns/Hammer.js';
 
 class Gun {
     constructor(scene, type = 'pistol', x = 0, y = 0, z = 0) {
@@ -14,7 +15,9 @@ class Gun {
             this.view = new Pistol(scene, this.model);
         } else if(type === 'assault_rifle') {
             this.view = new AssaultRifle(scene, this.model);
-        }
+        } else if (type === 'hammer') {
+            this.view = new Hammer(scene, this.model);
+        } 
               
         // Inicializar o controlador
         this.controller = new GunController(this.model, this.view);
@@ -31,6 +34,17 @@ class Gun {
     // Verificar se o jogador está perto da arma e pode pegá-la
     checkPickupProximity(playerPosition, interactionDistance = 2) {
         return this.controller.checkPickupProximity(playerPosition, interactionDistance);
+    }
+
+    repair(target) {
+        if (this.model.isRepairTool) {
+            const success = this.model.repair(target);
+            if (success) {
+                this.view.playRepairAnimation();
+            }
+            return success;
+        }
+        return false;
     }
 
     pickup() {

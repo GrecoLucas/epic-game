@@ -33,6 +33,9 @@ class PlayerController {
         // Configurar o view com o mesh do model
         this.view.initialize(this.model.getMesh());
         
+        // Configurar a câmera com o view
+        this.camera = this.view.getCamera();
+
         // Configurar inputs do teclado
         this.setupInputHandling();
         
@@ -193,6 +196,61 @@ class PlayerController {
         this.scene.registerBeforeRender(() => {
             const playerPosition = this.model.getPosition();
             
+            // Verificar estruturas - FIX: Correção dos blocos if
+            // Verificar estruturas - REFATORAÇÃO para melhorar a detecção
+            if (this.camera) {
+                // Criar um raio diretamente da câmera para frente
+                const ray = new BABYLON.Ray(
+                    this.camera.position, 
+                    this.camera.getForwardRay().direction,
+                    this.interactionDistance * 2 // Aumentar a distância máxima para melhorar a detecção
+                );
+                                
+                // Lista de prefixos de nomes de estruturas a verificar
+                const structurePrefixes = [
+                    "playerWall_", 
+                    "playerRamp_", 
+                    "playerBarricade_", 
+                    "playerTurret_"
+                ];
+                
+                // Função de predicado melhorada para detectar estruturas
+                const structurePredicate = (mesh) => {
+                    if (!mesh.isPickable) return false;
+                    
+                    // Verificar se o nome corresponde a algum dos prefixos
+                    for (const prefix of structurePrefixes) {
+                        if (mesh.name && mesh.name.startsWith(prefix)) {
+                            return true;
+                        }
+                    }
+                    return false;
+                };
+                
+                // Realizar o raycast com o predicado
+                const hit = this.scene.pickWithRay(ray, structurePredicate);
+                
+                // Se encontrou estrutura, atualizar referência
+                if (hit && hit.pickedMesh) {
+                    this.nearbyStructure = hit.pickedMesh;
+                    
+                    // Mostrar dica de interação
+                    if (this.interactionHint) {
+                        this.interactionHint.text = "Pressione F para recolher";
+                        this.interactionHint.alpha = 1;
+                    }
+                    
+                    // Log para debug - estrutura encontrada
+                    console.log("Estrutura detectada por raio:", this.nearbyStructure.name, 
+                                "Distância:", hit.distance.toFixed(2));
+                } else {
+                    // Se não encontrou, limpar referência
+                    this.nearbyStructure = null;
+                    
+                    // Log para debug quando nenhuma estrutura é encontrada
+                    // console.log("Nenhuma estrutura detectada pelo raio");
+                }
+            }
             // --- DETECÇÃO DE BOTÕES ---
             // Obter todos os botões na cena
             const buttonMeshes = this.scene.meshes.filter(mesh => mesh.name && mesh.name.includes("button"));
@@ -331,10 +389,8 @@ class PlayerController {
                     this.interactionHint.text = "Pressione E para ativar";
                     this.interactionHint.alpha = 1;
                 } else if (this.nearbyTurret) {
-                    // Verificar se a torreta precisa de munição
                     if (this.scene.gameInstance && 
                         this.scene.gameInstance.turretController) {
-                        
                         this.interactionHint.text = "Pressione E para comprar munição (100$)";
                         this.interactionHint.alpha = 1;
                         
@@ -484,6 +540,11 @@ class PlayerController {
                 (evt) => {
                     const key = evt.sourceEvent.key.toLowerCase();
                     this.inputMap[key] = true;
+                    
+                    if (key === "f") {
+                        console.log("Tecla F pressionada, lançando raio de coleta");
+                        this.castRayToCollectStructure(); 
+                    }
 
                     // --- Tecla P para pausar o jogo ---
                     if (key === "p" || key === "escape") {
@@ -859,6 +920,136 @@ class PlayerController {
             this.model.setGrounded(true);
         } else {
             this.model.setGrounded(false);
+        }
+    }
+
+    collectNearbyStructure() {
+        if (!this.nearbyStructure) {
+            console.log("Nenhuma estrutura próxima detectada");
+            return;
+        }
+        
+        console.log("Tentando recolher estrutura:", this.nearbyStructure.name);
+        
+        // Determinar tipo da estrutura
+        let structureType = null;
+        if (this.nearbyStructure.name.startsWith("playerWall_")) structureType = 'wall';
+        else if (this.nearbyStructure.name.startsWith("playerRamp_")) structureType = 'ramp';
+        else if (this.nearbyStructure.name.startsWith("playerBarricade_")) structureType = 'barricade';
+        else if (this.nearbyStructure.name.startsWith("playerTurret_")) structureType = 'turret';
+        
+        // Adicionar material de volta ao inventário
+        if (this.buildingController && structureType) {
+            this.buildingController.addMaterials(
+                structureType === 'wall' ? 1 : 0,
+                structureType === 'ramp' ? 1 : 0,
+                structureType === 'barricade' ? 1 : 0,
+                structureType === 'turret' ? 1 : 0
+            );
+            
+            // Remover a estrutura do mundo
+            const position = this.nearbyStructure.position.clone();
+            const structureName = this.nearbyStructure.name;
+            
+            try {
+                // Usar os métodos de destruição existentes
+                if (structureType === 'wall' && this.scene.gameInstance?.mazeView) {
+                    this.scene.gameInstance.mazeView.destroyWallVisual(structureName, position);
+                } else if (structureType === 'ramp' && this.scene.gameInstance?.mazeView) {
+                    this.scene.gameInstance.mazeView.destroyRampVisual(structureName, position);
+                } else if (structureType === 'barricade' && this.scene.gameInstance?.mazeView) {
+                    this.scene.gameInstance.mazeView.destroyBarricadeVisual(structureName, position);
+                } else if (structureType === 'turret' && this.scene.gameInstance?.turretController) {
+                    this.scene.gameInstance.turretController.turretHandler.destroyTurretVisual(
+                        structureName, position, null
+                    );
+                } else {
+                    // Fallback: simplesmente remover o mesh se não conseguir usar métodos específicos
+                    this.nearbyStructure.dispose();
+                    console.log("Estrutura removida via dispose padrão");
+                }
+                
+                this.showNotification(`${structureType.charAt(0).toUpperCase() + structureType.slice(1)} recolhido!`, "green");
+            } catch (error) {
+                console.error("Erro ao destruir estrutura:", error);
+                // Ainda assim, tentar remover o mesh
+                try {
+                    this.nearbyStructure.dispose();
+                    this.showNotification(`${structureType} recolhido (modo de recuperação)`, "orange");
+                } catch (e) {
+                    console.error("Falha ao remover estrutura:", e);
+                }
+            }
+            
+            // Limpar a referência para evitar interações duplicadas
+            this.nearbyStructure = null;
+        }
+    }
+
+    castRayToCollectStructure() {
+        if (!this.camera) {
+            console.log("Camera não disponível para raycasting");
+            return;
+        }
+        
+        // CORREÇÃO: Usar a posição do JOGADOR, não da câmera!
+        const playerPosition = this.model.getPosition().clone();
+        // Ajustar para a altura dos olhos do jogador
+        playerPosition.y += 1.7; // Aproximadamente a altura dos olhos
+        
+        // Manter a direção da câmera para o raycasting
+        const cameraDirection = this.camera.getForwardRay().direction;
+        
+        console.log("Posição do jogador:", playerPosition);
+        console.log("Direção da câmera:", cameraDirection);
+        
+        // Criar o raio começando da posição REAL do jogador
+        const ray = new BABYLON.Ray(
+            playerPosition,
+            cameraDirection,
+            30 // Distância do raio (30 unidades)
+        );
+
+        // Lista de prefixos de estruturas que podem ser coletadas
+        const structurePrefixes = [
+            "playerWall_", 
+            "playerRamp_", 
+            "playerBarricade_", 
+            "playerTurret_"
+        ];
+                
+        // Predicado para verificar estruturas coletáveis
+        const structurePredicate = (mesh) => {
+            if (!mesh.isPickable) return false;
+            
+            // Verificar se o nome corresponde a algum prefixo
+            for (const prefix of structurePrefixes) {
+                if (mesh.name && mesh.name.startsWith(prefix)) {
+                    return true;
+                }
+            }
+            return false;
+        };
+        
+        // Realizar o raycast com o predicado
+        const hit = this.scene.pickWithRay(ray, structurePredicate);
+        
+        if (hit && hit.pickedMesh) {
+            // Armazenar temporariamente a estrutura encontrada
+            this.nearbyStructure = hit.pickedMesh;
+            
+            // Log para debug - estrutura encontrada
+            console.log("Estrutura detectada por raio:", 
+                        this.nearbyStructure.name, 
+                        "Distância:", hit.distance.toFixed(2));
+            
+            // Coletar a estrutura
+            this.collectNearbyStructure();
+            
+            return true;
+        } else {
+            console.log("Nenhuma estrutura detectada pelo raio");
+            return false;
         }
     }
 }

@@ -214,22 +214,45 @@ class ShootController {
         // Verificar metadata de saúde
         if (!hitMesh.metadata?.health) return false;
         
-        // Calcular dano
-        const baseDamage = equippedGun.model.getDamage();
-        const finalDamage = Math.round(baseDamage * 0.5); // Reduzir dano às estruturas
+        // Verificar se a arma é uma ferramenta de reparo
+        const isRepairTool = equippedGun.model.isRepairTool === true;
+        
+        // Calcular dano ou reparo
+        const baseValue = equippedGun.model.getDamage();
+        let finalValue;
+        
+        if (isRepairTool) {
+            // Se for ferramenta de reparo, usar o valor de reparo
+            finalValue = Math.round(baseValue * 2); // Aumentar efeito de reparo
+        } else {
+            // Se for arma, aplicar dano reduzido às estruturas
+            finalValue = Math.round(baseValue * 0.5);
+        }
         
         // Calcular saúde restante
         const currentHealth = hitMesh.metadata.health;
         const initialHealth = hitMesh.metadata.initialHealth || currentHealth;
-        const remainingHealth = Math.max(0, currentHealth - finalDamage);
+        let remainingHealth;
+        
+        if (isRepairTool) {
+            // Aumentar a saúde, mas não ultrapassar a saúde inicial
+            remainingHealth = Math.min(initialHealth, currentHealth + finalValue);
+        } else {
+            // Reduzir a saúde, não ficando abaixo de zero
+            remainingHealth = Math.max(0, currentHealth - finalValue);
+        }
         
         // Atualizar saúde
         hitMesh.metadata.health = remainingHealth;
         
-        // Efeito visual
-        this.createHitEffect(hit.pickedPoint);
+        // Efeito visual - usar efeito diferente para reparo
+        if (isRepairTool) {
+            this.createRepairEffect(hit.pickedPoint);
+        } else {
+            this.createHitEffect(hit.pickedPoint);
+        }
         
-        // Aplicar efeito de dano visual
+        // Aplicar efeito visual de dano ou reparo
         if (meshName.startsWith("playerWall_")) {
             mazeView.applyWallDamageVisual(meshName, remainingHealth, initialHealth);
         } else if (meshName.startsWith("playerRamp_")) {
@@ -238,8 +261,8 @@ class ShootController {
             mazeView.applyBarricadeDamageVisual(meshName, remainingHealth, initialHealth);
         }
         
-        // Destruir a estrutura se a saúde chegou a zero
-        if (remainingHealth <= 0) {
+        // Destruir a estrutura se a saúde chegou a zero (apenas para dano, não para reparo)
+        if (!isRepairTool && remainingHealth <= 0) {
             setTimeout(() => {
                 if (meshName.startsWith("playerWall_")) {
                     mazeView.destroyWallVisual(meshName, hitMesh.position);
@@ -252,6 +275,41 @@ class ShootController {
         }
         
         return true;
+    }
+    
+    // Novo método para criar efeito visual de reparo
+    createRepairEffect(position) {
+        // Criar uma esfera verde no ponto de impacto
+        const repairMarker = BABYLON.MeshBuilder.CreateSphere("repairMarker", { 
+            diameter: 0.2,
+            segments: 8
+        }, this.scene);
+        
+        repairMarker.position = position;
+        repairMarker.material = new BABYLON.StandardMaterial("repairMarkerMat", this.scene);
+        repairMarker.material.emissiveColor = new BABYLON.Color3(0, 1, 0.3); // Verde brilhante
+        repairMarker.material.disableLighting = true;
+        repairMarker.isPickable = false;
+        
+        // Animação de pulso
+        const initialScale = repairMarker.scaling.clone();
+        BABYLON.Animation.CreateAndStartAnimation(
+            "repairMarkerPulse", 
+            repairMarker, 
+            "scaling", 
+            30, 
+            12, 
+            initialScale, 
+            initialScale.scale(2), 
+            BABYLON.Animation.ANIMATIONLOOPMODE_CONSTANT
+        );
+        
+        // Auto-destruição
+        setTimeout(() => {
+            if (repairMarker && !repairMarker.isDisposed()) {
+                repairMarker.dispose();
+            }
+        }, 400);
     }
     
     // Método para criar efeito visual no ponto de impacto

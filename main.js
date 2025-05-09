@@ -238,6 +238,8 @@ class Game {
                         let gunType = 'pistol'; // Tipo padrão
                         if (position.type === 'G2') {
                             gunType = 'assault_rifle';
+                        } else if (position.type === 'H') {
+                            gunType = 'hammer';
                         }
                         
                         // Criar arma nesta posição com o tipo correto

@@ -78,8 +78,6 @@ class BarricadeController {
     isValidPlacement(position) {
         if (!position) return false;
         
-        console.log(`Verificando posição da barricada: ${position.x}, ${position.y}, ${position.z}`);
-        
         // Create temporary collision box
         const testBox = BABYLON.MeshBuilder.CreateBox(
             "barricadePlacementTestBox", 

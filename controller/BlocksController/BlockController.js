@@ -59,9 +59,6 @@ class BlockController {
     // Check if placement position is valid for a block
     isValidPlacement(position) {
         if (!position) return false;
-        
-        console.log(`Verificando posição do bloco: ${position.x}, ${position.y}, ${position.z}`);
-        
         // Create temporary collision box
         const testBox = BABYLON.MeshBuilder.CreateBox(
             "blockPlacementTestBox", 

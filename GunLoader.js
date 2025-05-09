@@ -45,9 +45,9 @@ class GunLoader {
                     // G2 = Rifle de assalto
                     this.createGunAtPosition(worldX, worldY, worldZ, 'assault_rifle');
                 }
-                else if (cell === 'G') {
-                    // Manter compatibilidade com mapas antigos - G simples cria pistola por padrão
-                    this.createGunAtPosition(worldX, worldY, worldZ, 'pistol');
+                else if (cell === 'H') {
+                    // H = Martelo de reparo
+                    this.createGunAtPosition(worldX, worldY, worldZ, 'hammer');
                 }
             }
         }

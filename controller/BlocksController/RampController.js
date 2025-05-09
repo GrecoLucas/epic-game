@@ -237,9 +237,6 @@ class RampController {
     // Check if placement position is valid for a ramp
     isValidPlacement(position) {
         if (!position) return false;
-        
-        console.log(`Verificando posição da rampa: ${position.x}, ${position.y}, ${position.z}`);
-        
         // Create temporary collision box (thinner for ramp)
         const testBox = BABYLON.MeshBuilder.CreateBox(
             "rampPlacementTestBox", 

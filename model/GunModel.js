@@ -18,13 +18,15 @@ class GunModel {
     // Configurar propriedades específicas baseadas no tipo de arma
     configureGunType(type) {
         switch(type.toLowerCase()) {
-            case 'shotgun':
-                this.damage = 80;
-                this.ammo = 8;
-                this.maxAmmo = 8;
-                this.reloadTime = 2.5;
+            case 'hammer':
+                this.damage = 10; 
+                this.ammo = Infinity; 
+                this.maxAmmo = Infinity;
+                this.reloadTime = 0; 
                 this.isAutomatic = false;
-                this.name = "Shotgun"; // Nome para shotgun
+                this.isRepairTool = true; 
+                this.repairAmount = 20; 
+                this.name = "Hammer";
                 break;
             case 'assault_rifle':
                 this.damage = 15;
@@ -62,9 +64,19 @@ class GunModel {
     }
 
     shoot() {
+        if (this.isRepairTool) {
+            return true; 
+        }
         if (this.ammo > 0) {
             this.ammo--;
             return true;
+        }
+        return false;
+    }
+
+    repair(target) {
+        if (this.isRepairTool && target && typeof target.receiveRepair === 'function') {
+            return target.receiveRepair(this.repairAmount);
         }
         return false;
     }
