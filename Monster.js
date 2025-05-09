@@ -29,35 +29,7 @@ class Monster {
         return this.controller.getMesh();
     }
     
-    // Configurar tipo e atributos do monstro
-    setType(type) {
-        if (!this.model) return;
-        
-        // Tipos padrão - menos variações para otimização
-        switch(type) {
-            case 'fast':
-                this.model.speed = 0.3;
-                this.model.damage = 10;
-                this.model.health = 80;
-                break;
-            case 'strong':
-                this.model.speed = 0.15;
-                this.model.damage = 25;
-                this.model.health = 200;
-                break;
-            case 'zombie':
-            default:
-                this.model.speed = 0.2;
-                this.model.damage = 10;
-                this.model.health = 100;
-                break;
-        }
-        
-        // Atualizar a visualização
-        if (this.controller) {
-            this.controller.updateHealthText();
-        }
-    }
+
     
     // Método para obter o controlador
     getController() {

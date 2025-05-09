@@ -26,6 +26,20 @@ class MonsterModel {
         
         // Cache para cálculos
         this._tempAwayDir = new BABYLON.Vector3();
+
+        // Seleção aleatória do tipo de zumbi: 80% para tipo 2 e 20% para tipo 1
+        const zombieTypeRoll = Math.random();
+        this.zombieType = zombieTypeRoll <= 0.8 ? "Zombie2" : "Zombie1";
+        
+        // Ajustar atributos com base no tipo
+        if (this.zombieType === "Zombie1") {
+            // Tipo 1: dobro de vida e metade da velocidade
+            this.health = 200;
+            this.speed = 0.1;
+        }
+        
+        // Configuração da barra de vida
+        this.healthBarHeight = 1.0; // Altura padrão da barra de vida
     }
 
     async initialize() {
@@ -33,46 +47,90 @@ class MonsterModel {
         root.position = this.position.clone();
         root.isPickable = true;
         
+        // Configuration for different zombie types
+        const zombieConfig = {
+            "Zombie1": {
+                path: "models/Zombie1/",
+                scaling: new BABYLON.Vector3(2, 2, 2),
+                ellipsoid: new BABYLON.Vector3(1.8, 3.9, 1.2),
+                ellipsoidOffset: new BABYLON.Vector3(0, 3.9, 0),
+                healthBarHeight: 22 // Altura específica para a barra de vida do Zombie1
+            },
+            "Zombie2": {
+                path: "models/Zombie2/",
+                scaling: new BABYLON.Vector3(2.5, 2.5, 2.5),
+                ellipsoid: new BABYLON.Vector3(2.2, 4.5, 1.5),
+                ellipsoidOffset: new BABYLON.Vector3(0, 4.5, 0),
+                healthBarHeight: 7  // Altura específica para a barra de vida do Zombie2
+            }
+        };
+        
+        // Use default config if zombie type is not recognized
+        const config = zombieConfig[this.zombieType] || zombieConfig["Zombie1"];
+        
+        // Definir altura da barra de vida específica para o tipo de zumbi
+        this.healthBarHeight = config.healthBarHeight;
+        
         try {
+            console.log(`Loading zombie model: ${config.path}scene.gltf`);
+            
+            // Try to preload binary file to prevent 404 errors
+            try {
+                await BABYLON.Tools.LoadFileAsync(`${config.path}scene.bin`, true);
+            } catch (e) {
+                console.warn(`Could not preload .bin file: ${e.message}`);
+            }
+            
             const result = await BABYLON.SceneLoader.ImportMeshAsync(
                 "", 
-                "models/Zombie/", 
-                "Zombie_Basic.obj", 
+                config.path, 
+                "scene.gltf", 
                 this.scene
             );
-
+    
             if (result.meshes.length > 0) {
-                for (let i = 1; i < result.meshes.length; i++) {
-                    result.meshes[i].parent = root;
-                    result.meshes[i].isPickable = true;
+                // Parent all imported meshes to our root
+                const mainMesh = result.meshes[0];
+                mainMesh.parent = root;
+                
+                // Apply type-specific configuration
+                root.scaling = config.scaling;
+                
+                // Setup collision properties
+                root.checkCollisions = true;
+                root.ellipsoid = config.ellipsoid;
+                root.ellipsoidOffset = config.ellipsoidOffset;
+                
+                // Make all child meshes pickable
+                result.meshes.forEach(mesh => {
+                    mesh.isPickable = true;
+                });
+                
+                // If the model has animations, you can use them
+                if (result.animationGroups && result.animationGroups.length > 0) {
+                    // Stop any running animations
+                    result.animationGroups.forEach(animationGroup => {
+                        animationGroup.stop();
+                    });
                     
-                    // Apply Atlas texture to all parts of the monster
-                    if (result.meshes[i].material) {
-                        const atlasMaterial = new BABYLON.StandardMaterial("monsterAtlasMat", this.scene);
-                        atlasMaterial.diffuseTexture = new BABYLON.Texture("models/Atlas.png", this.scene);
-                        
-                        // Otimização: Configurar material para iluminação ambiente adequada
-                        atlasMaterial.ambientColor = new BABYLON.Color3(0.5, 0.5, 0.5);
-                        atlasMaterial.useEmissiveAsIllumination = false;
-                        atlasMaterial.disableLighting = false;
-                        
-                        // Evitar especular forte que poderia causar brilho excessivo
-                        atlasMaterial.specularColor = new BABYLON.Color3(0.2, 0.2, 0.2);
-                        atlasMaterial.specularPower = 50;
-                        
-                        result.meshes[i].material = atlasMaterial;
+                    // Store animations for later use
+                    this.animations = result.animationGroups;
+                    
+                    // Play idle animation if available
+                    const idleAnimation = result.animationGroups.find(anim => 
+                        anim.name.toLowerCase().includes("idle") || 
+                        anim.name.toLowerCase().includes("stand")
+                    );
+                    
+                    if (idleAnimation) {
+                        idleAnimation.start(true); // true for looping
                     }
                 }
-                
-                root.scaling = new BABYLON.Vector3(3.5, 3.5, 3.5);
-                root.checkCollisions = true;
-                root.ellipsoid = new BABYLON.Vector3(1.8, 3.9, 1.2);
-                root.ellipsoidOffset = new BABYLON.Vector3(0, 3.9, 0);
             }
             
             this.mesh = root;
         } catch (error) {
-            console.error(`Error loading monster model: ${error.message}`);
+            console.error(`Error loading ${this.zombieType} model: ${error.message}`);
         }
         
         return this.mesh;

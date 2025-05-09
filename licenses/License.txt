@@ -22,3 +22,25 @@ Model License:
 
 If you use this 3D model in your project be sure to copy paste this credit wherever you share it:
 This work is based on "Simple Turret" (https://sketchfab.com/3d-models/simple-turret-a70a82f70fe04fd6a89dca49aea2b118) by model_R (https://sketchfab.com/model_R) licensed under CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)
+
+
+Model Information:
+* title:	Zombie
+* source:	https://sketchfab.com/3d-models/zombie-0541416bd635486f95cb3d44f8f676c1
+* author:	πRat (https://sketchfab.com/GrimZu)
+
+Model License:
+* license type:	CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)
+* requirements:	Author must be credited. Commercial use is allowed.
+
+If you use this 3D model in your project be sure to copy paste this credit wherever you share it:
+This work is based on "Zombie" (https://sketchfab.com/3d-models/zombie-0541416bd635486f95cb3d44f8f676c1) by πRat (https://sketchfab.com/GrimZu) licensed under CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)
+
+Model Information:
+* title:	Zombie
+* source:	https://sketchfab.com/3d-models/zombie-6ff73b06cf63405d9557720c78cf5e0c
+* author:	David Glynch (https://sketchfab.com/yaveselyigolovastic)
+
+Model License:
+* license type:	SKETCHFAB Standard (https://sketchfab.com/licenses)
+* requirements:	Under basic restrictions, use worldwide, on all types of media, commercially or not, and in all types of derivative works

@@ -69,7 +69,7 @@ class MonsterView {
     }
     
     // Atualizar a exibição da vida (apenas a barra)
-    updateHealthText(currentHealth) {
+    updateHealthText(currentHealth, healthBarHeight = 5.0) {
         if (!this.healthBar) return;
         
         // Calcular valor e porcentagem da vida
@@ -86,6 +86,10 @@ class MonsterView {
             this.healthBar.background = "#FF7700"; // Laranja para vida média
         } else {
             this.healthBar.background = "#30FF30"; // Verde para vida alta
+        }
+        if (this.textPlane) {
+            const fixedScaleFactor = 0.15;
+            this.textPlane.position.y = healthBarHeight * fixedScaleFactor;
         }
     }
     

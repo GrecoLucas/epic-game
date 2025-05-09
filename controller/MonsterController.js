@@ -335,7 +335,10 @@ class MonsterController {
     // Atualizar o texto da vida
     updateHealthText() {
         if (this.view && this.model) {
-            this.view.updateHealthText(this.model.health);
+            // Usar a altura da barra de vida definida manualmente para este tipo de zumbi
+            const healthBarHeight = this.model.healthBarHeight || 5.0; 
+            // Passar a saúde e a altura específica da barra para o view
+            this.view.updateHealthText(this.model.health, healthBarHeight);
         }
     }
     
