@@ -55,7 +55,7 @@ class BuildingController {
         
         // Criar um painel para o lado esquerdo da tela
         const panel = new BABYLON.GUI.StackPanel();
-        panel.width = "420px";
+        panel.width = "580px";
         panel.height = "300px";
         panel.horizontalAlignment = BABYLON.GUI.Control.HORIZONTAL_ALIGNMENT_LEFT;
         panel.verticalAlignment = BABYLON.GUI.Control.VERTICAL_ALIGNMENT_TOP;
@@ -67,7 +67,7 @@ class BuildingController {
         // Fundo do painel (retângulo semi-transparente)
         const background = new BABYLON.GUI.Rectangle();
         background.width = "100%";
-        background.height = "120px";
+        background.height = "190px";
         background.cornerRadius = 10;
         background.color = "white";
         background.thickness = 2;
@@ -124,12 +124,6 @@ class BuildingController {
         barricadeText.textHorizontalAlignment = BABYLON.GUI.Control.HORIZONTAL_ALIGNMENT_LEFT;
         materialsPanel.addControl(barricadeText);
         
-        // Segunda linha para as torretas
-        const materialsPanel2 = new BABYLON.GUI.StackPanel();
-        materialsPanel2.isVertical = false;
-        materialsPanel2.height = "30px";
-        contentContainer.addControl(materialsPanel2);
-        
         // Texto para torretas
         const turretText = new BABYLON.GUI.TextBlock();
         turretText.text = "Torretas: 0";
@@ -138,16 +132,34 @@ class BuildingController {
         turretText.width = "150px";
         turretText.paddingLeft = "30px";
         turretText.textHorizontalAlignment = BABYLON.GUI.Control.HORIZONTAL_ALIGNMENT_LEFT;
-        materialsPanel2.addControl(turretText);
+        materialsPanel.addControl(turretText);
         
         // Dicas de controle (na parte inferior)
         const controlsText = new BABYLON.GUI.TextBlock();
-        controlsText.text = "1: Bloco | 2: Rampa | 3: Barricada | 4: Torreta | B: Alternar | Botão Direito: Rotacionar";
+        controlsText.text = "1: Bloco | 2: Rampa | 3: Barricada | 4: Torreta";
         controlsText.color = "yellow";
-        controlsText.fontSize = 12;
+        controlsText.fontSize = 14;
         controlsText.height = "30px";
         controlsText.paddingTop = "15px";
         contentContainer.addControl(controlsText);
+
+        // Linha de baixo
+        const constolsText2 = new BABYLON.GUI.TextBlock();
+        constolsText2.text = "R: Rotacionar | B: Modo Construção | F : Recolher";
+        constolsText2.color = "yellow";
+        constolsText2.fontSize = 14;
+        constolsText2.height = "30px";
+        constolsText2.paddingTop = "15px";
+        contentContainer.addControl(constolsText2);
+        
+        // Hammer
+        const constolsText3 = new BABYLON.GUI.TextBlock();
+        constolsText3.text = "Use o martelo para consertar";
+        constolsText3.color = "yellow";
+        constolsText3.fontSize = 14;
+        constolsText3.height = "30px";
+        constolsText3.paddingTop = "15px";
+        contentContainer.addControl(constolsText3);
         
         // Armazenar referências para atualização
         this.buildModeUI = {
@@ -343,6 +355,9 @@ class BuildingController {
                             this.selectedItem === 'barricade' ? 'Barricada' : 'Torreta';
             this._showNotification(`${itemName} construído com sucesso!`, "green");
             
+            if (this.scene.gameInstance?.soundManager) {
+                this.scene.gameInstance.soundManager.playPlayerSound('place_block');
+            }
             return true;
         } else {
             console.error("Failed to create build item mesh.");

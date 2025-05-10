@@ -62,7 +62,7 @@ class Hammer extends GunView {
     
             // Ajustar tamanho e posição do modelo no chão
             groundRoot.scaling = new BABYLON.Vector3(0.04, 0.04, 0.04);
-            groundRoot.rotation = new BABYLON.Vector3(0, math.PI / 4, 0);
+            groundRoot.rotation = new BABYLON.Vector3(0, Math.PI / 4, 0);
         });
     
         groundRoot.position = new BABYLON.Vector3(
@@ -88,7 +88,7 @@ class Hammer extends GunView {
         handRoot.parent = scene.activeCamera;
         handRoot.position = new BABYLON.Vector3(0.5, -0.6, 1.0);
         handRoot.rotation = new BABYLON.Vector3(-0.2, 0, 0);
-    
+        
         // Carregar o modelo GLTF do martelo para segurar na mão
         BABYLON.SceneLoader.ImportMesh("", "models/Gun/hammer/", "scene.gltf", scene, (meshes) => {
             // Parent todos os meshes ao handRoot

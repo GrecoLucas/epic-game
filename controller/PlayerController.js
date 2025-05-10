@@ -26,6 +26,8 @@ class PlayerController {
         // Inicializar o sistema de pausa
         this.pause = new Pause(scene, playerView);
 
+        this.lastFootstepTime = 0;
+        this.footstepInterval = 300;
         this.initialize();
     }
 
@@ -831,24 +833,28 @@ class PlayerController {
         // Usar a direção da câmera para movimento com colisão
         const direction = this.getCameraDirection();
         this.model.moveWithDirection(direction.scale(this.model.moveSpeed));
+        this.playFootstepSound();
     }
     
     moveBackward() {
         // Mover na direção oposta à câmera com colisão
         const direction = this.getCameraDirection();
         this.model.moveWithDirection(direction.scale(-this.model.moveSpeed));
+        this.playFootstepSound();
     }
     
     moveLeft() {
         // Mover para a esquerda em relação à direção da câmera com colisão
         const direction = this.getCameraRightDirection();
         this.model.moveWithDirection(direction.scale(-this.model.moveSpeed));
+        this.playFootstepSound();
     }
     
     moveRight() {
         // Mover para a direita em relação à direção da câmera com colisão
         const direction = this.getCameraRightDirection();
         this.model.moveWithDirection(direction.scale(this.model.moveSpeed));
+        this.playFootstepSound();
     }
     
     getCameraDirection() {
@@ -1050,6 +1056,17 @@ class PlayerController {
         } else {
             console.log("Nenhuma estrutura detectada pelo raio");
             return false;
+        }
+    }
+    playFootstepSound() {
+        const currentTime = Date.now();           
+        if (currentTime - this.lastFootstepTime > this.footstepInterval && this.model.isGrounded) {
+            if (this.scene.gameInstance?.soundManager) {
+                this.scene.gameInstance.soundManager.playPlayerSound('footstep');
+                this.lastFootstepTime = currentTime;
+            } else {
+                console.warn("SoundManager não encontrado!");
+            }
         }
     }
 }

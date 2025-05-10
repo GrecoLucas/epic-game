@@ -60,7 +60,6 @@ class GunController {
         return true;
     }
 
-    // Atirar com a arma
     shoot() {
         if (!this.model.isPickedUp || this.cooldown || this.reloading) {
             return false;
@@ -107,6 +106,10 @@ class GunController {
             this.model.totalAmmo === 0) {
             return false;
         }
+        if (this.playSoundCallback) {
+            this.playSoundCallback('reload');
+        }
+        
         
         this.reloading = true;
         

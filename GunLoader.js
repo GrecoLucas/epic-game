@@ -12,13 +12,44 @@ class GunLoader {
         
         // Criar meshes físicos para a arma
         gun.view.createPhysicalMeshes(this.scene);
-        
+           
+        // Conectar sons à arma se o gerenciador de som existir
+        if (this.scene.gameInstance && this.scene.gameInstance.soundManager) {
+            this.connectGunSounds(gun);
+        }
         // Adicionar à lista de armas
         this.guns.push(gun);
         
         return gun;
     }
     
+    // Modificar o método connectGunSounds
+    
+    connectGunSounds(gun) {
+        if (gun && gun.controller) {
+            console.log(`🔊 Conectando sons à arma tipo: ${gun.model.type}`);
+            
+            // Configurar o callback de áudio
+            gun.controller.setAudioCallback((action) => {
+                const gunType = gun.model.type;
+                
+                // Se for pistol + shoot, usar método direto
+                if (gunType === 'pistol' && action === 'shoot') {
+                    console.log('🔊 Ativando som direto de tiro de pistola');
+                    if (typeof window.playPistolSound === 'function') {
+                        window.playPistolSound();
+                    }
+                }
+                
+                // Chamar o método normal também
+                if (this.scene.gameInstance?.soundManager) {
+                    this.scene.gameInstance.soundManager.playGunSound(gunType, action);
+                } else {
+                    console.warn("⚠️ SoundManager não disponível");
+                }
+            });
+        }
+    }
     // Processar o mapa e criar armas onde houver caractere G
     processMapData(mapData) {
         if (!mapData || !mapData.map) return;

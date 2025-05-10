@@ -4,7 +4,7 @@ class MonsterModel {
         this.scene = scene;
         this.position = startPosition;
         this.mesh = null;
-        this.speed = 0.2;
+        this.speed = 0.08;
         this.detectionRadius = 700; 
         this.isChasing = false;
         this.moveTimeout = null;
@@ -27,17 +27,7 @@ class MonsterModel {
         // Cache para cálculos
         this._tempAwayDir = new BABYLON.Vector3();
 
-        // Seleção aleatória do tipo de zumbi: 80% para tipo 2 e 20% para tipo 1
-        const zombieTypeRoll = Math.random();
-        this.zombieType = zombieTypeRoll <= 0.5 ? "Zombie2" : "Zombie1";
-        
-        // Ajustar atributos com base no tipo
-        if (this.zombieType === "Zombie1") {
-            // Tipo 1: dobro de vida e metade da velocidade
-            this.health = 80;
-            this.speed = 0.3;
-        }
-        
+        this.zombieType = "Zombie1";
         // Configuração da barra de vida
         this.healthBarHeight = 1.0; // Altura padrão da barra de vida
     }
@@ -51,17 +41,17 @@ class MonsterModel {
         const zombieConfig = {
             "Zombie1": {
                 path: "models/Zombie1/",
-                scaling: new BABYLON.Vector3(4, 4, 4),
-                ellipsoid: new BABYLON.Vector3(1.8, 3.9, 1.2),
+                scaling: new BABYLON.Vector3(1.5, 1.5, 1.5),
+                ellipsoid: new BABYLON.Vector3(2.5, 3.9, 2.5),
                 ellipsoidOffset: new BABYLON.Vector3(0, 3.9, 0),
-                healthBarHeight: 4 // Altura específica para a barra de vida do Zombie1
+                healthBarHeight: 15 
             },
             "Zombie2": {
                 path: "models/Zombie2/",
                 scaling: new BABYLON.Vector3(2.5, 2.5, 2.5),
                 ellipsoid: new BABYLON.Vector3(2.2, 4.5, 1.5),
                 ellipsoidOffset: new BABYLON.Vector3(0, 4.5, 0),
-                healthBarHeight: 7  // Altura específica para a barra de vida do Zombie2
+                healthBarHeight: 7  
             }
         };
         
@@ -112,18 +102,33 @@ class MonsterModel {
                     result.animationGroups.forEach(animationGroup => {
                         animationGroup.stop();
                     });
-                    
                     // Store animations for later use
                     this.animations = result.animationGroups;
                     
-                    // Play idle animation if available
-                    const idleAnimation = result.animationGroups.find(anim => 
-                        anim.name.toLowerCase().includes("idle") || 
-                        anim.name.toLowerCase().includes("stand")
-                    );
+                    let selectedAnimation = null;
                     
-                    if (idleAnimation) {
-                        idleAnimation.start(true); // true for looping
+                    if (this.zombieType === "Zombie1") {
+                        // For Zombie1, specifically use the ANIMATION ZOMBIE animation
+                        selectedAnimation = result.animationGroups.find(anim => 
+                            anim.name === "ANIMATION ZOMBIE" || 
+                            anim.name.includes("ANIMATION ZOMBIE")
+                        );
+                        
+                        if (selectedAnimation) {
+                            console.log("Using ANIMATION ZOMBIE for Zombie1");
+                        }
+                    }
+                    // Play the selected animation
+                    if (selectedAnimation) {
+                        console.log(`Playing animation: ${selectedAnimation.name}`);
+                        selectedAnimation.start(true);
+                    } else {
+                        console.log("No suitable animation found");
+                        // If no specific animation found, play the first available one
+                        if (result.animationGroups.length > 0) {
+                            console.log(`Falling back to first animation: ${result.animationGroups[0].name}`);
+                            result.animationGroups[0].start(true);
+                        }
                     }
                 }
             }

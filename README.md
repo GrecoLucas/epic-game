@@ -31,4 +31,7 @@ Desenvolvido com Babylon.js e JavaScript.
 -- Melhorar a iluminação
 -- Melhorar o desing da arma
 -- Melhorar o desing do cenário
--- Fazer uma skybox3
+
+
+-- Sons
+-- Consertar a poça de sangue

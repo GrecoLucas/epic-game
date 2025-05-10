@@ -10,6 +10,7 @@ import SkySphere from "./objects/SkySphere.js";
 import SkySphereController from "./controller/SkySphereController.js";
 import InvisibleWall from "./objects/InvisibleWall.js"; // Adicionar importação para InvisibleWall
 import TurretController from './controller/BlocksController/TurretController.js'; // Importar o TurretController
+import SoundManager from './utils/Sounds.js';
 
 class Game {
     constructor(engine, scene) {
@@ -26,7 +27,8 @@ class Game {
         this.skySphereController = null; // Controlador da SkySphere
         this.invisibleWall = null; // Referência às paredes invisíveis
         this.turretController = null; // Controlador de torretas
-        
+        this.soundManager = null;
+
         // Armazenar referência ao Game na cena
         this.scene.gameInstance = this;
         
@@ -42,6 +44,7 @@ class Game {
         
         console.log("Inicializando modo Labirinto...");
         
+        this.soundManager = new SoundManager(this.scene);
         // Configurar física
         this.scene.collisionsEnabled = true;
         this.scene.gravity = new BABYLON.Vector3(0, -9.81, 0);
@@ -244,7 +247,7 @@ class Game {
                         
                         // Criar arma nesta posição com o tipo correto
                         const gun = this.gunLoader.createGunAtPosition(position.x, position.y, position.z, gunType);
-                        console.log(`Arma #${index + 1} (${gunType}) criada na posição [${position.x}, ${position.y}, ${position.z}]`);
+                        this.connectGunSounds(gun);
                     });
                     
                     return;
@@ -255,7 +258,25 @@ class Game {
             console.warn("Não foi possível obter posições das armas do labirinto após várias tentativas");
         }
     }
-    
+
+    // Método para conectar os sons às armas
+    connectGunSounds(gun) {
+        if (!gun) {
+            return;
+        }
+        if (!gun.controller) {
+            return;
+        }
+        
+        if (!this.soundManager) {
+            return;
+        }
+        
+        gun.controller.setAudioCallback((action) => {
+            const gunType = gun.model.type;
+            this.soundManager.playGunSound(gunType, action);
+        });
+    }
     // Método para aguardar o labirinto carregar completamente
     async waitForMazeLoaded() {
         // Tentar várias vezes (max 10 tentativas) com intervalo de 100ms
