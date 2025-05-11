@@ -158,7 +158,9 @@ class MonsterModel {
     }
     
     canDetectPlayer(playerPosition) {
-        return true;
+        if (!this.mesh) return false;
+        const distance = BABYLON.Vector3.Distance(this.getPosition(), playerPosition);
+        return distance <= this.detectionRadius;
     }
     
     moveTowardsPlayer(playerPosition, delta) {
@@ -200,7 +202,7 @@ class MonsterModel {
                 cellSize: 5,
                 monsterCells: new Map(),
                 lastUpdateTime: 0,
-                updateInterval: 1000,
+                updateInterval: 500,
             };
         }
     

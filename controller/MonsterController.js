@@ -24,6 +24,12 @@ class MonsterController {
         this._obstaclePredicate = null;
         this._collisionRay = null;
         
+
+        // Sound
+        this.soundManager = scene.gameInstance?.soundManager;
+        this.soundCooldown = 5000 + Math.random() * 5000;
+        this.lastSoundTime = 0;
+
         this.initialize();
     }
     
@@ -256,13 +262,19 @@ class MonsterController {
             this.playerPosition
         );
         
-        // Ativar perseguição se não estiver já perseguindo
-        if (!this.model.isPlayerChased()) {
-            this.model.startChasing();
-            this.view.updateVisualState(true);
+        // Always play zombie sound periodically regardless of distance
+        if (this.soundManager) {
+            if (currentTime - this.lastSoundTime > this.soundCooldown) {
+                // Base volume on distance but ensure it's audible
+                const volume = Math.min(0.5, 1.0 / (1 + distanceToPlayer/10));
+                
+                this.soundManager.playMonsterSound('zombie', volume);
+                
+                this.lastSoundTime = currentTime;
+                // Random cooldown between 3-8 seconds
+                this.soundCooldown = 3000 + Math.random() * 5000;
+            }
         }
-        
-        // Otimização baseada na distância enquanto sempre persegue
         if (distanceToPlayer > 50) {
             // Zumbis muito distantes (otimização máxima)
             if (this.view.textPlane) {

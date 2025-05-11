@@ -13,7 +13,7 @@ class Player {
         this.health = 100;
         this.maxHealth = 100;
         this.healthBar = null;
-        this.ammoText = null; // Add property for ammo text
+        this.ammoText = null; 
         
         // Sistema monetário
         this.money = 1000;

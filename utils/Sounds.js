@@ -13,7 +13,10 @@ class SoundManager {
             "hammer_hit": "sounds/hammer_hit.mp3",
             "footstep1": "sounds/footstep1.mp3",
             "footstep2": "sounds/footstep2.mp3",
-            "put_block": "sounds/put_block.mp3"
+            "put_block": "sounds/put_block.mp3",
+            "zombie_sound1": "sounds/Zombie_sound1.mp3",
+            "zombie_sound2": "sounds/Zombie_sound2.mp3",
+            "zombie_sound3": "sounds/Zombie_sound3.mp3",
         };
 
         this.footstepToggle = false;
@@ -70,7 +73,15 @@ class SoundManager {
                 break;
         }
     }
-    
+
+    playMonsterSound(soundType, volume = 0.1) {
+        const random = Math.floor(Math.random() * 3) + 1;
+        switch (soundType) {
+            case 'zombie':
+                this.play(`zombie_sound${random}`, volume);
+                break;
+        }
+    }
 
     playPlayerSound(action) {
         switch (action) {

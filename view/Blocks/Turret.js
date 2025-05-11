@@ -679,7 +679,7 @@ class Turret {
                         const soundManager = this.scene.gameInstance ? 
                                             this.scene.gameInstance.soundManager : null;
                         if (soundManager) {
-                            soundManager.play('assault_rifle_shot', 0.01);
+                            soundManager.play('assault_rifle_shot', 0.05);
                         }
                         // Obter dano do modelo
                         const damage = turretModel.damage;
