@@ -33,9 +33,12 @@ class ZombieSView {
     }
 
     // Notificar quando uma horda começa
-    showHordeStarting(hordeNumber, monsterCount) {
+    showHordeStarting(hordeNumber, monsterCount, health = null, speed = null) {
         if (this.hordeInfoDisplay) {
-            this.hordeInfoDisplay.text = `HORDA ${hordeNumber} INICIADA! ${monsterCount} monstros`;
+            let healthText = health ? `\nVida: ${health}` : '';
+            let speedText = speed ? `\nVelocidade: ${speed.toFixed(2)}` : '';
+            
+            this.hordeInfoDisplay.text = `HORDA ${hordeNumber} INICIADA!\n${monsterCount} monstros${healthText}${speedText}`;
             this.hordeInfoDisplay.color = "red";
             
             // Efeito de animação (pulsar)

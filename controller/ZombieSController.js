@@ -130,9 +130,19 @@ class ZombieSController {
         // Calcular número de monstros para esta horda
         const monsterCount = this.model.calculateMonstersForNextHorde();
         
-        // Notificar o início da horda
-        this.view.showHordeStarting(hordeNumber, monsterCount);
-        console.log(`Iniciando Horda #${hordeNumber} com ${monsterCount} monstros!`);
+        // Calcular atributos dos monstros da horda atual
+        const monsterHealth = this.model.calculateMonsterHealth();
+        const monsterSpeed = this.model.calculateMonsterSpeed();
+        
+        // Log detalhado sobre o início da horda
+        console.log(`========== HORDA #${hordeNumber} INICIADA ==========`);
+        console.log(`Quantidade de zumbis: ${monsterCount}`);
+        console.log(`Vida dos zumbis: ${monsterHealth}`);
+        console.log(`Velocidade dos zumbis: ${monsterSpeed.toFixed(2)}`);
+        console.log(`==========================================`);
+        
+        // Notificar o início da horda - agora passando saúde e velocidade
+        this.view.showHordeStarting(hordeNumber, monsterCount, monsterHealth, monsterSpeed);
         
         // Spawnar os monstros
         this.spawnMonsters(monsterCount);
@@ -177,48 +187,12 @@ class ZombieSController {
             // Spawnar o monstro com pequeno atraso entre cada um
             setTimeout(() => {
                 // Adicionar o monstro com os atributos específicos para esta horda
-                const monster = this.game.addMonster(finalPosition);
-                
-                // Aplicar os atributos da horda atual ao monstro
-                this.applyHordeAttributesToMonster(monster, monsterHealth, monsterSpeed);
-                
-                console.log(`Monstro spawnou na posição [${finalPosition.x.toFixed(2)}, ${finalPosition.y.toFixed(2)}, ${finalPosition.z.toFixed(2)}]`);
-            }, i * 500); // 500ms de atraso entre cada spawn
+                this.game.addMonster(finalPosition, monsterHealth, monsterSpeed);
+                }, i * 100); 
         }
     }
     
-    // Aplicar atributos da horda atual a um monstro
-    applyHordeAttributesToMonster(monster, health, speed) {
-        if (!monster) return;
-        
-        // Obter o controlador do monstro
-        const controller = monster.getController();
-        if (!controller || !controller.model) return;
-        
-        // Aplicar atributos da horda atual
-        controller.model.health = health;
-        controller.model.speed = speed;
-        
-        // Atualizar o texto de vida para mostrar o valor correto
-        controller.updateHealthText();
-        
-        // Ajustar visual do monstro com base na horda (opcional)
-        const monsterMesh = monster.getMesh();
-        if (monsterMesh) {
-            // Ajustar o tamanho do monstro com base na vida
-            // Quanto mais vida, maior o monstro (visual feedback)
-            const healthScale = 1 + ((health - 100) / 400); // Aumenta 25% de tamanho a cada 100 de vida acima de 100
-            const scaleValue = Math.min(healthScale, 1.75); // Limite máximo de 75% maior
-            
-            // Aplicar escala aos filhos diretos do monstro para um visual mais interessante
-            if (monsterMesh.getChildMeshes) {
-                const childMeshes = monsterMesh.getChildMeshes();
-                for (const childMesh of childMeshes) {
-                    childMesh.scaling = new BABYLON.Vector3(scaleValue, scaleValue, scaleValue);
-                }
-            }
-        }
-    }
+
 
     // Getters
     getTimeToNextHorde() {

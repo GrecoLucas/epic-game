@@ -1,21 +1,18 @@
 class ZombieSModel {
     constructor() {
-        // Configurações das hordas
-        this.initialSpawnInterval = 60; // Tempo inicial entre hordas (segundos)
-        this.currentSpawnInterval = this.initialSpawnInterval;
-        this.minSpawnInterval = 30; // Tempo mínimo entre hordas (segundos)
-        this.intervalReduction = 5; // Redução do tempo a cada horda (segundos)
-        
+        // Configurações das hordas        
         // Configurações de quantidade de monstros
         this.initialMonsterCount = 2; // Quantidade inicial de monstros por horda
         this.currentMonsterCount = this.initialMonsterCount;
         this.monsterIncrement = 3; // Aumento na quantidade de monstros a cada horda
+        this.maxMonsterCount = 60; // Limite máximo de zumbis
         
         // Configurações de atributos dos monstros
         this.baseMonsterHealth = 100; // Vida base dos monstros
         this.healthIncrement = 20; // Aumento de vida a cada horda
-        this.baseMonsterSpeed = 0.2; // Velocidade base dos monstros
-        this.speedIncrement = 0.04; // Aumento de velocidade a cada horda
+        
+        this.baseMonsterSpeed = 0.05; // Velocidade base dos monstros
+        this.speedIncrement = 0.02; // Aumento de velocidade a cada horda
         this.maxMonsterSpeed = 0.6; // Velocidade máxima permitida
         
         // Estado atual
@@ -30,7 +27,8 @@ class ZombieSModel {
     calculateMonstersForNextHorde() {
         // Aumenta o número de monstros, mas não ultrapassa o máximo
         this.monsterIncrement += 1;
-        return this.initialMonsterCount + (this.currentHorde * this.monsterIncrement);
+        const calculatedCount = this.initialMonsterCount + (this.currentHorde * this.monsterIncrement);
+        return Math.min(calculatedCount, this.maxMonsterCount);
     }
 
     // Calcula o intervalo para a próxima horda

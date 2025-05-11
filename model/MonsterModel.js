@@ -1,14 +1,14 @@
 // Model - Responsável pelos dados e comportamento do monstro
 class MonsterModel {
-    constructor(scene, startPosition = new BABYLON.Vector3(0, 1, 0)) {
+    constructor(scene, startPosition = new BABYLON.Vector3(0, 1, 0), health = 100, speed = 0.08) {
         this.scene = scene;
         this.position = startPosition;
         this.mesh = null;
-        this.speed = 0.08;
+        this.speed = speed; // Now using the parameter
         this.detectionRadius = 700; 
         this.isChasing = false;
         this.moveTimeout = null;
-        this.health = 100;
+        this.health = health; // Now using the parameter
         this.damage = 10;
         this.attackCooldown = 2000;
         this.lastAttackTime = 0;
@@ -26,7 +26,7 @@ class MonsterModel {
         
         // Cache para cálculos
         this._tempAwayDir = new BABYLON.Vector3();
-
+    
         this.zombieType = "Zombie2";
         // Configuração da barra de vida
         this.healthBarHeight = 1.0; // Altura padrão da barra de vida
@@ -373,6 +373,15 @@ class MonsterModel {
     isPlayerChased() {
         return this.isChasing;
     }
+
+    setZombieSpeed(speed) {
+        this.speed = speed;
+    }
+
+    setZombieHealth(health) {
+        this.health = health;
+    }
+
 }
 
 export default MonsterModel;

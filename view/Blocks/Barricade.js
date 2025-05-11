@@ -18,8 +18,8 @@ class Barricade {
     createPlayerBarricade(position, cellSize, rotation = 0, initialHealth = 200) {
         // Use cellSize if provided, otherwise use default
         const barricadeWidth = cellSize || 4;
-        const barricadeHeight = (this.wallMaterial?.wallHeight || 4) / 2; // Quarter height (was half height)
-        const barricadeDepth = (cellSize || 4) / 2; // Half depth
+        const barricadeHeight = (this.wallMaterial?.wallHeight || 4); // Quarter height (was half height)
+        const barricadeDepth = (cellSize || 4) / 5; // Half depth
         
         // Adjust position to align with ground properly with the new lower height
         const adjustedPosition = position.clone();

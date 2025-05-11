@@ -185,9 +185,8 @@ class Game {
     }
     
     // Método para adicionar um novo monstro
-    addMonster(position) {
-        // Criar o monstro passando a cena, o player e a posição inicial
-        const monster = new Monster(this.scene, this.player, position);
+    addMonster(position, health = 100, speed = 0.08) {
+        const monster = new Monster(this.scene, this.player, position, health, speed);
         
         // Inicializar o monstro
         const monsterMesh = monster.initialize();
