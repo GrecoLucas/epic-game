@@ -27,7 +27,7 @@ class MonsterModel {
         // Cache para cálculos
         this._tempAwayDir = new BABYLON.Vector3();
 
-        this.zombieType = "Zombie1";
+        this.zombieType = "Zombie2";
         // Configuração da barra de vida
         this.healthBarHeight = 1.0; // Altura padrão da barra de vida
     }
@@ -158,9 +158,7 @@ class MonsterModel {
     }
     
     canDetectPlayer(playerPosition) {
-        if (!this.mesh) return false;
-        const distance = BABYLON.Vector3.Distance(this.getPosition(), playerPosition);
-        return distance <= this.detectionRadius;
+        return true;
     }
     
     moveTowardsPlayer(playerPosition, delta) {
@@ -202,7 +200,7 @@ class MonsterModel {
                 cellSize: 5,
                 monsterCells: new Map(),
                 lastUpdateTime: 0,
-                updateInterval: 500,
+                updateInterval: 1000,
             };
         }
     

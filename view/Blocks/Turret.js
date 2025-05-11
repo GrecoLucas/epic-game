@@ -541,7 +541,7 @@ class Turret {
                 components.ammoIndicator.mesh.setEnabled(true);
             }
 
-            // NOVO: Verificar se a torreta está destruída (saúde <= 0)
+            // Verificar se a torreta está destruída (saúde <= 0)
             if (metadata.health <= 0) {
                 turretsToDestroy.push({
                     name: turret.mesh.name,
@@ -675,6 +675,12 @@ class Turret {
                         turretModel.recordFire(now);
                         turret.lastShootTime = now;
                         
+                        // Reproduzir som de tiro com melhor garantia de execução
+                        const soundManager = this.scene.gameInstance ? 
+                                            this.scene.gameInstance.soundManager : null;
+                        if (soundManager) {
+                            soundManager.play('assault_rifle_shot', 0.01);
+                        }
                         // Obter dano do modelo
                         const damage = turretModel.damage;
                         
@@ -686,7 +692,6 @@ class Turret {
                         
                         // Aplicar dano diretamente ao controlador do monstro
                         if (controller && typeof controller.takeDamage === 'function') {
-                            console.log(`Torreta aplicando ${damage} de dano ao monstro. Munição restante: ${turretModel.ammo}`);
                             controller.takeDamage(damage);
                         }
                     }

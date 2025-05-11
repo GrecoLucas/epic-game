@@ -27,37 +27,9 @@ class GunController {
         return distance <= interactionDistance;
     }
 
-    // Pegar a arma do chão
-    pickup() {
-        if (this.model.isPickedUp) return false;
-        
-        this.model.pickup();
-        this.view.updateVisibility();
-        
-        if (this.playSoundCallback) {
-            this.playSoundCallback('pickup');
-        }
-        
-        return true;
-    }
 
-    // Largar a arma no chão
-    drop(position) {
-        if (!this.model.isPickedUp) return false;
-        
-        // Se a posição for fornecida, usar ela
-        if (position) {
-            this.model.setPosition(position.x, position.y, position.z);
-        }
-        
-        this.model.drop();
-        this.view.updateVisibility();
-        
-        if (this.playSoundCallback) {
-            this.playSoundCallback('drop');
-        }
-        
-        return true;
+    pickup() {
+    this.playSoundCallback('pickup');
     }
 
     shoot() {
@@ -131,7 +103,6 @@ class GunController {
             this.model.reload();
             this.reloading = false;
         });
-        
         // Safety timeout como fallback
         const duration = this.view.getReloadAnimationDuration?.() || 
                          this.model.reloadTime * 1000 + 100;

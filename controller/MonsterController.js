@@ -58,9 +58,6 @@ class MonsterController {
                 this.lastObstacleCollisionCheck = currentTime;
             }
         });
-        
-        // Iniciar o comportamento de patrulha
-        this.startPatrolBehavior();
     }
     
     // Verificar colisões com obstáculos
@@ -89,9 +86,9 @@ class MonsterController {
                        mesh.checkCollisions &&
                        (mesh.name.startsWith("wall_") || 
                         mesh.name.startsWith("ramp_") || 
-                  mesh.name.startsWith("barricade_") ||
+                        mesh.name.startsWith("barricade_") ||
                         mesh.name.startsWith("turret_") ||
-mesh.name.startsWith("player"));
+                        mesh.name.startsWith("player"));
             };
         }
         
@@ -240,7 +237,6 @@ mesh.name.startsWith("player"));
     }
 
 
-    // Atualizar o estado do monstro
     update() {
         const currentTime = Date.now();
         const delta = currentTime - this.lastFrameTime;
@@ -250,32 +246,65 @@ mesh.name.startsWith("player"));
         
         // Aplicar gravidade
         this.model.applyGravity(delta);
-
+    
         // Obter posição do jogador
         this.playerPosition = this.player.getPosition();
         
-        // Verificar detecção do jogador
-        if (this.model.canDetectPlayer(this.playerPosition)) {
-            // Perseguir o jogador
-            if (!this.model.isPlayerChased()) {
-                this.model.startChasing();
-                this.view.updateVisualState(true);
+        // Calcular distância ao jogador para otimização de LOD
+        const distanceToPlayer = BABYLON.Vector3.Distance(
+            this.model.getPosition(), 
+            this.playerPosition
+        );
+        
+        // Ativar perseguição se não estiver já perseguindo
+        if (!this.model.isPlayerChased()) {
+            this.model.startChasing();
+            this.view.updateVisualState(true);
+        }
+        
+        // Otimização baseada na distância enquanto sempre persegue
+        if (distanceToPlayer > 50) {
+            // Zumbis muito distantes (otimização máxima)
+            if (this.view.textPlane) {
+                this.view.textPlane.isVisible = false;
             }
             
-            // Mover em direção ao jogador
-            this.model.moveTowardsPlayer(this.playerPosition, delta);
+            // Reduzir frequência de atualizações
+            this.model.moveTowardsPlayer(this.playerPosition, delta * 0.6);
             
-            // Verificar se pode atacar
+            // Reduzir verificações de colisão
+            this.obstacleCheckInterval = 2000;
+            
+        } else if (distanceToPlayer > 25) {
+            // Zumbis a média distância
+            if (this.view.textPlane) {
+                this.view.textPlane.isVisible = true;
+            }
+            
+            this.model.moveTowardsPlayer(this.playerPosition, delta * 0.8);
+            
+            // Verificar ataques apenas se estiver realmente próximo
             if (this.model.canAttackPlayer(this.playerPosition)) {
                 this.attackPlayer();
             }
-        } else if (this.model.isPlayerChased()) {
-            // Parar perseguição
-            this.model.stopChasing();
-            this.view.updateVisualState(false);
             
-            // Reiniciar patrulha
-            this.startPatrolBehavior();
+            // Verificações médias de colisão
+            this.obstacleCheckInterval = 500;
+            
+        } else {
+            // Zumbis próximos (comportamento completo)
+            if (this.view.textPlane) {
+                this.view.textPlane.isVisible = true;
+            }
+            
+            this.model.moveTowardsPlayer(this.playerPosition, delta);
+            
+            if (this.model.canAttackPlayer(this.playerPosition)) {
+                this.attackPlayer();
+            }
+            
+            // Verificações frequentes de colisão
+            this.obstacleCheckInterval = 200;
         }
     }
     
@@ -288,20 +317,6 @@ mesh.name.startsWith("player"));
         }
     }
     
-    // Iniciar comportamento de patrulha
-    startPatrolBehavior() {
-        if (this.isDisposed || this.isStunned) return;
-
-        if (this.model.moveTimeout) {
-            clearTimeout(this.model.moveTimeout);
-        }
-
-        const patrolInterval = 3000 + Math.random() * 3000;
-        this.model.moveTimeout = setTimeout(() => {
-            if (this.isDisposed || this.isStunned) return;
-            this.startPatrolBehavior();
-        }, patrolInterval);
-    }
     
     // Atualizar o texto da vida
     updateHealthText() {

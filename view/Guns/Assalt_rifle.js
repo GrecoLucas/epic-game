@@ -137,15 +137,7 @@ class AssaultRifle extends GunView {
         this.updateVisibility();
         return this.physicalMeshes;
     }
-    
-    // Método para obter a duração total da animação de recarga
-    getReloadAnimationDuration() {
-        const framesTime = (15 + 8 + 15 + 5) * 16.7;
-        const delaysTime = 400 + 200;
-        return framesTime + delaysTime;
-    }
-
-    // Sobrescrevendo o método playShootEffect para o rifle de assalto
+        // Sobrescrevendo o método playShootEffect para o rifle de assalto
     playShootEffect() {
         if (!this.model.isPickedUp || !this.handMesh) return;
         
@@ -178,91 +170,181 @@ class AssaultRifle extends GunView {
             }, 40);
         }
     }
-
+    
     playReloadEffect(onCompleteCallback) {
         if (!this.model.isPickedUp || !this.handMesh) {
             if (onCompleteCallback) onCompleteCallback();
             return;
         }
         
-        // Salvar a posição e rotação original da arma
+        const DOWN_FRAMES = 40;
+        const MAG_OUT_FRAMES = 20;
+        const MAG_IN_FRAMES = 40;
+        const UP_FRAMES = 32;
+        const BOLT_PULL_FRAMES = 16;
+        const BOLT_RELEASE_FRAMES = 20;
+        
+        const MAG_OUT_DELAY = 150;
+        const MAG_IN_DELAY = 250;
+        const BOLT_DELAY = 180;
+        const FINISH_DELAY = 100;
+        
+        // Save original position and rotation
         const originalPosition = this.handMesh.position.clone();
         const originalRotation = this.handMesh.rotation.clone();
         
-        // Animação de movimento para simular recarga
-        const frames = 15;
-        let frame = 0;
+        // --- Sound effects (uncomment if you have a sound system) ---
+        // this.playSound('reload_start');
         
-        // Primeira fase: baixar a arma e rotacionar como se estivesse removendo o carregador
+        // --- PHASE 1: Lower weapon and tilt for magazine access ---
+        let frame = 0;
         const animateDown = () => {
             frame++;
-            const progress = frame / frames;
+            const progress = frame / DOWN_FRAMES;
+            const easeProgress = Math.sin(progress * Math.PI / 2); // Ease-out effect
             
-            // Mover a arma para baixo e rotacionar
-            this.handMesh.position.y = originalPosition.y - 0.2 * progress;
-            this.handMesh.rotation.x = originalRotation.x - 0.3 * progress;
+            // Lower the rifle and tilt it for better magazine access
+            this.handMesh.position.y = originalPosition.y - 0.25 * easeProgress;
+            this.handMesh.rotation.x = originalRotation.x - 0.35 * easeProgress;
+            // Add slight roll to simulate weapon manipulation
+            this.handMesh.rotation.z = originalRotation.z + 0.1 * easeProgress;
             
-            if (frame < frames) {
+            if (frame < DOWN_FRAMES) {
                 requestAnimationFrame(animateDown);
             } else {
-                // Segunda fase: simular a inserção de um novo carregador
-                setTimeout(() => {
-                    frame = 0;
+                // --- PHASE 2: Magazine removal ---
+                // this.playSound('mag_out');
+                frame = 0;
+                
+                const animateMagOut = () => {
+                    frame++;
+                    const progress = frame / MAG_OUT_FRAMES;
                     
-                    // Efeito visual de "clique" ao inserir carregador
-                    this.handMesh.position.z -= 0.05;
-                    setTimeout(() => this.handMesh.position.z += 0.05, 100);
+                    // Slight backward motion to simulate magazine removal
+                    this.handMesh.position.z = originalPosition.z - 0.03 * progress;
+                    // Additional tilt during magazine removal
+                    this.handMesh.rotation.x = originalRotation.x - 0.35 - (0.1 * Math.sin(progress * Math.PI));
                     
-                    const animateUp = () => {
-                        frame++;
-                        const progress = frame / frames;
-                        
-                        // Retornar a arma à posição original
-                        this.handMesh.position.y = originalPosition.y - 0.2 * (1 - progress);
-                        this.handMesh.rotation.x = originalRotation.x - 0.3 * (1 - progress);
-                        
-                        if (frame < frames) {
-                            requestAnimationFrame(animateUp);
-                        } else {
-                            // Animação final: puxar o ferrolho
-                            setTimeout(() => {
-                                // Simular o puxar do ferrolho
-                                this.handMesh.position.z -= 0.1;
+                    if (frame < MAG_OUT_FRAMES) {
+                        requestAnimationFrame(animateMagOut);
+                    } else {
+                        // Magazine has been removed, wait before inserting new one
+                        setTimeout(() => {
+                            frame = 0;
+                            // --- PHASE 3: Magazine insertion ---
+                            // this.playSound('mag_in');
+                            
+                            const animateMagIn = () => {
+                                frame++;
+                                const progress = frame / MAG_IN_FRAMES;
+                                const snapProgress = progress < 0.7 ? progress / 0.7 : 1;
                                 
-                                setTimeout(() => {
-                                    // Simular o soltar do ferrolho com um movimento rápido
-                                    const slideFrames = 5;
-                                    let slideFrame = 0;
-                                    
-                                    const animateSlide = () => {
-                                        slideFrame++;
-                                        const slideProgress = slideFrame / slideFrames;
+                                // Move weapon to simulate new magazine alignment
+                                this.handMesh.position.z = originalPosition.z - 0.03 + (0.03 * snapProgress);
+                                
+                                // Simulate the "snap" of magazine insertion at the end
+                                if (progress > 0.8) {
+                                    const snapEffect = Math.sin((progress - 0.8) * 5 * Math.PI) * 0.015;
+                                    this.handMesh.position.y = originalPosition.y - 0.25 + snapEffect;
+                                }
+                                
+                                if (frame < MAG_IN_FRAMES) {
+                                    requestAnimationFrame(animateMagIn);
+                                } else {
+                                    setTimeout(() => {
+                                        // --- PHASE 4: Bring weapon back up ---
+                                        frame = 0;
                                         
-                                        this.handMesh.position.z = originalPosition.z - 0.1 * (1 - slideProgress);
-                                        
-                                        if (slideFrame < slideFrames) {
-                                            requestAnimationFrame(animateSlide);
-                                        } else {
-                                            if (onCompleteCallback) {
-                                                onCompleteCallback();
+                                        const animateUp = () => {
+                                            frame++;
+                                            const progress = frame / UP_FRAMES;
+                                            const easeProgress = 1 - Math.cos(progress * Math.PI / 2); // Ease-in effect
+                                            
+                                            // Return to original position but maintain some offset for bolt operation
+                                            this.handMesh.position.y = originalPosition.y - 0.25 * (1 - easeProgress);
+                                            this.handMesh.rotation.x = originalRotation.x - 0.35 * (1 - easeProgress);
+                                            this.handMesh.rotation.z = originalRotation.z + 0.1 * (1 - easeProgress);
+                                            
+                                            if (frame < UP_FRAMES) {
+                                                requestAnimationFrame(animateUp);
+                                            } else {
+                                                setTimeout(() => {
+                                                    // --- PHASE 5: Operate the bolt ---
+                                                    // this.playSound('bolt_pull');
+                                                    frame = 0;
+                                                    
+                                                    // Pull bolt back
+                                                    const animateBoltPull = () => {
+                                                        frame++;
+                                                        const progress = frame / BOLT_PULL_FRAMES;
+                                                        const easeProgress = Math.sin(progress * Math.PI / 2); // Ease-out
+                                                        
+                                                        // Pull bolt back and slightly rotate the weapon
+                                                        this.handMesh.position.z = originalPosition.z - 0.12 * easeProgress;
+                                                        this.handMesh.rotation.y = originalRotation.y - 0.05 * easeProgress;
+                                                        
+                                                        if (frame < BOLT_PULL_FRAMES) {
+                                                            requestAnimationFrame(animateBoltPull);
+                                                        } else {
+                                                            // Bolt is fully back, now release it
+                                                            setTimeout(() => {
+                                                                // this.playSound('bolt_release');
+                                                                frame = 0;
+                                                                
+                                                                const animateBoltRelease = () => {
+                                                                    frame++;
+                                                                    const progress = frame / BOLT_RELEASE_FRAMES;
+                                                                    // Faster snap-back for bolt release
+                                                                    const easeProgress = 1 - Math.pow(1 - progress, 3);
+                                                                    
+                                                                    // Quick bolt return with slight weapon shake
+                                                                    this.handMesh.position.z = originalPosition.z - 0.12 * (1 - easeProgress);
+                                                                    this.handMesh.rotation.y = originalRotation.y - 0.05 * (1 - easeProgress);
+                                                                    
+                                                                    // Add a slight vertical "jolt" when the bolt slams forward
+                                                                    if (progress < 0.5) {
+                                                                        this.handMesh.position.y = originalPosition.y + 0.02 * Math.sin(progress * Math.PI);
+                                                                    }
+                                                                    
+                                                                    if (frame < BOLT_RELEASE_FRAMES) {
+                                                                        requestAnimationFrame(animateBoltRelease);
+                                                                    } else {
+                                                                        // Animation complete, final reset and callback
+                                                                        setTimeout(() => {
+                                                                            // this.playSound('reload_complete');
+                                                                            if (onCompleteCallback) onCompleteCallback();
+                                                                        }, FINISH_DELAY);
+                                                                    }
+                                                                };
+                                                                
+                                                                animateBoltRelease();
+                                                            }, BOLT_DELAY);
+                                                        }
+                                                    };
+                                                    
+                                                    animateBoltPull();
+                                                }, MAG_IN_DELAY);
                                             }
-                                        }
-                                    };
-                                    
-                                    animateSlide();
-                                }, 200);
-                            }, 200);
-                        }
-                    };
-                    
-                    animateUp();
-                }, 300);
+                                        };
+                                        
+                                        animateUp();
+                                    }, MAG_OUT_DELAY);
+                                }
+                            };
+                            
+                            animateMagIn();
+                        }, MAG_OUT_DELAY);
+                    }
+                };
+                
+                animateMagOut();
             }
         };
         
-        // Iniciar a animação
+        // Start the animation sequence
         animateDown();
     }
+
 }
 
 export default AssaultRifle;

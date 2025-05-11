@@ -8,7 +8,6 @@ class SoundManager {
             "assault_rifle_shot": "sounds/assault_rifle_shot.mp3", 
             "empty": "sounds/empty_gun_click.mp3",
             "pickup": "sounds/weapon_pickup.mp3",
-            "drop": "sounds/weapon_drop.mp3",
             "pistol_reload": "sounds/pistol_reload.mp3",
             "assault_rifle_reload": "sounds/assault_rifle_reload.mp3",
             "hammer_hit": "sounds/hammer_hit.mp3",
@@ -28,17 +27,17 @@ class SoundManager {
     }
 
     // Método que reproduz um som diretamente usando a API nativa
-    playDirectSound(soundPath) {
+    playDirectSound(soundPath, volume = 0.1) {
         const audio = new Audio(soundPath);
-        audio.volume = 0.07;
+        audio.volume = volume;
         audio.play()
             .catch(e => console.error(`Erro ao reproduzir áudio: ${e.message}`));
     }
 
     // Reproduz um som pelo nome
-    play(soundName) {
+    play(soundName, volume = 0.1) {
         if (this.soundPaths[soundName]) {
-            this.playDirectSound(this.soundPaths[soundName]);
+            this.playDirectSound(this.soundPaths[soundName], volume);
             return true;
         }
         return false;
@@ -72,6 +71,7 @@ class SoundManager {
         }
     }
     
+
     playPlayerSound(action) {
         switch (action) {
             case 'pickup_block':
