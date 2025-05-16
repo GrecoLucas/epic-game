@@ -606,9 +606,8 @@ class Menu {
         subtitleContainer.thickness = 0;
         subtitleContainer.paddingTop = "20px";
         panel.addControl(subtitleContainer);
-        
-        const subtitle = new BABYLON.GUI.TextBlock();
-        subtitle.text = "ESCOLHA SEU MODO DE JOGO";
+          const subtitle = new BABYLON.GUI.TextBlock();
+        subtitle.text = "CHOOSE YOUR GAME MODE";
         subtitle.color = "#b3e0ff";
         subtitle.fontSize = 24;
         subtitle.fontFamily = "Arial, Helvetica, sans-serif";
@@ -732,10 +731,9 @@ class Menu {
         mazeModeImage.cornerRadius = 10;
         mazeModeImage.paddingTop = "25px";
         mazeModeContainer.addControl(mazeModeImage);
-        
-        // Título do modo Maze
+          // Maze mode title
         const mazeModeTitle = new BABYLON.GUI.TextBlock();
-        mazeModeTitle.text = "MODO LABIRINTO";
+        mazeModeTitle.text = "MAZE MODE";
         mazeModeTitle.color = "#ffffff";
         mazeModeTitle.fontSize = 28;
         mazeModeTitle.fontFamily = "Tahoma, Arial, sans-serif";
@@ -747,10 +745,9 @@ class Menu {
         mazeModeTitle.shadowOffsetY = 2;
         mazeModeTitle.shadowBlur = 3;
         mazeModeContainer.addControl(mazeModeTitle);
-        
-        // Descrição do modo Maze
+          // Maze mode description
         const mazeModeDesc = new BABYLON.GUI.TextBlock();
-        mazeModeDesc.text = "Escape do labirinto, enfrente hordas de monstros e resolva quebra-cabeças para sobreviver!";
+        mazeModeDesc.text = "Escape the maze, face hordes of monsters and solve puzzles to survive!";
         mazeModeDesc.color = "#cccccc";
         mazeModeDesc.fontSize = 16;
         mazeModeDesc.fontFamily = "Segoe UI, Arial, sans-serif";
@@ -773,11 +770,9 @@ class Menu {
         mazeStartBtn.verticalAlignment = BABYLON.GUI.Control.VERTICAL_ALIGNMENT_BOTTOM;
         mazeStartBtn.paddingBottom = "25px";
         mazeStartBtn.hoverCursor = "pointer";
-        mazeModeContainer.addControl(mazeStartBtn);
-
-        // Adicionar texto ao botão
+        mazeModeContainer.addControl(mazeStartBtn);        // Add text to the button
         const mazeStartBtnText = new BABYLON.GUI.TextBlock();
-        mazeStartBtnText.text = "INICIAR";
+        mazeStartBtnText.text = "START";
         mazeStartBtnText.color = "#ffffff";
         mazeStartBtnText.fontSize = 18;
         mazeStartBtnText.fontFamily = "Arial, sans-serif";
@@ -898,10 +893,9 @@ class Menu {
         openWorldImage.cornerRadius = 10;
         openWorldImage.paddingTop = "25px";
         openWorldContainer.addControl(openWorldImage);
-        
-        // Título do modo Open World
+          // Open World mode title
         const openWorldTitle = new BABYLON.GUI.TextBlock();
-        openWorldTitle.text = "MODO MUNDO ABERTO";
+        openWorldTitle.text = "OPEN WORLD MODE";
         openWorldTitle.color = "#ffffff";
         openWorldTitle.fontSize = 28;
         openWorldTitle.fontFamily = "Tahoma, Arial, sans-serif";
@@ -913,10 +907,9 @@ class Menu {
         openWorldTitle.shadowOffsetY = 2;
         openWorldTitle.shadowBlur = 3;
         openWorldContainer.addControl(openWorldTitle);
-        
-        // Descrição do modo Open World
+          // Open World mode description
         const openWorldDesc = new BABYLON.GUI.TextBlock();
-        openWorldDesc.text = "Explore um mundo gerado proceduralmente com diferentes biomas, vilas, construções e recursos!";
+        openWorldDesc.text = "Explore a procedurally generated world with different biomes, villages, constructions and resources!";
         openWorldDesc.color = "#cccccc";
         openWorldDesc.fontSize = 16;
         openWorldDesc.fontFamily = "Segoe UI, Arial, sans-serif";
@@ -939,11 +932,9 @@ class Menu {
         openWorldStartBtn.verticalAlignment = BABYLON.GUI.Control.VERTICAL_ALIGNMENT_BOTTOM;
         openWorldStartBtn.paddingBottom = "25px";
         openWorldStartBtn.hoverCursor = "pointer";
-        openWorldContainer.addControl(openWorldStartBtn);
-
-        // Adicionar texto ao botão
+        openWorldContainer.addControl(openWorldStartBtn);        // Add text to the button
         const openWorldStartBtnText = new BABYLON.GUI.TextBlock();
-        openWorldStartBtnText.text = "INICIAR";
+        openWorldStartBtnText.text = "START";
         openWorldStartBtnText.color = "#ffffff";
         openWorldStartBtnText.fontSize = 18;
         openWorldStartBtnText.fontFamily = "Arial, sans-serif";
@@ -973,9 +964,8 @@ class Menu {
         footerContainer.verticalAlignment = BABYLON.GUI.Control.VERTICAL_ALIGNMENT_BOTTOM;
         footerContainer.paddingBottom = "15px";
         panel.addControl(footerContainer);
-        
-        const footerText = new BABYLON.GUI.TextBlock();
-        footerText.text = "© 2025 Demon survivor horror | v1.2.0 | Desenvolvido com Babylon.js";
+          const footerText = new BABYLON.GUI.TextBlock();
+        footerText.text = "© 2025 Demon survivor horror | v1.2.0 | Developed with Babylon.js";
         footerText.color = "rgba(255, 255, 255, 0.7)";
         footerText.fontSize = 14;
         footerText.fontFamily = "Segoe UI, Arial, sans-serif";
@@ -1188,16 +1178,15 @@ class Menu {
             progressText.fontSize = 16;
             progressText.fontFamily = "Arial, sans-serif";
             progressBarContainer.addControl(progressText);
-            
-            // Dica aleatória
+              // Random tip
             const tips = [
-                "Dica: Procure por itens escondidos no labirinto para obter vantagens.",
-                "Dica: Zombies são mais lentos, mas atacam em grupos.",
-                "Dica: No modo mundo aberto, construa abrigos antes do anoitecer.",
-                "Dica: Barricadas podem ser destruídas por monstros após vários ataques.",
-                "Dica: A pistola tem munição infinita, mas causa menos dano.",
-                "Dica: Pressione 'H' para iniciar uma horda de monstros.",
-                "Dica: Monstros causam mais dano em ataques surpresa."
+                "Tip: Look for hidden items in the maze to gain advantages.",
+                "Tip: Zombies are slower but attack in groups.",
+                "Tip: In open world mode, build shelters before nightfall.",
+                "Tip: Barricades can be destroyed by monsters after several attacks.",
+                "Tip: The pistol has infinite ammo but deals less damage.",
+                "Tip: Press 'H' to start a horde of monsters.",
+                "Tip: Monsters deal more damage in surprise attacks."
             ];
             
             const randomTip = tips[Math.floor(Math.random() * tips.length)];
@@ -1213,10 +1202,9 @@ class Menu {
             tipText.paddingLeft = "20px";
             tipText.paddingRight = "20px";
             centerContainer.addControl(tipText);
-            
-            // Texto de rodapé
+              // Footer text
             const footerText = new BABYLON.GUI.TextBlock();
-            footerText.text = "Por favor, aguarde enquanto seu jogo está sendo preparado...";
+            footerText.text = "Please wait while your game is being prepared...";
             footerText.color = "rgba(255, 255, 255, 0.5)";
             footerText.fontSize = 14;
             footerText.fontFamily = "Segoe UI, Arial, sans-serif";

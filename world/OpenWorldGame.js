@@ -894,10 +894,9 @@ class OpenWorldGame {
         biomeInfoContainer.top = "10px";
         biomeInfoContainer.left = "10px";
         advancedTexture.addControl(biomeInfoContainer);
-        
-        // Texto do bioma atual
+          // Current biome text
         const biomeNameText = new BABYLON.GUI.TextBlock();
-        biomeNameText.text = "Bioma: Floresta";
+        biomeNameText.text = "Biome: Forest";
         biomeNameText.color = "white";
         biomeNameText.fontSize = 20;
         biomeNameText.textHorizontalAlignment = BABYLON.GUI.Control.HORIZONTAL_ALIGNMENT_LEFT;
@@ -906,10 +905,9 @@ class OpenWorldGame {
         biomeNameText.height = "25px";
         biomeNameText.top = "-15px";
         biomeInfoContainer.addControl(biomeNameText);
-        
-        // Informações adicionais do bioma
+          // Additional biome information
         const biomeInfoText = new BABYLON.GUI.TextBlock();
-        biomeInfoText.text = "Temperatura: 22°C | Recursos Abundantes";
+        biomeInfoText.text = "Temperature: 22°C | Abundant Resources";
         biomeInfoText.color = "white";
         biomeInfoText.fontSize = 14;
         biomeInfoText.textHorizontalAlignment = BABYLON.GUI.Control.HORIZONTAL_ALIGNMENT_LEFT;
@@ -931,38 +929,36 @@ class OpenWorldGame {
                 
                 switch (currentBiome) {
                     case 'forest':
-                        biomeName = "Floresta";
-                        biomeInfo = "Temperatura: 18°C | Rico em Madeira";
+                        biomeName = "Forest";
+                        biomeInfo = "Temperature: 18°C | Rich in Wood";
                         biomeColor = "#4CAF50";
                         break;
                     case 'plains':
-                        biomeName = "Planícies";
-                        biomeInfo = "Temperatura: 22°C | Rico em Comida";
+                        biomeName = "Plains";
+                        biomeInfo = "Temperature: 22°C | Rich in Food";
                         biomeColor = "#8BC34A";
                         break;
                     case 'mountains':
-                        biomeName = "Montanhas";
-                        biomeInfo = "Temperatura: 5°C | Rico em Minérios";
+                        biomeName = "Mountains";
+                        biomeInfo = "Temperature: 5°C | Rich in Ores";
                         biomeColor = "#9E9E9E";
-                        break;
-                    case 'desert':
-                        biomeName = "Deserto";
-                        biomeInfo = "Temperatura: 35°C | Rico em Minerais";
+                        break;                    case 'desert':
+                        biomeName = "Desert";
+                        biomeInfo = "Temperature: 35°C | Rich in Minerals";
                         biomeColor = "#FFC107";
                         break;
                     case 'snow':
-                        biomeName = "Neve";
-                        biomeInfo = "Temperatura: -10°C | Rico em Cristais";
+                        biomeName = "Snow";
+                        biomeInfo = "Temperature: -10°C | Rich in Crystals";
                         biomeColor = "#E0F7FA";
                         break;
                     case 'swamp':
-                        biomeName = "Pântano";
-                        biomeInfo = "Temperatura: 24°C | Rico em Plantas Raras";
+                        biomeName = "Swamp";
+                        biomeInfo = "Temperature: 24°C | Rich in Rare Plants";
                         biomeColor = "#795548";
                         break;
                 }
-                
-                biomeNameText.text = "Bioma: " + biomeName;
+                  biomeNameText.text = "Biome: " + biomeName;
                 biomeNameText.color = biomeColor;
                 biomeInfoText.text = biomeInfo;
             }

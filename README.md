@@ -1,37 +1,22 @@
 # Escape Room 3D - Babylon.js
 
-Este é um jogo simples de Escape Room em 3D feito com Babylon.js.
+A simple 3D Escape Room game built with [Babylon.js](https://www.babylonjs.com/).
 
-## Como rodar o jogo
+## 🕹️ Controls
 
-1. **Pré-requisitos:**
-   - Apenas um navegador moderno (Chrome, Edge, Firefox, etc). Não é necessário instalar nada além dos arquivos do projeto.
+- **Mouse:** Look around
+- **WASD:** Move
+- **E:** Interact with objects
+- **ESC:** Pause the game
+- **B:** Enter building mode
+- **Click:** Interact with the 3 colored buttons to escape
 
-2. **Passos:**
-   1. Baixe ou clone este repositório para o seu computador.
-   2. Abra o arquivo `index.html` no seu navegador (basta dar um duplo clique ou clicar com o botão direito e escolher "Abrir com").
-   3. O jogo irá carregar. Use o mouse para olhar ao redor e clique nos 3 botões coloridos para escapar da sala!
+## 📁 Project Structure
 
-## Estrutura do Projeto
-- `index.html`: Página principal que carrega o canvas e o Babylon.js.
-- `main.js`: Código do jogo, organizado em classes seguindo princípios SOLID.
+- `index.html`: Main page that loads the canvas and Babylon.js
+- `main.js`: Game logic, organized in classes following SOLID principles
 
-## Personalização
-O código está estruturado para facilitar modificações e expansões. Para adicionar novos elementos, basta criar novas classes ou modificar as existentes em `main.js`.
+## 🛠️ Customization
 
----
-
-Desenvolvido com Babylon.js e JavaScript.
-
-
-# Futura implementação
-
--- Placas para sinalizar onde estao os botoes
--- Sons 
--- Melhorar a iluminação
--- Melhorar o desing da arma
--- Melhorar o desing do cenário
-
-
--- Sons
--- Consertar a poça de sangue
+Developed with Babylon.js and JavaScript.  
+Feel free to modify or extend the game logic and assets to create your own puzzles and rooms!

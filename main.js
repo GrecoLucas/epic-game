@@ -150,10 +150,7 @@ class Game {
         // Criar o gerenciador de hordas
         this.zombieSpawner = new ZombieS(this.scene, this);
         this.zombieSpawner.initialize();
-        
-        // O sistema de hordas agora aguarda que o jogador pressione H
-        // Não precisa mais iniciar automaticamente com timeout
-        console.log("Sistema de hordas inicializado! Pressione H para começar quando estiver pronto.");
+    
     }
     
     // Método para inicializar o controlador de torretas

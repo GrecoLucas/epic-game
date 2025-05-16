@@ -113,18 +113,12 @@ class MonsterModel {
                             anim.name === "ANIMATION ZOMBIE" || 
                             anim.name.includes("ANIMATION ZOMBIE")
                         );
-                        
-                        if (selectedAnimation) {
-                            console.log("Using ANIMATION ZOMBIE for Zombie1");
-                        }
+
                     }
                     // Play the selected animation
                     if (selectedAnimation) {
-                        console.log(`Playing animation: ${selectedAnimation.name}`);
                         selectedAnimation.start(true);
                     } else {
-                        console.log("No suitable animation found");
-                        // If no specific animation found, play the first available one
                         if (result.animationGroups.length > 0) {
                             console.log(`Falling back to first animation: ${result.animationGroups[0].name}`);
                             result.animationGroups[0].start(true);

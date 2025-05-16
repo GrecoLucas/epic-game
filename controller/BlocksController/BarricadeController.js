@@ -23,7 +23,6 @@ class BarricadeController {
         this.currentPlacementPosition = null;
         this.currentPlacementRotation = 0;
         
-        console.log("BarricadeController initialized successfully.");
     }
     
     _createPreviewMaterials() {
@@ -125,7 +124,6 @@ class BarricadeController {
                 const overlapY = !(testBoxBottom >= meshTop || testBoxTop <= meshBottom);
                 
                 if (overlapY) {
-                    console.log(`Colisão detectada com ${mesh.name} na mesma posição`);
                     return true;
                 }
             }
@@ -163,7 +161,6 @@ class BarricadeController {
             );
             
             if (!hit.pickedMesh) {
-                console.log("Posição inválida: Sem suporte abaixo");
                 return false;
             }
         }
@@ -174,7 +171,6 @@ class BarricadeController {
     
     // Place a barricade at the current position
     placeBarricade(position, initialHealth = 200) {
-        console.log(`Attempting to place barricade at ${position} with rotation ${this.currentPlacementRotation}`);
         
         // Create new barricade through MazeView
         const newMesh = this.mazeView.createPlayerBarricade(

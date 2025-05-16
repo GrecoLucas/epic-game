@@ -117,14 +117,14 @@ class ButtonController {
                         player.heal();
                         
                         // Efeito visual e sonoro de sucesso
-                        this.showSuccessNotification("Curado!", "green");
+                        this.showSuccessNotification("Healed", "green");
                     } else {
                         // Jogador já está com vida cheia
-                        this.showErrorNotification("Vida já está cheia!");
+                        this.showErrorNotification("Health is already full!");
                     }
                 } else {
                     // Jogador não tem dinheiro suficiente
-                    this.showErrorNotification("Dinheiro insuficiente!");
+                    this.showErrorNotification("Insufficient funds!");
                 }
                 break;
                 
@@ -132,7 +132,7 @@ class ButtonController {
                 // Verificar se o jogador possui arma equipada
                 const equippedGun = player.controller.getPlayerEquippedGun();
                 if (!equippedGun) {
-                    this.showErrorNotification("Sem arma equipada!");
+                    this.showErrorNotification("No equipped weapon!");
                     break;
                 }
                 
@@ -149,11 +149,11 @@ class ButtonController {
                     player.updateAmmoDisplay();
                     
                     // Efeito visual e sonoro de sucesso
-                    this.showSuccessNotification("50 Munições adicionadas!", "blue");
-                    
+                    this.showSuccessNotification("50 Ammo added!", "blue");
+
                 } else {
                     // Jogador não tem dinheiro suficiente
-                    this.showErrorNotification("Dinheiro insuficiente!");
+                    this.showErrorNotification("Insufficient funds!");
                 }
                 break;
                 
@@ -164,7 +164,7 @@ class ButtonController {
                     const buildingController = player.controller.buildingController;
                     
                     if (!buildingController) {
-                        this.showErrorNotification("Sistema de construção não disponível!");
+                        this.showErrorNotification("Construction system not available!");
                         break;
                     }
                     
@@ -175,14 +175,14 @@ class ButtonController {
                     // Adicionar materiais ao inventário de construção (2 blocos e 1 rampa)
                     buildingController.addMaterials(2, 2, 2, 0);
                     
-                    this.showSuccessNotification("Kit de Barricadas comprado!", "blue");
+                    this.showSuccessNotification("Barricades purchased!", "blue");
                     // Exibir mensagem de ajuda
                     setTimeout(() => {
-                        this.showSuccessNotification("B para construir", "yellow");
+                        this.showSuccessNotification("Press B to build", "yellow");
                     }, 2000);
                 } else {
                     // Jogador não tem dinheiro suficiente
-                    this.showErrorNotification("Dinheiro insuficiente!");
+                    this.showErrorNotification("Insufficient funds!");
                 }
                 break;
 
@@ -193,7 +193,7 @@ class ButtonController {
                     const buildingController = player.controller.buildingController;
                     
                     if (!buildingController) {
-                        this.showErrorNotification("Sistema de construção não disponível!");
+                        this.showErrorNotification("Construction system not available!");
                         break;
                     }
                     
@@ -203,11 +203,11 @@ class ButtonController {
                     
                     // Adicionar torretas ao inventário de construção
                     buildingController.addMaterials(0, 0, 0, 1); // Adiciona apenas 1 torreta
-                    
-                    this.showSuccessNotification("Torreta comprada!", "yellow");
+
+                    this.showSuccessNotification("Turret purchased!", "yellow");
                     // Exibir mensagem de ajuda
                     setTimeout(() => {
-                        this.showSuccessNotification("B para construir, 4 para selecionar torreta", "yellow");
+                        this.showSuccessNotification("Press B to build, 4 to select turret", "yellow");
                     }, 2000);
                 } else {
                     // Jogador não tem dinheiro suficiente

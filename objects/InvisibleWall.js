@@ -9,7 +9,6 @@ class InvisibleWall {
     
     // Inicializar as paredes invisíveis com um controlador próprio
     initialize(collisionSystem, worldSize) {
-        console.log("Inicializando objeto InvisibleWall...");
         
         // Criar e configurar o controlador
         this.controller = new InvisibleWallController(this.scene, collisionSystem);
@@ -19,7 +18,6 @@ class InvisibleWall {
         
         if (success) {
             this.isInitialized = true;
-            console.log("Objeto InvisibleWall inicializado com sucesso!");
         } else {
             console.error("Falha ao inicializar paredes invisíveis!");
         }

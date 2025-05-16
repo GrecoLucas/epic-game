@@ -20,11 +20,8 @@ class Buttons {
     // Configura os botões com base nas posições detectadas no labirinto
     setupButtons(buttonPositions) {
         if (!buttonPositions || buttonPositions.length === 0) {
-            console.error("Nenhuma posição de botão encontrada no labirinto");
             return;
         }
-
-        console.log("Configurando botões com posições:", buttonPositions);
         
         // Limpar configurações existentes
         this.buttonConfigs = [];

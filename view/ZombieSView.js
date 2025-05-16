@@ -10,7 +10,7 @@ class ZombieSView {
         const advancedTexture = BABYLON.GUI.AdvancedDynamicTexture.CreateFullscreenUI("zombieUI");
         
         this.hordeInfoDisplay = new BABYLON.GUI.TextBlock();
-        this.hordeInfoDisplay.text = "Pressione H para iniciar a horda";
+        this.hordeInfoDisplay.text = "Press H to start the horde";
         this.hordeInfoDisplay.color = "white";
         this.hordeInfoDisplay.fontSize = 20;
         this.hordeInfoDisplay.fontFamily = "Arial";
@@ -26,7 +26,7 @@ class ZombieSView {
     // Mostrar mensagem para iniciar horda
     showReadyToStart(hordeNumber) {
         if (this.hordeInfoDisplay) {
-            this.hordeInfoDisplay.text = `Pressione H (x2) para iniciar a Horda ${hordeNumber}`;
+            this.hordeInfoDisplay.text = `Press H(2x) to start Horde-${hordeNumber}`;
             this.hordeInfoDisplay.color = "lime";
             this.hordeInfoDisplay.fontSize = 22;
         }
@@ -35,10 +35,10 @@ class ZombieSView {
     // Notificar quando uma horda começa
     showHordeStarting(hordeNumber, monsterCount, health = null, speed = null) {
         if (this.hordeInfoDisplay) {
-            let healthText = health ? `\nVida: ${health}` : '';
-            let speedText = speed ? `\nVelocidade: ${speed.toFixed(2)}` : '';
-            
-            this.hordeInfoDisplay.text = `HORDA ${hordeNumber} INICIADA!\n${monsterCount} monstros${healthText}${speedText}`;
+            let healthText = health ? `\nHealth: ${health}` : '';
+            let speedText = speed ? `\nSpeed: ${speed.toFixed(2)}` : '';
+
+            this.hordeInfoDisplay.text = `Horde ${hordeNumber} started!\nMonsters: ${monsterCount}${healthText}${speedText}`;
             this.hordeInfoDisplay.color = "red";
             
             // Efeito de animação (pulsar)

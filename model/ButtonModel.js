@@ -22,8 +22,6 @@ class ButtonModel {
             case 5:
                 this.infoText = "Turret 500$";
                 break;
-            default:
-                this.infoText = "Botão de ação";
         }
         
         // Propriedades para reset automático

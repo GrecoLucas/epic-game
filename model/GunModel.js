@@ -84,7 +84,7 @@ class GunModel {
     reload() {
         // Verificar se há munição total disponível
         if (this.totalAmmo <= 0 && this.ammo <= 0) {
-            console.log("Sem munição disponível para recarga");
+            console.log("No ammo available to reload");
             return this; // Não é possível recarregar
         }
         
@@ -92,7 +92,7 @@ class GunModel {
         const bulletsNeeded = this.maxAmmo - this.ammo;
         
         if (bulletsNeeded <= 0) {
-            console.log("Pente já está cheio");
+            console.log("Full magazine, no need to reload");
             return this; // Pente já está cheio
         }
         
@@ -113,7 +113,6 @@ class GunModel {
     // Método para adicionar munição à reserva
     addAmmo(amount) {
         this.totalAmmo += amount;
-        console.log(`Adicionado ${amount} munições. Total agora: ${this.totalAmmo}`);
         return this;
     }
     

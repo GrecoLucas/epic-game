@@ -152,11 +152,9 @@ class Player {
         ammoRow.isVertical = false;
         ammoRow.height = "30px";
         ammoRow.paddingBottom = "5px";
-        panel.addControl(ammoRow);
-
-        // Texto "Munição:"
+        panel.addControl(ammoRow);        // Ammo text
         this.ammoText = new BABYLON.GUI.TextBlock();
-        this.ammoText.text = "Munição: - / -";
+        this.ammoText.text = "Ammo: - / -";
         this.ammoText.width = "180px";
         this.ammoText.height = "20px";
         this.ammoText.color = "white";
@@ -229,14 +227,13 @@ class Player {
             equippedGun = this.scene.gameInstance.gunLoader.getPlayerGun();
         }
         
-        if (equippedGun) {
-            const currentAmmo = equippedGun.model.ammo;
+        if (equippedGun) {            const currentAmmo = equippedGun.model.ammo;
             const maxAmmo = equippedGun.model.maxAmmo;
             const totalAmmo = equippedGun.model.getTotalAmmo();
-            this.ammoText.text = `Munição: ${currentAmmo}/${maxAmmo} ${totalAmmo}`;
+            this.ammoText.text = `Ammo: ${currentAmmo}/${maxAmmo} ${totalAmmo}`;
             this.ammoText.isVisible = true;
         } else {
-            this.ammoText.text = "Munição: - / - -";
+            this.ammoText.text = "Ammo: - / - -";
             this.ammoText.isVisible = false; 
         }
     }

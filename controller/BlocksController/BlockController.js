@@ -21,7 +21,6 @@ class BlockController {
         this.currentPlacementValid = false;
         this.currentPlacementPosition = null;
         
-        console.log("BlockController initialized successfully.");
     }
     
     _createPreviewMaterials() {
@@ -105,7 +104,6 @@ class BlockController {
                 const overlapY = !(testBoxBottom >= meshTop || testBoxTop <= meshBottom);
                 
                 if (overlapY) {
-                    console.log(`Colisão detectada com ${mesh.name} na mesma posição`);
                     return true;
                 }
             }
@@ -142,7 +140,6 @@ class BlockController {
             );
             
             if (!hit.pickedMesh) {
-                console.log("Posição inválida: Sem suporte abaixo");
                 return false;
             }
         }
@@ -153,7 +150,6 @@ class BlockController {
     
     // Place a block at the current position
     placeBlock(position, initialHealth = 300) {
-        console.log(`Attempting to place block at ${position}`);
         
         // Create new block through MazeView
         const newMesh = this.mazeView.createPlayerWall(

@@ -11,7 +11,6 @@ class InvisibleWallController {
     
     // Inicializar as paredes invisíveis ao redor de um mapa com limites definidos
     initialize(worldSize) {
-        console.log("Inicializando paredes invisíveis ao redor do mundo...");
         
         // Obter dimensões do modelo
         const wallHeight = this.model.getWallHeight();

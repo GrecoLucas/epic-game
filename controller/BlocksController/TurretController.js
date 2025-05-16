@@ -47,8 +47,6 @@ class TurretController {
     
     // Inicializar o controlador de torretas
     initialize() {
-        console.log("Inicializando controlador de torretas");
-        // Qualquer configuração adicional pode ser feita aqui
         
         // Se o controlador precisa acessar monstros para atualização das torretas
         if (this.scene && this.scene.gameInstance) {
@@ -143,8 +141,7 @@ class TurretController {
     isValidPlacement(position) {
         if (!position) return false;
         
-        console.log(`Checking turret position: ${position.x}, ${position.y}, ${position.z}`);
-        
+       
         // Create temporary collision box
         const baseWidth = this.cellSize * 0.8;
         const baseHeight = 0.5;
@@ -196,7 +193,6 @@ class TurretController {
                 const overlapY = !(testBoxBottom >= meshTop || testBoxTop <= meshBottom);
                 
                 if (overlapY) {
-                    console.log(`Collision detected with ${mesh.name} at same position`);
                     return true;
                 }
             }
@@ -245,7 +241,6 @@ class TurretController {
     
     // Place a turret at the current position
     placeTurret(position, initialHealth = 150) {
-        console.log(`Attempting to place turret at ${position} with rotation ${this.currentPlacementRotation}`);
         
         // Create new turret through handler
         const newMesh = this.turretHandler.createPlayerTurret(

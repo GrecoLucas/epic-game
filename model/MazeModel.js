@@ -88,15 +88,8 @@ class MazeModel {
             
             // Calcular as posições das armas
             this.processGunPositions();
-            
-            console.log("Layout do labirinto carregado com sucesso:", this.mazeLayout);
-            console.log("Posição inicial do jogador:", this.playerStartPosition);
-            console.log("Posições dos monstros:", this.monsterPositions);
-            console.log("Posições das armas:", this.gunPositions);
 
             this.processRampPositions();
-            
-            console.log("Posições das rampas:", this.rampPositions);
             return true;
         } catch (error) {
             console.error("Erro ao carregar o arquivo do labirinto:", error);
@@ -156,7 +149,6 @@ class MazeModel {
         // Substituir as posições de grade por posições de mundo
         this.gunPositions = processedPositions;
         
-        console.log("Posições de armas processadas:", this.gunPositions);
     }
     
     // Método auxiliar para calcular posição no mundo a partir da grade
@@ -178,7 +170,6 @@ class MazeModel {
     // Detectar a posição inicial do jogador
     detectPlayerPosition(row, col) {
         this.playerStartPosition = this.calculateWorldPosition(row, col);
-        console.log(`Posição do jogador calculada: Matriz[${row},${col}] => Mundo[${this.playerStartPosition.x},1,${this.playerStartPosition.z}]`);
     }
     
     
@@ -215,12 +206,10 @@ class MazeModel {
                         id: this.mazeLayout[row][col]
                     });
                     
-                    console.log(`Botão ${this.mazeLayout[row][col]} calculado: Matriz[${row},${col}] => Mundo[${x},1,${z}]`);
                 }
             }
         }
                 
-        console.log("Posições dos botões detectadas:", this.buttonPositions);
     }
     
     convertWorldToGridPosition(worldX, worldZ) {

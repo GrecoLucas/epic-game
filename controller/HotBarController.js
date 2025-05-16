@@ -47,10 +47,8 @@ class HotBarController {
         // Se o slot tiver uma arma, equipá-la
         if (weapon) {
             this.equipWeapon(weapon);
-            console.log(`Selecionado: ${weapon.model.name} no slot ${slotIndex + 1}`);
         } else {
             this.unequipCurrentWeapon();
-            console.log(`Selecionado: slot vazio ${slotIndex + 1}`);
         }
         
         return weapon;

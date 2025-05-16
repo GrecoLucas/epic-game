@@ -278,7 +278,6 @@ class RampController {
                     const isOnTop = Math.abs(position.y - meshTop) < 0.2;
                     
                     if (isOnTop) {
-                        console.log("Rampa colocada sobre bloco, permitindo colocação");
                         return false; // Not a collision, valid support
                     }
                 }
@@ -296,7 +295,6 @@ class RampController {
                 const overlapY = !(testBoxBottom >= meshTop || testBoxTop <= meshBottom);
                 
                 if (overlapY) {
-                    console.log(`Colisão detectada com ${mesh.name} na mesma posição`);
                     return true;
                 }
             }

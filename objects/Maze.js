@@ -21,7 +21,6 @@ class Maze {
         try {
             await this.controller.initialize();
             this.loaded = true;
-            console.log("Labirinto inicializado com sucesso!");
         } catch (error) {
             console.error("Erro ao inicializar o labirinto:", error);
         }
@@ -34,15 +33,11 @@ class Maze {
 
     // Método para destruir parede (agora delega para dano total)
     destroyWallAt(position) {
-        console.log(`MAZE: Solicitação para DESTRUIR parede em [${position.x}, ${position.z}]`);
-        // Delegar para o controlador (que agora chama damageWallAt com dano total)
         return this.controller.destroyWallAt(position);
     }
 
     // Novo método para aplicar dano à parede
-    damageWallAt(position, damageAmount) {
-        console.log(`MAZE: Solicitação para APLICAR ${damageAmount} DE DANO na parede em [${position.x}, ${position.z}]`);
-        // Delegar para o controlador
+    damageWallAt(position, damageAmount) {        
         return this.controller.damageWallAt(position, damageAmount);
     }
     

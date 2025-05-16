@@ -30,10 +30,9 @@ class PauseView {
         stackPanel.verticalAlignment = BABYLON.GUI.Control.VERTICAL_ALIGNMENT_TOP;
         stackPanel.paddingTop = "20px";
         panel.addControl(stackPanel);
-        
-        // Título do menu
+          // Menu title
         const titleText = new BABYLON.GUI.TextBlock();
-        titleText.text = "MENU DE PAUSA";
+        titleText.text = "PAUSE MENU";
         titleText.color = "white";
         titleText.fontSize = 24;
         titleText.height = "40px";
@@ -50,10 +49,9 @@ class PauseView {
         sensitivityPanel.isVertical = false;
         sensitivityPanel.height = "50px";
         stackPanel.addControl(sensitivityPanel);
-        
-        // Rótulo de sensibilidade
+          // Sensitivity label
         const sensitivityLabel = new BABYLON.GUI.TextBlock();
-        sensitivityLabel.text = "Sensibilidade: ";
+        sensitivityLabel.text = "Sensitivity: ";
         sensitivityLabel.color = "white";
         sensitivityLabel.width = "150px";
         sensitivityLabel.fontSize = 18;
@@ -91,10 +89,9 @@ class PauseView {
         fovPanel.isVertical = false;
         fovPanel.height = "50px";
         stackPanel.addControl(fovPanel);
-        
-        // Rótulo de FOV
+          // FOV label
         const fovLabel = new BABYLON.GUI.TextBlock();
-        fovLabel.text = "Campo de Visão: ";
+        fovLabel.text = "Field of View: ";
         fovLabel.color = "white";
         fovLabel.width = "150px";
         fovLabel.fontSize = 18;
@@ -126,9 +123,8 @@ class PauseView {
         spacer3.height = "50px";
         spacer3.alpha = 0;
         stackPanel.addControl(spacer3);
-        
-        // Botão para retornar ao jogo
-        this.resumeButton = BABYLON.GUI.Button.CreateSimpleButton("resumeButton", "VOLTAR AO JOGO");
+          // Button to return to the game
+        this.resumeButton = BABYLON.GUI.Button.CreateSimpleButton("resumeButton", "BACK TO GAME");
         this.resumeButton.width = "200px";
         this.resumeButton.height = "50px";
         this.resumeButton.color = "white";
@@ -136,10 +132,9 @@ class PauseView {
         this.resumeButton.background = "#00aaff";
         this.resumeButton.fontSize = 18;
         stackPanel.addControl(this.resumeButton);
-        
-        // Instrução para sair
+          // Exit instruction
         const exitText = new BABYLON.GUI.TextBlock();
-        exitText.text = "Pressione P novamente para fechar";
+        exitText.text = "Press P again to close";
         exitText.color = "white";
         exitText.fontSize = 14;
         exitText.height = "30px";

@@ -85,17 +85,15 @@ class HotBarView {
         }
         
         this.initialized = true;
-    }
-
-    // Atualizar um slot específico com as informações da arma
+    }    // Update a specific slot with weapon information
     updateSlot(slotIndex, weapon) {
         if (!this.initialized || slotIndex < 0 || slotIndex >= this.slotElements.length) return;
         
         const slot = this.slotElements[slotIndex];
         
         if (weapon) {
-            // Exibir o nome da arma truncado/abreviado para caber no slot
-            const displayName = this.abbreviateWeaponName(weapon.model.name || "Arma");
+            // Display the truncated/abbreviated weapon name to fit in the slot
+            const displayName = this.abbreviateWeaponName(weapon.model.name || "Weapon");
             slot.weaponName.text = displayName;
             slot.container.alpha = 1;
         } else {

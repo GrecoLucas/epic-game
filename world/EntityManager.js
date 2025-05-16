@@ -938,10 +938,9 @@ class EntityManager {
         }
         return null;
     }
-    
-    // Mostrar mensagem de coleta de item
+      // Show item pickup message
     _showPickupMessage(message, color) {
-        // Criar uma interface fullscreen para mostrar a mensagem
+        // Create a fullscreen interface to show the message
         const advancedTexture = BABYLON.GUI.AdvancedDynamicTexture.CreateFullscreenUI("pickupMessageUI", true);
         
         // Criar texto

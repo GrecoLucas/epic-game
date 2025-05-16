@@ -170,23 +170,21 @@ class PlayerController {
                 this.initializeBuildingController();
             }, 2000);
         }
-    }
-
-    // Criar um elemento de UI para mostrar dica de interação com botões
+    }    // Create a UI element to show interaction hint with buttons
     createInteractionHint() {
-        // Criar uma GUI texture para adicionar elementos 2D
+        // Create a GUI texture to add 2D elements
         const advancedTexture = BABYLON.GUI.AdvancedDynamicTexture.CreateFullscreenUI("interactionUI");
         
-        // Criar o texto de dica
+        // Create the hint text
         const hintText = new BABYLON.GUI.TextBlock("hintText");
-        hintText.text = "Pressione E para ativar";
+        hintText.text = "Press E to activate";
         hintText.color = "white";
         hintText.fontSize = 16;
         hintText.fontFamily = "Arial";
         hintText.textHorizontalAlignment = BABYLON.GUI.Control.HORIZONTAL_ALIGNMENT_CENTER;
         hintText.textVerticalAlignment = BABYLON.GUI.Control.VERTICAL_ALIGNMENT_BOTTOM;
         hintText.paddingBottom = "120px";
-        hintText.alpha = 0; // Inicialmente invisível
+        hintText.alpha = 0; // Initially invisible
         
         advancedTexture.addControl(hintText);
         this.interactionHint = hintText;
@@ -381,19 +379,18 @@ class PlayerController {
                 // Se encontrou uma torreta próxima, atualizar referência
                 this.nearbyTurret = closestTurret;
             }
-            
-            // Atualizar dica baseado na proximidade (prioridade: arma > botão > torreta)
+              // Update hint based on proximity (priority: gun > button > turret)
             if (this.interactionHint) {
                 if (this.nearbyGun) {
-                    this.interactionHint.text = "Pressione E para pegar a arma";
+                    this.interactionHint.text = "Press E to pick up weapon";
                     this.interactionHint.alpha = 1;
                 } else if (this.nearbyButton) {
-                    this.interactionHint.text = "Pressione E para ativar";
+                    this.interactionHint.text = "Press E to activate";
                     this.interactionHint.alpha = 1;
                 } else if (this.nearbyTurret) {
                     if (this.scene.gameInstance && 
                         this.scene.gameInstance.turretController) {
-                        this.interactionHint.text = "Pressione E para comprar munição (100$)";
+                        this.interactionHint.text = "Press E to buy ammo (100$)";
                         this.interactionHint.alpha = 1;
                         
                     } else {

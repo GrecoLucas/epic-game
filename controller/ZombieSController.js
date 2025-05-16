@@ -66,7 +66,6 @@ class ZombieSController {
             
             if (mazeMonsterPositions && mazeMonsterPositions.length > 0) {
                 this.spawnPositions = [...mazeMonsterPositions];
-                console.log(`Coletadas ${this.spawnPositions.length} posições de spawn do labirinto.`);
             } else {
                 // Se não houver posições definidas, criar algumas padrão
                 this.createDefaultSpawnPositions();
@@ -79,7 +78,6 @@ class ZombieSController {
 
     // Criar posições padrão de spawn caso não exista no labirinto
     createDefaultSpawnPositions() {
-        console.log("Criando posições padrão para spawn de monstros.");
         
         // Criar 4 posições em cantos diferentes
         this.spawnPositions = [
@@ -100,7 +98,6 @@ class ZombieSController {
             this.waitingForKeyPress = true;
             this.view.showReadyToStart(1);
             
-            console.log("Sistema de hordas iniciado! Aguardando jogador pressionar H para iniciar.");
         }
     }
 
@@ -118,7 +115,6 @@ class ZombieSController {
             clearInterval(this.model.countdownTimer);
         }
         
-        console.log("Sistema de hordas parado.");
     }
 
     // Iniciar uma horda de monstros
@@ -134,13 +130,6 @@ class ZombieSController {
         const monsterHealth = this.model.calculateMonsterHealth();
         const monsterSpeed = this.model.calculateMonsterSpeed();
         
-        // Log detalhado sobre o início da horda
-        console.log(`========== HORDA #${hordeNumber} INICIADA ==========`);
-        console.log(`Quantidade de zumbis: ${monsterCount}`);
-        console.log(`Vida dos zumbis: ${monsterHealth}`);
-        console.log(`Velocidade dos zumbis: ${monsterSpeed.toFixed(2)}`);
-        console.log(`==========================================`);
-        
         // Notificar o início da horda - agora passando saúde e velocidade
         this.view.showHordeStarting(hordeNumber, monsterCount, monsterHealth, monsterSpeed);
         
@@ -152,7 +141,6 @@ class ZombieSController {
             // Ao terminar a horda, ficar aguardando o jogador apertar H novamente
             this.waitingForKeyPress = true;
             this.view.showReadyToStart(this.model.currentHorde + 1);
-            console.log(`Horda ${this.model.currentHorde} completa. Pressione H para iniciar a próxima horda.`);
         }, 5000); // Pequeno intervalo antes de mostrar mensagem
     }
 
@@ -167,7 +155,6 @@ class ZombieSController {
         const monsterHealth = this.model.calculateMonsterHealth();
         const monsterSpeed = this.model.calculateMonsterSpeed();
         
-        console.log(`Horda #${this.model.currentHorde}: Monstros com ${monsterHealth} de vida e velocidade ${monsterSpeed.toFixed(2)}`);
 
         for (let i = 0; i < count; i++) {
             // Selecionar posição de spawn aleatória

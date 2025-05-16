@@ -80,10 +80,9 @@ class BuildingController {
         contentContainer.verticalAlignment = BABYLON.GUI.Control.VERTICAL_ALIGNMENT_TOP;
         contentContainer.paddingTop = "10px";
         background.addControl(contentContainer);
-        
-        // Texto de título (Modo Construção)
+          // Construction Mode Title
         const titleText = new BABYLON.GUI.TextBlock();
-        titleText.text = "MODO CONSTRUÇÃO (pressione B)";
+        titleText.text = "BUILD MODE (press B)";
         titleText.color = "white";
         titleText.fontSize = 20;
         titleText.height = "30px";
@@ -95,66 +94,57 @@ class BuildingController {
         materialsPanel.height = "40px";
         materialsPanel.paddingTop = "10px";
         contentContainer.addControl(materialsPanel);
-        
-        // Texto para blocos
+          // Text for blocks
         const wallText = new BABYLON.GUI.TextBlock();
-        wallText.text = "Blocos: 0";
+        wallText.text = "Blocks: 0";
         wallText.color = "white";
         wallText.fontSize = 16;
         wallText.width = "150px";
         wallText.paddingLeft = "30px";
         wallText.textHorizontalAlignment = BABYLON.GUI.Control.HORIZONTAL_ALIGNMENT_LEFT;
         materialsPanel.addControl(wallText);
-        
-        // Texto para rampas
+          // Text for ramps
         const rampText = new BABYLON.GUI.TextBlock();
-        rampText.text = "Rampas: 0";
+        rampText.text = "Ramps: 0";
         rampText.color = "white";
         rampText.fontSize = 16;
         rampText.width = "150px";
         rampText.textHorizontalAlignment = BABYLON.GUI.Control.HORIZONTAL_ALIGNMENT_LEFT;
-        materialsPanel.addControl(rampText);
-
-        // Texto para barricadas
+        materialsPanel.addControl(rampText);        // Text for barricades
         const barricadeText = new BABYLON.GUI.TextBlock();
-        barricadeText.text = "Barricadas: 0";
+        barricadeText.text = "Barricades: 0";
         barricadeText.color = "white";
         barricadeText.fontSize = 16;
         barricadeText.width = "150px";
         barricadeText.textHorizontalAlignment = BABYLON.GUI.Control.HORIZONTAL_ALIGNMENT_LEFT;
         materialsPanel.addControl(barricadeText);
-        
-        // Texto para torretas
+          // Text for turrets
         const turretText = new BABYLON.GUI.TextBlock();
-        turretText.text = "Torretas: 0";
+        turretText.text = "Turrets: 0";
         turretText.color = "white";
         turretText.fontSize = 16;
         turretText.width = "150px";
         turretText.paddingLeft = "30px";
         turretText.textHorizontalAlignment = BABYLON.GUI.Control.HORIZONTAL_ALIGNMENT_LEFT;
         materialsPanel.addControl(turretText);
-        
-        // Dicas de controle (na parte inferior)
+          // Control tips (at the bottom)
         const controlsText = new BABYLON.GUI.TextBlock();
-        controlsText.text = "1: Bloco | 2: Rampa | 3: Barricada | 4: Torreta";
+        controlsText.text = "1: Block | 2: Ramp | 3: Barricade | 4: Turret";
         controlsText.color = "yellow";
         controlsText.fontSize = 14;
         controlsText.height = "30px";
         controlsText.paddingTop = "15px";
-        contentContainer.addControl(controlsText);
-
-        // Linha de baixo
+        contentContainer.addControl(controlsText);        // Bottom line
         const constolsText2 = new BABYLON.GUI.TextBlock();
-        constolsText2.text = "R: Rotacionar | B: Modo Construção | F : Recolher";
+        constolsText2.text = "R: Rotate | B: Build Mode | F: Collect";
         constolsText2.color = "yellow";
         constolsText2.fontSize = 14;
         constolsText2.height = "30px";
         constolsText2.paddingTop = "15px";
         contentContainer.addControl(constolsText2);
-        
-        // Hammer
+          // Hammer
         const constolsText3 = new BABYLON.GUI.TextBlock();
-        constolsText3.text = "Use o martelo para consertar";
+        constolsText3.text = "Use hammer to repair";
         constolsText3.color = "yellow";
         constolsText3.fontSize = 14;
         constolsText3.height = "30px";
@@ -179,16 +169,15 @@ class BuildingController {
         this.availableMaterials.turret += turretCount;
         this._updateBuildModeUI();
     }
-    
-    // Atualizar a UI do modo de construção
+      // Update the building mode UI
     _updateBuildModeUI() {
         if (!this.buildModeUI) return;
         
-        // Atualizar textos com contagens atuais
-        this.buildModeUI.wallText.text = `Blocos: ${this.availableMaterials.wall}`;
-        this.buildModeUI.rampText.text = `Rampas: ${this.availableMaterials.ramp}`;
-        this.buildModeUI.barricadeText.text = `Barricadas: ${this.availableMaterials.barricade}`;
-        this.buildModeUI.turretText.text = `Torretas: ${this.availableMaterials.turret}`;
+        // Update texts with current counts
+        this.buildModeUI.wallText.text = `Blocks: ${this.availableMaterials.wall}`;
+        this.buildModeUI.rampText.text = `Ramps: ${this.availableMaterials.ramp}`;
+        this.buildModeUI.barricadeText.text = `Barricades: ${this.availableMaterials.barricade}`;
+        this.buildModeUI.turretText.text = `Turrets: ${this.availableMaterials.turret}`;
         
         // Atualizar visibilidade da UI
         this.buildModeUI.panel.isVisible = this.isEnabled;
@@ -298,26 +287,26 @@ class BuildingController {
         
         // Verificar se o jogador tem materiais suficientes
         if (this.selectedItem === 'wall' && this.availableMaterials.wall <= 0) {
-            console.log("Sem blocos disponíveis!");
-            this._showNotification("Sem blocos disponíveis!", "red");
+            console.log("No blocks available!");
+            this._showNotification("No blocks available!", "red");
             return false;
         }
         
         if (this.selectedItem === 'ramp' && this.availableMaterials.ramp <= 0) {
-            console.log("Sem rampas disponíveis!");
-            this._showNotification("Sem rampas disponíveis!", "red");
+            console.log("No ramps available!");
+            this._showNotification("No ramps available!", "red");
             return false;
         }
 
         if (this.selectedItem === 'barricade' && this.availableMaterials.barricade <= 0) {
-            console.log("Sem barricadas disponíveis!");
-            this._showNotification("Sem barricadas disponíveis!", "red");
+            console.log("No barricades available!");
+            this._showNotification("No barricades available!", "red");
             return false;
         }
-        
+
         if (this.selectedItem === 'turret' && this.availableMaterials.turret <= 0) {
-            console.log("Sem torretas disponíveis!");
-            this._showNotification("Sem torretas disponíveis!", "red");
+            console.log("No turrets available!");
+            this._showNotification("No turrets available!", "red");
             return false;
         }
         
@@ -353,8 +342,8 @@ class BuildingController {
             const itemName = this.selectedItem === 'wall' ? 'Bloco' : 
                             this.selectedItem === 'ramp' ? 'Rampa' : 
                             this.selectedItem === 'barricade' ? 'Barricada' : 'Torreta';
-            this._showNotification(`${itemName} construído com sucesso!`, "green");
-            
+            this._showNotification(`${itemName} built!`, "green");
+
             if (this.scene.gameInstance?.soundManager) {
                 this.scene.gameInstance.soundManager.playPlayerSound('place_block');
             }

@@ -14,12 +14,10 @@ class SkySphereController {
         if (this.scene.activeCamera) {
             if (this.skySphere) {
                 this.skySphere.create();
-                console.log("SkySphere criada com sucesso");
                 
                 // Importante: verificar se a textura foi carregada corretamente
                 const mesh = this.skySphere.model.getMesh();
                 if (mesh && mesh.material && mesh.material.diffuseTexture) {
-                    console.log("Textura do céu aplicada corretamente: ", mesh.material.diffuseTexture.url);
                     
                     // Configurar evento onLoadObservable para garantir que a textura seja carregada
                     mesh.material.diffuseTexture.onLoadObservable.add(() => {
