@@ -1,18 +1,32 @@
 // GameLoader.js - Responsável por carregar os diferentes modos de jogo
 import Game from './main.js';
 import OpenWorldGame from './world/OpenWorldGame.js';
+import MultiplayerManager from './MultiplayerManager.js';
+
 
 class GameLoader {
     constructor(engine) {
         this.engine = engine;
         this.currentGame = null;
+        this.multiplayerManager = null;
+        this.isMultiplayer = false;
+        this.isHost = false;
         this.canvas = document.getElementById('renderCanvas');
     }
     
     // Carregar o modo Labirinto (modo existente)
-    loadMazeMode() {
-        console.log("Carregando Modo Labirinto...");
-        
+    loadMazeMode(options = {}) {
+      console.log("Carregando Modo Labirinto...");
+      
+      // Definir opções padrão
+      const defaultOptions = {
+        isMultiplayer: false,
+        isHost: false,
+        roomId: null
+      };
+      
+      const gameOptions = {...defaultOptions, ...options};
+  
         // Criar cena
         const scene = new BABYLON.Scene(this.engine);
         scene.clearColor = new BABYLON.Color3(0.2, 0.2, 0.2);
@@ -27,7 +41,13 @@ class GameLoader {
         // Inicializar o jogo
         this.currentGame.initialize().then(() => {
             console.log("Modo Labirinto inicializado com sucesso!");
-            
+            if (gameOptions.isMultiplayer) {
+              if (gameOptions.isHost) {
+                this.initMultiplayerAsHost();
+              } else if (gameOptions.roomId) {
+                this.initMultiplayerAsClient(gameOptions.roomId);
+              }
+            }
             // Iniciar o render loop
             this.engine.runRenderLoop(() => {
                 // Verificar se temos câmera antes de renderizar
@@ -91,6 +111,42 @@ class GameLoader {
         
         // Ajustar ao tamanho da janela
         window.addEventListener('resize', () => this.engine.resize());
+    }
+
+
+    initMultiplayerAsHost() {
+  this.isMultiplayer = true;
+  this.isHost = true;
+  
+  if (this.currentGame) {
+    this.multiplayerManager = new MultiplayerManager(this.currentGame);
+    this.multiplayerManager.connect();
+    
+    // Esperar conexão e criar sala
+    setTimeout(() => {
+      this.multiplayerManager.createRoom();
+    }, 1000);
+    
+    this.currentGame.multiplayerManager = this.multiplayerManager;
+  }
+    }
+
+    // Adicionar método para inicializar modo multiplayer (como cliente)
+    initMultiplayerAsClient(roomId) {
+      this.isMultiplayer = true;
+      this.isHost = false;
+      
+      if (this.currentGame) {
+        this.multiplayerManager = new MultiplayerManager(this.currentGame);
+        this.multiplayerManager.connect();
+        
+        // Esperar conexão e entrar na sala
+        setTimeout(() => {
+          this.multiplayerManager.joinRoom(roomId);
+        }, 1000);
+        
+        this.currentGame.multiplayerManager = this.multiplayerManager;
+      }
     }
 }
 

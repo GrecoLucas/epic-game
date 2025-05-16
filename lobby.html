@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Lobby Multiplayer - Demon Survivor Horror</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background-color: #1a1a2e;
+      color: white;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+    }
+    
+    .container {
+      background-color: rgba(0, 0, 0, 0.7);
+      border-radius: 10px;
+      padding: 30px;
+      width: 400px;
+      box-shadow: 0 0 20px rgba(0, 0, 255, 0.3);
+    }
+    
+    h1 {
+      text-align: center;
+      margin-bottom: 30px;
+      color: #3498db;
+    }
+    
+    .option-box {
+      background-color: #16213e;
+      border-radius: 8px;
+      padding: 20px;
+      margin-bottom: 20px;
+      cursor: pointer;
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+    
+    .option-box:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 5px 15px rgba(52, 152, 219, 0.5);
+    }
+    
+    h2 {
+      margin-top: 0;
+      margin-bottom: 10px;
+      color: #3498db;
+    }
+    
+    p {
+      margin-bottom: 0;
+      color: #ccc;
+    }
+    
+    .join-form {
+      display: none;
+      margin-top: 20px;
+    }
+    
+    input {
+      width: 100%;
+      padding: 10px;
+      margin-bottom: 15px;
+      border-radius: 5px;
+      border: none;
+      background-color: #2c3e50;
+      color: white;
+    }
+    
+    button {
+      width: 100%;
+      padding: 12px;
+      background-color: #3498db;
+      color: white;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      font-weight: bold;
+      transition: background-color 0.2s;
+    }
+    
+    button:hover {
+      background-color: #2980b9;
+    }
+    
+    .back {
+      display: block;
+      text-align: center;
+      margin-top: 20px;
+      color: #3498db;
+      text-decoration: none;
+    }
+    
+    .back:hover {
+      text-decoration: underline;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>MODO MULTIPLAYER</h1>
+    
+    <div class="option-box" id="hostGame">
+      <h2>Hospedar Jogo</h2>
+      <p>Crie uma nova sessão e convide amigos para jogar.</p>
+    </div>
+    
+    <div class="option-box" id="joinGame">
+      <h2>Entrar em Jogo</h2>
+      <p>Entre em uma sessão existente usando um código.</p>
+    </div>
+    
+    <div class="join-form" id="joinForm">
+      <input type="text" id="roomCode" placeholder="Digite o código da sala" maxlength="6">
+      <button id="joinButton">ENTRAR</button>
+    </div>
+    
+    <a href="index.html" class="back">Voltar ao Menu Principal</a>
+  </div>
+  
+  <script>
+    document.getElementById('hostGame').addEventListener('click', function() {
+      // Iniciar jogo como host
+      localStorage.setItem('gameMode', 'maze');
+      localStorage.setItem('multiplayerRole', 'host');
+      window.location.href = 'game.html';
+    });
+    
+    document.getElementById('joinGame').addEventListener('click', function() {
+      // Mostrar formulário para inserir código da sala
+      document.getElementById('joinForm').style.display = 'block';
+      this.style.display = 'none';
+      document.getElementById('hostGame').style.display = 'none';
+    });
+    
+    document.getElementById('joinButton').addEventListener('click', function() {
+      const roomCode = document.getElementById('roomCode').value.trim().toUpperCase();
+      if (roomCode) {
+        // Iniciar jogo como cliente
+        localStorage.setItem('gameMode', 'maze');
+        localStorage.setItem('multiplayerRole', 'client');
+        localStorage.setItem('roomCode', roomCode);
+        window.location.href = 'game.html';
+      } else {
+        alert('Por favor, digite um código de sala válido.');
+      }
+    });
+  </script>
+</body>
+</html>

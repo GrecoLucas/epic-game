@@ -149,10 +149,12 @@ class Game {
     initializeZombieSpawner() {
         // Criar o gerenciador de hordas
         this.zombieSpawner = new ZombieS(this.scene, this);
-        this.zombieSpawner.initialize();
-    
+        return this.zombieSpawner.initialize();
     }
     
+    getZombieSpawner() {
+        return this.zombieSpawner;
+    }
     // Método para inicializar o controlador de torretas
     initializeTurretController() {
         this.turretController = new TurretController(this.scene, this.player);

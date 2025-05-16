@@ -20,3 +20,10 @@ A simple 3D Escape Room game built with [Babylon.js](https://www.babylonjs.com/)
 
 Developed with Babylon.js and JavaScript.  
 Feel free to modify or extend the game logic and assets to create your own puzzles and rooms!
+
+##  Para jogar multiplayer
+- Antes faça esse comando no terminal:
+```bash
+node server.js
+```
+http://localhost:3000/lobby.html

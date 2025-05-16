@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Demon Survivor Horror</title>
+  <style>
+    html, body {
+      overflow: hidden;
+      width: 100%;
+      height: 100%;
+      margin: 0;
+      padding: 0;
+      background-color: #000;
+    }
+    
+    #renderCanvas {
+      width: 100%;
+      height: 100%;
+      touch-action: none;
+    }
+    
+    #loading {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      flex-direction: column;
+      background-color: #111;
+      color: white;
+      font-family: Arial, sans-serif;
+      z-index: 1000;
+    }
+    
+    #loading h2 {
+      margin-bottom: 20px;
+    }
+    
+    #loadingBar {
+      width: 300px;
+      height: 20px;
+      background-color: #333;
+      border-radius: 10px;
+      overflow: hidden;
+    }
+    
+    #loadingProgress {
+      width: 0%;
+      height: 100%;
+      background-color: #3498db;
+      transition: width 0.5s;
+    }
+  </style>
+</head>
+<body>
+  <div id="loading">
+    <h2>Carregando...</h2>
+    <div id="loadingBar">
+      <div id="loadingProgress"></div>
+    </div>
+  </div>
+  
+  <canvas id="renderCanvas"></canvas>
+  
+  <!-- Scripts necessários -->
+  <script src="https://cdn.babylonjs.com/babylon.js"></script>
+  <script src="https://cdn.babylonjs.com/loaders/babylonjs.loaders.min.js"></script>
+  <script src="https://cdn.babylonjs.com/gui/babylon.gui.min.js"></script>
+  <script src="https://cdn.babylonjs.com/cannon.js"></script>
+  
+  <!-- Seu script personalizado -->
+  <script type="module">
+    import GameLoader from './GameLoader.js';
+    
+    window.addEventListener('DOMContentLoaded', function() {
+      const canvas = document.getElementById('renderCanvas');
+      const engine = new BABYLON.Engine(canvas, true);
+      const gameLoader = new GameLoader(engine);
+      
+      // Mostrar progresso de carregamento
+      let loadingProgress = 0;
+      const progressElem = document.getElementById('loadingProgress');
+      const loadingInterval = setInterval(() => {
+        loadingProgress += 5;
+        if (loadingProgress > 95) clearInterval(loadingInterval);
+        progressElem.style.width = loadingProgress + '%';
+      }, 100);
+      
+      // Verificar modo de jogo a partir do localStorage
+      const gameMode = localStorage.getItem('gameMode') || 'maze';
+      const isMultiplayer = localStorage.getItem('multiplayerRole') !== null;
+      const multiplayerRole = localStorage.getItem('multiplayerRole') || 'solo';
+      const roomCode = localStorage.getItem('roomCode') || '';
+      
+      // Limpar localStorage para evitar problemas em novos jogos
+      localStorage.removeItem('gameMode');
+      localStorage.removeItem('multiplayerRole');
+      localStorage.removeItem('roomCode');
+      
+      // Carregar o jogo apropriado
+      if (gameMode === 'maze') {
+        // Configurar opções de multiplayer, se aplicável
+        if (isMultiplayer) {
+          gameLoader.loadMazeMode({
+            isMultiplayer: true,
+            isHost: multiplayerRole === 'host',
+            roomId: roomCode
+          });
+        } else {
+          gameLoader.loadMazeMode();
+        }
+      } else if (gameMode === 'openWorld') {
+        gameLoader.loadOpenWorldMode();
+      }
+      
+      // Esconder tela de carregamento após 3 segundos
+      setTimeout(() => {
+        document.getElementById('loading').style.display = 'none';
+      }, 3000);
+    });
+  </script>
+</body>
+</html>

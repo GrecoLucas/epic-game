@@ -44,11 +44,23 @@ class ZombieSController {
                 if (this.waitingForKeyPress && this.model.hordeActive) {
                     this.waitingForKeyPress = false;
                     
-                    // Iniciar horda imediatamente (sempre)
+                    // Iniciar horda localmente
                     this.startHorde();
+                    
+                    // NOVO: Enviar evento para sincronizar com outros jogadores
+                    if (this.game.multiplayerManager) {
+                        this.game.multiplayerManager.sendPlayerAction('startHorde', {
+                            hordeNumber: this.model.currentHorde
+                        });
+                    }
                 } else if (!this.model.hordeActive) {
                     // Se o sistema está inativo, ativar e aguardar tecla
                     this.startHordeSystem();
+                    
+                    // NOVO: Enviar evento para sincronizar com outros jogadores
+                    if (this.game.multiplayerManager) {
+                        this.game.multiplayerManager.sendPlayerAction('activateHordeSystem', {});
+                    }
                 }
             }
         };
@@ -73,6 +85,25 @@ class ZombieSController {
         } else {
             // Se o labirinto não estiver disponível, criar posições padrão
             this.createDefaultSpawnPositions();
+        }
+    }
+
+    handleRemoteHordeCommand(command, data) {
+        console.log(`Recebendo comando de horda remoto: ${command}`, data);
+        
+        switch (command) {
+            case 'activateHordeSystem':
+                if (!this.model.isHordeActive()) {
+                    this.startHordeSystem();
+                }
+                break;
+                
+            case 'startHorde':
+                if (this.model.hordeActive && this.waitingForKeyPress) {
+                    this.waitingForKeyPress = false;
+                    this.startHorde();
+                }
+                break;
         }
     }
 
