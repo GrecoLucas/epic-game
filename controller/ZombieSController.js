@@ -41,25 +41,41 @@ class ZombieSController {
         this.keyListener = (event) => {
             // Verificar se a tecla H foi pressionada e está aguardando interação
             if (event.key === "h" || event.key === "H") {
-                if (this.waitingForKeyPress && this.model.hordeActive) {
-                    this.waitingForKeyPress = false;
-                    
-                    // Iniciar horda localmente
-                    this.startHorde();
-                    
-                    // NOVO: Enviar evento para sincronizar com outros jogadores
-                    if (this.game.multiplayerManager) {
-                        this.game.multiplayerManager.sendPlayerAction('startHorde', {
-                            hordeNumber: this.model.currentHorde
-                        });
+                // Verificar se é o host - apenas o host pode iniciar hordas
+                if (!this.game.multiplayerManager || this.game.multiplayerManager.isHost) {
+                    if (this.waitingForKeyPress && this.model.hordeActive) {
+                        this.waitingForKeyPress = false;
+                        
+                        // Iniciar horda localmente
+                        this.startHorde();
+                        
+                        // Enviar evento para sincronizar com outros jogadores
+                        if (this.game.multiplayerManager) {
+                            this.game.multiplayerManager.sendPlayerAction('startHorde', {
+                                hordeNumber: this.model.currentHorde
+                            });
+                        }
+                    } else if (!this.model.hordeActive) {
+                        // Se o sistema está inativo, ativar e aguardar tecla
+                        this.startHordeSystem();
+                        
+                        // Enviar evento para sincronizar com outros jogadores
+                        if (this.game.multiplayerManager) {
+                            this.game.multiplayerManager.sendPlayerAction('activateHordeSystem', {});
+                        }
                     }
-                } else if (!this.model.hordeActive) {
-                    // Se o sistema está inativo, ativar e aguardar tecla
-                    this.startHordeSystem();
-                    
-                    // NOVO: Enviar evento para sincronizar com outros jogadores
+                } else {
+                    // Se não for host mas pressionou H, apenas enviar evento para o host
                     if (this.game.multiplayerManager) {
-                        this.game.multiplayerManager.sendPlayerAction('activateHordeSystem', {});
+                        if (this.waitingForKeyPress) {
+                            // Cliente quer iniciar a horda (pede permissão ao host)
+                            this.game.multiplayerManager.sendPlayerAction('startHorde', {});
+                            console.log("Enviando pedido para iniciar horda ao host");
+                        } else if (!this.model.hordeActive) {
+                            // Cliente quer ativar o sistema (pede permissão ao host)
+                            this.game.multiplayerManager.sendPlayerAction('activateHordeSystem', {});
+                            console.log("Enviando pedido para ativar sistema de hordas ao host");
+                        }
                     }
                 }
             }
@@ -88,24 +104,44 @@ class ZombieSController {
         }
     }
 
-    handleRemoteHordeCommand(command, data) {
-        console.log(`Recebendo comando de horda remoto: ${command}`, data);
-        
-        switch (command) {
-            case 'activateHordeSystem':
-                if (!this.model.isHordeActive()) {
-                    this.startHordeSystem();
-                }
-                break;
-                
-            case 'startHorde':
-                if (this.model.hordeActive && this.waitingForKeyPress) {
-                    this.waitingForKeyPress = false;
-                    this.startHorde();
-                }
-                break;
+handleRemoteHordeCommand(command, data) {
+  console.log(`Recebendo comando de horda remoto: ${command}`, data);
+  
+  switch (command) {
+    case 'activateHordeSystem':
+      if (!this.model.isHordeActive()) {
+        this.model.hordeActive = true;
+        this.model.resetCounters();
+        this.waitingForKeyPress = true;
+        this.view.showReadyToStart(1);
+      }
+      break;
+      
+    case 'startHorde':
+      if (this.model.hordeActive && this.waitingForKeyPress) {
+        // Atualizar o contador de hordas para o número recebido do host
+        if (data && data.hordeNumber !== undefined) {
+          this.model.currentHorde = data.hordeNumber;
         }
-    }
+        
+        this.waitingForKeyPress = false;
+        
+        // Em clientes, apenas mostrar informações da horda (não spawnar monstros)
+        if (this.game.multiplayerManager && !this.game.multiplayerManager.isHost) {
+          const monsterCount = this.model.calculateMonstersForNextHorde();
+          const monsterHealth = this.model.calculateMonsterHealth();
+          const monsterSpeed = this.model.calculateMonsterSpeed();
+          
+          // Apenas atualizar a visualização
+          this.view.showHordeStarting(this.model.currentHorde, monsterCount, monsterHealth, monsterSpeed);
+        } else {
+          // No host, iniciar a horda normalmente
+          this.startHorde();
+        }
+      }
+      break;
+  }
+}
 
     // Criar posições padrão de spawn caso não exista no labirinto
     createDefaultSpawnPositions() {
@@ -120,6 +156,7 @@ class ZombieSController {
     }
 
     // Iniciar o sistema de hordas
+    // Iniciar o sistema de hordas
     startHordeSystem() {
         if (!this.model.isHordeActive()) {
             this.model.hordeActive = true;
@@ -127,8 +164,15 @@ class ZombieSController {
             
             // Aguardar o jogador pressionar H para iniciar a primeira horda
             this.waitingForKeyPress = true;
-            this.view.showReadyToStart(1);
             
+            // Garantir que a mensagem seja exibida para o host
+            if (this.view) {
+                // Atualizar a view para mostrar a mensagem correta
+                this.view.showReadyToStart(1);
+                console.log("Exibindo mensagem 'Press H(2x)' para iniciar horda");
+            } else {
+                console.error("View não inicializada corretamente no ZombieSController");
+            }
         }
     }
 
@@ -182,6 +226,11 @@ class ZombieSController {
             return;
         }
 
+        // Em clientes, não spawnar monstros - eles serão sincronizados pelo host
+        if (this.game.multiplayerManager && !this.game.multiplayerManager.isHost) {
+          console.log("Cliente não spawna monstros localmente em multiplayer");
+          return;
+        }
         // Calcular os atributos dos monstros para esta horda
         const monsterHealth = this.model.calculateMonsterHealth();
         const monsterSpeed = this.model.calculateMonsterSpeed();

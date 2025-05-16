@@ -145,12 +145,36 @@ class Game {
         return true;
     }
     
-    // Método para inicializar o sistema de hordas de zumbis
-    initializeZombieSpawner() {
-        // Criar o gerenciador de hordas
-        this.zombieSpawner = new ZombieS(this.scene, this);
-        return this.zombieSpawner.initialize();
+initializeZombieSpawner() {
+  try {
+    // Criar o sistema de hordas
+    this.zombieSpawner = new ZombieS(this.scene, this);
+    
+    // Inicializar o controlador
+    const controller = this.zombieSpawner.initialize();
+    
+    // Verificação adicional para garantir que o modelo foi inicializado
+    if (!this.zombieSpawner.model) {
+      console.error("Erro: zombieSpawner.model não foi inicializado corretamente");
+      // Tentar correção criando um modelo padrão
+      if (typeof ZombieSModel !== 'undefined') {
+        this.zombieSpawner.model = new ZombieSModel();
+      }
     }
+    
+    // Se for cliente em modo multiplayer, não criar spawner autônomo
+    if (this.multiplayerManager && !this.multiplayerManager.isHost) {
+      console.log("Cliente: Desativando geração automática de monstros");
+      this.zombieSpawner.disableAutoSpawn = true;
+    } else if (this.multiplayerManager && this.multiplayerManager.isHost) {
+      // Para o host, iniciar o sistema de hordas automaticamente
+      console.log("Host: Iniciando sistema de hordas");
+      this.zombieSpawner.startHordeSystem();
+    }
+  } catch (err) {
+    console.error("Erro ao inicializar o sistema de hordas:", err);
+  }
+}
     
     getZombieSpawner() {
         return this.zombieSpawner;
@@ -184,22 +208,30 @@ class Game {
     }
     
     // Método para adicionar um novo monstro
-    addMonster(position, health = 100, speed = 0.08) {
-        const monster = new Monster(this.scene, this.player, position, health, speed);
-        
-        // Inicializar o monstro
-        const monsterMesh = monster.initialize();
-        
-        // Registrar mesh do monstro para colisão
-        if (monsterMesh) {
-            this.collisionSystem.addMesh(monsterMesh);
-        }
-        
-        // Adicionar à lista de monstros
-        this.monsters.push(monster);
-        
-        return monster;
+    addMonster(position, health, speed, id = null) {
+  // Se for cliente em modo multiplayer, verificar se não é duplicação
+  if (this.multiplayerManager && !this.multiplayerManager.isHost) {
+    // Verificar se já existe um monstro com este ID
+    if (id && this.monsters.some(m => m.getController()?.model?.id === id)) {
+      console.log(`Cliente: Evitando duplicação do monstro ${id}`);
+      return Promise.resolve(null);
     }
+  }
+  
+  // Criar o monstro
+  const monster = new Monster(this.scene, this.player, position, health, speed);
+  
+  return monster.initialize().then(() => {
+    // Se temos um ID específico, definir
+    if (id && monster.getController() && monster.getController().model) {
+      monster.getController().model.id = id;
+    }
+    
+    // Adicionar o monstro à lista global
+    this.monsters.push(monster);
+    return monster;
+  });
+}
     
     // Método para remover um monstro específico
     removeMonster(monster) {

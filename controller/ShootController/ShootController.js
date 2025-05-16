@@ -31,6 +31,61 @@ class ShootController {
             camera.getForwardRay(1).direction.scale(config.rayOriginOffset)
         );
         const ray = new BABYLON.Ray(rayOrigin, camera.getForwardRay(1).direction, config.rayLength);
+        
+        if (this.scene.gameInstance?.multiplayerManager && 
+    !this.scene.gameInstance.multiplayerManager.isHost) {
+    
+    // Buscar o hit primeiramente
+    const monsterHits = this.scene.multiPickWithRay(ray, this._monsterPartPredicate);
+    
+    // Ordenar por distância se houver múltiplos
+    if (monsterHits.length > 1) {
+        monsterHits.sort((a, b) => a.distance - b.distance);
+    }
+    
+    // Se acertou um monstro, processar localmente antes de enviar
+    if (monsterHits.length > 0 && monsterHits[0].pickedMesh) {
+        const hitMonster = this._findMonsterFromMesh(monsterHits[0].pickedMesh);
+        if (hitMonster) {
+            const controller = hitMonster.getController();
+            if (controller && !controller.isDisposed) {
+                // Salvar ID e saúde atual antes do dano para sincronização
+                const monsterId = controller.model.id;
+                const currentHealth = controller.model.health;
+                
+                // Calcular e aplicar dano localmente
+                const damage = equippedGun.model.getDamage();
+                controller.takeDamage(damage);
+                
+                // Enviar ação ao host com informações adicionais sobre o dano já aplicado
+                this.scene.gameInstance.multiplayerManager.sendPlayerAction('shoot', {
+                    direction: {
+                        x: camera.getForwardRay(1).direction.x,
+                        y: camera.getForwardRay(1).direction.y,
+                        z: camera.getForwardRay(1).direction.z
+                    },
+                    gunDamage: damage,
+                    targetMonsterId: monsterId,
+                    previousHealth: currentHealth,
+                    appliedDamage: damage,
+                    newHealth: controller.model.health
+                });
+                
+                return true; // Hit detectado e processado localmente
+            }
+        }
+    }
+    
+    // Caso não tenha detectado um monstro, envia normalmente
+    this.scene.gameInstance.multiplayerManager.sendPlayerAction('shoot', {
+        direction: {
+            x: camera.getForwardRay(1).direction.x,
+            y: camera.getForwardRay(1).direction.y,
+            z: camera.getForwardRay(1).direction.z
+        },
+        gunDamage: equippedGun.model.getDamage()
+    });
+}
 
         // 1. Detectar qualquer obstáculo no caminho
         const obstacleFilterPredicate = (mesh) => {
