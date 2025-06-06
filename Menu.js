@@ -10,9 +10,13 @@ class Menu {
         this.menuUI = null;
         this.gameLoader = null;
         this.backgroundMusic = null;
+        this.highScores = [];
     }
 
-    initialize() {
+    async initialize() {
+        // Carregar high scores primeiro
+        await this.loadHighScores();
+        
         // Obter o canvas
         this.canvas = document.getElementById('renderCanvas');
         
@@ -50,6 +54,40 @@ class Menu {
         }
     }
     
+    async loadHighScores() {
+        try {
+            const response = await fetch('highscores.csv');
+            const csvText = await response.text();
+            
+            // Parse do CSV
+            const lines = csvText.trim().split('\n');
+            this.highScores = [];
+            
+            // Pular a primeira linha (header)
+            for (let i = 1; i < lines.length; i++) {
+                const line = lines[i].trim();
+                if (line) {
+                    const [name, score] = line.split(';');
+                    if (name && score) {
+                        this.highScores.push({
+                            name: name.trim(),
+                            score: parseInt(score.trim()) || 0
+                        });
+                    }
+                }
+            }
+            
+            // Ordenar por pontuação (maior para menor)
+            this.highScores.sort((a, b) => b.score - a.score);
+            
+            console.log("High scores carregados:", this.highScores);
+        } catch (error) {
+            console.error("Erro ao carregar high scores:", error);
+            // Criar um high score padrão se houver erro
+            this.highScores = [{ name: "No data", score: 0 }];
+        }
+    }
+
     createScene() {
         // Criar uma nova cena
         const scene = new BABYLON.Scene(this.engine);
@@ -448,25 +486,25 @@ class Menu {
         panel.addControl(subtitleContainer);
         
         const subtitle = new BABYLON.GUI.TextBlock();
-        subtitle.text = "SURVIVE THE MAZE";
+        subtitle.text = " TRY TO SURVIVE THE MAXIMUM NUMBER OF HORDES";
         subtitle.color = "#b3e0ff";
         subtitle.fontSize = 24;
         subtitle.fontFamily = "Arial, Helvetica, sans-serif";
         subtitle.letterSpacing = "3px";
         subtitleContainer.addControl(subtitle);
-        
-        // Container para o botão principal
-        const buttonContainer = new BABYLON.GUI.Rectangle();
-        buttonContainer.width = "500px";
-        buttonContainer.height = "450px";
-        buttonContainer.thickness = 0;
-        buttonContainer.verticalAlignment = BABYLON.GUI.Control.VERTICAL_ALIGNMENT_CENTER;
-        panel.addControl(buttonContainer);
-        
-        // Botão principal do jogo - Design moderno
+    
+        // Container principal centralizado para o botão de start
+        const mainContainer = new BABYLON.GUI.Rectangle();
+        mainContainer.width = "100%";
+        mainContainer.height = "400px";
+        mainContainer.thickness = 0;
+        mainContainer.verticalAlignment = BABYLON.GUI.Control.VERTICAL_ALIGNMENT_CENTER;
+        panel.addControl(mainContainer);
+    
+        // Botão principal do jogo - Centralizado
         const gameContainer = new BABYLON.GUI.Rectangle();
-        gameContainer.width = "450px";
-        gameContainer.height = "400px";
+        gameContainer.width = "500px";
+        gameContainer.height = "350px";
         gameContainer.thickness = 0;
         gameContainer.cornerRadius = 15;
         gameContainer.color = "#3399ff";
@@ -476,7 +514,7 @@ class Menu {
         gameContainer.shadowBlur = 15;
         gameContainer.shadowOffsetX = 5;
         gameContainer.shadowOffsetY = 5;
-        buttonContainer.addControl(gameContainer);
+        mainContainer.addControl(gameContainer);
         
         // Borda com efeito de brilho
         const gameBorder = new BABYLON.GUI.Rectangle();
@@ -555,15 +593,15 @@ class Menu {
         
         // Imagem para o jogo
         const gameImage = new BABYLON.GUI.Image("gameImage", "textures/maze_mode.png");
-        gameImage.width = "420px";
-        gameImage.height = "200px";
+        gameImage.width = "450px";
+        gameImage.height = "180px";
         gameImage.cornerRadius = 10;
         gameImage.paddingTop = "25px";
         gameContainer.addControl(gameImage);
         
         // Título do jogo
         const gameTitle = new BABYLON.GUI.TextBlock();
-        gameTitle.text = "MAZE MODE";
+        gameTitle.text = "Start Game";
         gameTitle.color = "#ffffff";
         gameTitle.fontSize = 32;
         gameTitle.fontFamily = "Tahoma, Arial, sans-serif";
@@ -575,26 +613,13 @@ class Menu {
         gameTitle.shadowOffsetY = 2;
         gameTitle.shadowBlur = 3;
         gameContainer.addControl(gameTitle);
-        
-        // Descrição do jogo
-        const gameDesc = new BABYLON.GUI.TextBlock();
-        gameDesc.text = "Escape the maze, face demons and monsters, solve puzzles and survive the horror!";
-        gameDesc.color = "#cccccc";
-        gameDesc.fontSize = 18;
-        gameDesc.fontFamily = "Segoe UI, Arial, sans-serif";
-        gameDesc.height = "80px";
-        gameDesc.textWrapping = true;
-        gameDesc.paddingLeft = "20px";
-        gameDesc.paddingRight = "20px";
-        gameDesc.lineSpacing = "5px";
-        gameContainer.addControl(gameDesc);
-        
+                
         // Botão de início
         const startBtn = new BABYLON.GUI.Button();
         startBtn.name = "startBtn";
-        startBtn.width = "200px";
-        startBtn.height = "50px";
-        startBtn.cornerRadius = 25;
+        startBtn.width = "250px";
+        startBtn.height = "60px";
+        startBtn.cornerRadius = 30;
         startBtn.color = "#ffffff";
         startBtn.background = "linear-gradient(90deg, #ff3366 0%, #ff9933 100%)";
         startBtn.thickness = 0;
@@ -607,25 +632,28 @@ class Menu {
         const startBtnText = new BABYLON.GUI.TextBlock();
         startBtnText.text = "START GAME";
         startBtnText.color = "#ffffff";
-        startBtnText.fontSize = 20;
+        startBtnText.fontSize = 22;
         startBtnText.fontFamily = "Arial, sans-serif";
         startBtnText.fontWeight = "bold";
         startBtn.addControl(startBtnText);
-
+    
         // Adicionar evento de clique ao botão
         startBtn.onPointerClickObservable.add(() => {
             this.startMazeMode();
         });
-
+    
         // Eventos de hover para o botão
         startBtn.onPointerEnterObservable.add(() => {
             startBtn.background = "linear-gradient(90deg, #ff5c85 0%, #ffad5c 100%)";
             this.playHoverSound();
         });
-
+    
         startBtn.onPointerOutObservable.add(() => {
             startBtn.background = "linear-gradient(90deg, #ff3366 0%, #ff9933 100%)";
         });
+    
+        // Criar seção de High Scores separada
+        this.createHighScoreSection(panel);
         
         // Rodapé com créditos e versão
         const footerContainer = new BABYLON.GUI.Rectangle();
@@ -645,6 +673,259 @@ class Menu {
         
         // Guardar referência à UI
         this.menuUI = advancedTexture;
+    }
+    
+    createHighScoreSection(parentPanel) {
+        // Container principal para os High Scores
+        const highScoreMainContainer = new BABYLON.GUI.Rectangle();
+        highScoreMainContainer.width = "100%";
+        highScoreMainContainer.height = "320px";
+        highScoreMainContainer.thickness = 0;
+        highScoreMainContainer.paddingTop = "20px";
+        parentPanel.addControl(highScoreMainContainer);
+    
+        // Container dos High Scores - Centralizado e com visual melhorado
+        const highScoreContainer = new BABYLON.GUI.Rectangle();
+        highScoreContainer.width = "900px";
+        highScoreContainer.height = "280px";
+        highScoreContainer.thickness = 3;
+        highScoreContainer.cornerRadius = 20;
+        highScoreContainer.color = "rgba(69, 69, 69, 0.8)";
+        highScoreContainer.background = "linear-gradient(145deg, rgba(15, 15, 25, 0.95) 0%, rgba(35, 25, 15, 0.95) 50%, rgba(25, 15, 35, 0.95) 100%)";
+        highScoreContainer.shadowColor = "rgba(255, 215, 0, 0.4)";
+        highScoreContainer.shadowBlur = 20;
+        highScoreContainer.shadowOffsetX = 0;
+        highScoreContainer.shadowOffsetY = 5;
+        highScoreMainContainer.addControl(highScoreContainer);
+    
+        // Borda decorativa interna
+        const innerBorder = new BABYLON.GUI.Rectangle();
+        innerBorder.width = "96%";
+        innerBorder.height = "94%";
+        innerBorder.thickness = 2;
+        innerBorder.cornerRadius = 18;
+        innerBorder.color = "rgba(255, 215, 0, 0.3)";
+        innerBorder.background = "transparent";
+        highScoreContainer.addControl(innerBorder);
+    
+        // Título High Scores com melhor estilo
+        const highScoreTitle = new BABYLON.GUI.TextBlock();
+        highScoreTitle.text = "HALL OF FAME";
+        highScoreTitle.color = "#FFD700";
+        highScoreTitle.fontSize = 30;
+        highScoreTitle.fontFamily = "Impact, Arial, sans-serif";
+        highScoreTitle.height = "60px";
+        highScoreTitle.verticalAlignment = BABYLON.GUI.Control.VERTICAL_ALIGNMENT_TOP;
+        highScoreTitle.paddingTop = "15px";
+        highScoreTitle.shadowColor = "rgba(0, 0, 0, 0.8)";
+        highScoreTitle.shadowOffsetX = 3;
+        highScoreTitle.shadowOffsetY = 3;
+        highScoreTitle.shadowBlur = 6;
+        highScoreContainer.addControl(highScoreTitle);
+    
+        // Linha decorativa sob o título
+        const titleUnderline = new BABYLON.GUI.Rectangle();
+        titleUnderline.width = "60%";
+        titleUnderline.height = "3px";
+        titleUnderline.cornerRadius = 2;
+        titleUnderline.color = "transparent";
+        titleUnderline.background = "linear-gradient(90deg, rgba(255,215,0,0) 0%, rgba(255,215,0,1) 50%, rgba(255,215,0,0) 100%)";
+        titleUnderline.top = "50px";
+        titleUnderline.verticalAlignment = BABYLON.GUI.Control.VERTICAL_ALIGNMENT_TOP;
+        highScoreContainer.addControl(titleUnderline);
+    
+        // Container horizontal para as duas colunas de scores
+        const scoresContainer = new BABYLON.GUI.Rectangle();
+        scoresContainer.width = "90%";
+        scoresContainer.height = "180px";
+        scoresContainer.thickness = 0;
+        scoresContainer.top = "20px";
+        highScoreContainer.addControl(scoresContainer);
+    
+        // Coluna esquerda (Top 3)
+        const leftColumn = new BABYLON.GUI.Rectangle();
+        leftColumn.width = "48%";
+        leftColumn.height = "100%";
+        leftColumn.thickness = 0;
+        leftColumn.horizontalAlignment = BABYLON.GUI.Control.HORIZONTAL_ALIGNMENT_LEFT;
+        scoresContainer.addControl(leftColumn);
+    
+        // Coluna direita (4º e 5º lugar)
+        const rightColumn = new BABYLON.GUI.Rectangle();
+        rightColumn.width = "48%";
+        rightColumn.height = "100%";
+        rightColumn.thickness = 0;
+        rightColumn.horizontalAlignment = BABYLON.GUI.Control.HORIZONTAL_ALIGNMENT_RIGHT;
+        scoresContainer.addControl(rightColumn);
+    
+        // Criar entradas de high score
+        const maxScoresToShow = 5;
+        const scoresToShow = this.highScores.slice(0, maxScoresToShow);
+        
+        for (let i = 0; i < Math.min(3, maxScoresToShow); i++) {
+            this.createHighScoreEntry(leftColumn, scoresToShow[i], i, true);
+        }
+        
+        for (let i = 3; i < maxScoresToShow; i++) {
+            this.createHighScoreEntry(rightColumn, scoresToShow[i], i, false);
+        }
+    
+        // Linha decorativa no final
+        const bottomLine = new BABYLON.GUI.Rectangle();
+        bottomLine.width = "80%";
+        bottomLine.height = "2px";
+        bottomLine.color = "#FFD700";
+        bottomLine.background = "linear-gradient(90deg, rgba(255,215,0,0) 0%, rgba(255,215,0,0.7) 25%, rgba(255,215,0,1) 50%, rgba(255,215,0,0.7) 75%, rgba(255,215,0,0) 100%)";
+        bottomLine.verticalAlignment = BABYLON.GUI.Control.VERTICAL_ALIGNMENT_BOTTOM;
+        bottomLine.paddingBottom = "15px";
+        highScoreContainer.addControl(bottomLine);
+    }
+    
+    createHighScoreEntry(parentContainer, scoreEntry, index, isTopThree) {
+        const entryHeight = isTopThree ? 55 : 45;
+        const fontSize = isTopThree ? 22 : 20;
+        const rankFontSize = isTopThree ? 24 : 22;
+        
+        // Container para cada entrada
+        const entryContainer = new BABYLON.GUI.Rectangle();
+        entryContainer.width = "100%";
+        entryContainer.height = `${entryHeight}px`;
+        entryContainer.thickness = isTopThree ? 2 : 1;
+        entryContainer.cornerRadius = 12;
+        
+        // Cores especiais para o pódio
+        let entryColor, backgroundColor, textColor;
+        if (index === 0) {
+            entryColor = "rgba(255, 215, 0, 0.8)"; // Ouro
+            backgroundColor = "linear-gradient(90deg, rgba(255, 215, 0, 0.15) 0%, rgba(255, 223, 0, 0.25) 100%)";
+            textColor = "#FFD700";
+        } else if (index === 1) {
+            entryColor = "rgba(192, 192, 192, 0.8)"; // Prata
+            backgroundColor = "linear-gradient(90deg, rgba(192, 192, 192, 0.15) 0%, rgba(220, 220, 220, 0.25) 100%)";
+            textColor = "#C0C0C0";
+        } else if (index === 2) {
+            entryColor = "rgba(205, 127, 50, 0.8)"; // Bronze
+            backgroundColor = "linear-gradient(90deg, rgba(205, 127, 50, 0.15) 0%, rgba(218, 165, 32, 0.25) 100%)";
+            textColor = "#CD7F32";
+        } else {
+            entryColor = "rgba(255, 255, 255, 0.3)";
+            backgroundColor = index % 2 === 0 ? "rgba(255, 255, 255, 0.05)" : "rgba(255, 255, 255, 0.02)";
+            textColor = "#FFFFFF";
+        }
+        
+        entryContainer.color = entryColor;
+        entryContainer.background = backgroundColor;
+        
+        // Posicionamento vertical
+        const topOffset = isTopThree ? (index * 60 - 60) : ((index - 3) * 50 - 25);
+        entryContainer.top = `${topOffset}px`;
+        parentContainer.addControl(entryContainer);
+        
+        // Medalhas para o pódio
+        let medalEmoji = "";
+        if (index === 0) medalEmoji = "🥇";
+        else if (index === 1) medalEmoji = "🥈";
+        else if (index === 2) medalEmoji = "🥉";
+        
+        // Container para a medalha/posição (lado esquerdo)
+        const rankContainer = new BABYLON.GUI.Rectangle();
+        rankContainer.width = "80px";
+        rankContainer.height = "100%";
+        rankContainer.thickness = 0;
+        rankContainer.horizontalAlignment = BABYLON.GUI.Control.HORIZONTAL_ALIGNMENT_LEFT;
+        entryContainer.addControl(rankContainer);
+        
+        // Posição (rank) com medalha
+        const rankText = new BABYLON.GUI.TextBlock();
+        rankText.text = medalEmoji ? `${medalEmoji}` : `${index + 1}.`;
+        rankText.color = textColor;
+        rankText.fontSize = rankFontSize;
+        rankText.fontFamily = "Arial, sans-serif";
+        rankText.fontWeight = "bold";
+        rankContainer.addControl(rankText);
+        
+        // Container para o nome (centro-esquerda)
+        const nameContainer = new BABYLON.GUI.Rectangle();
+        nameContainer.width = "200px";
+        nameContainer.height = "100%";
+        nameContainer.thickness = 0;
+        nameContainer.left = "80px";
+        nameContainer.horizontalAlignment = BABYLON.GUI.Control.HORIZONTAL_ALIGNMENT_LEFT;
+        entryContainer.addControl(nameContainer);
+        
+        // Nome do jogador
+        const nameText = new BABYLON.GUI.TextBlock();
+        nameText.text = scoreEntry ? scoreEntry.name : "---";
+        nameText.color = "#FFFFFF";
+        nameText.fontSize = fontSize;
+        nameText.fontFamily = "Arial, sans-serif";
+        nameText.fontWeight = isTopThree ? "bold" : "normal";
+        nameText.horizontalAlignment = BABYLON.GUI.Control.HORIZONTAL_ALIGNMENT_LEFT;
+        nameText.shadowColor = "rgba(0, 0, 0, 0.7)";
+        nameText.shadowOffsetX = 1;
+        nameText.shadowOffsetY = 1;
+        nameText.shadowBlur = 2;
+        nameContainer.addControl(nameText);
+        
+        // Container para a pontuação (lado direito)
+        const scoreContainer = new BABYLON.GUI.Rectangle();
+        scoreContainer.width = "120px";
+        scoreContainer.height = "100%";
+        scoreContainer.thickness = 0;
+        scoreContainer.horizontalAlignment = BABYLON.GUI.Control.HORIZONTAL_ALIGNMENT_RIGHT;
+        scoreContainer.paddingRight = "10px";
+        entryContainer.addControl(scoreContainer);
+        
+        // Pontuação
+        const scoreText = new BABYLON.GUI.TextBlock();
+        scoreText.text = scoreEntry ? scoreEntry.score.toLocaleString() : "0";
+        scoreText.color = textColor;
+        scoreText.fontSize = fontSize;
+        scoreText.fontFamily = "Arial, sans-serif";
+        scoreText.fontWeight = "bold";
+        scoreText.horizontalAlignment = BABYLON.GUI.Control.HORIZONTAL_ALIGNMENT_RIGHT;
+        scoreText.shadowColor = "rgba(0, 0, 0, 0.7)";
+        scoreText.shadowOffsetX = 1;
+        scoreText.shadowOffsetY = 1;
+        scoreText.shadowBlur = 2;
+        scoreContainer.addControl(scoreText);
+        
+        // Adicionar coroa especial para o primeiro lugar (só se houver espaço)
+        if (index === 0 && scoreEntry && scoreEntry.score > 0) {
+            const crownContainer = new BABYLON.GUI.Rectangle();
+            crownContainer.width = "40px";
+            crownContainer.height = "100%";
+            crownContainer.thickness = 0;
+            crownContainer.horizontalAlignment = BABYLON.GUI.Control.HORIZONTAL_ALIGNMENT_RIGHT;
+            crownContainer.left = "-120px";
+            entryContainer.addControl(crownContainer);
+            
+            const crownText = new BABYLON.GUI.TextBlock();
+            crownText.text = "👑";
+            crownText.fontSize = 20;
+            crownContainer.addControl(crownText);
+            
+            // Animação de brilho para o primeiro lugar
+            const glowAnimation = new BABYLON.Animation(
+                "glowAnimation",
+                "color",
+                30,
+                BABYLON.Animation.ANIMATIONTYPE_COLOR3,
+                BABYLON.Animation.ANIMATIONLOOPMODE_CYCLE
+            );
+            
+            const glowKeys = [];
+            glowKeys.push({ frame: 0, value: BABYLON.Color3.FromHexString("#FFD700") });
+            glowKeys.push({ frame: 30, value: BABYLON.Color3.FromHexString("#FFF700") });
+            glowKeys.push({ frame: 60, value: BABYLON.Color3.FromHexString("#FFD700") });
+            glowAnimation.setKeys(glowKeys);
+            
+            // Aplicar animação suave
+            entryContainer.animations = [glowAnimation];
+            if (this.scene) {
+                this.scene.beginAnimation(entryContainer, 0, 60, true, 0.5);
+            }
+        }
     }
     
     playHoverSound() {
