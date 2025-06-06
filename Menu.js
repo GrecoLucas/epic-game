@@ -1,5 +1,6 @@
 // Menu.js - Menu principal para seleção de modos de jogo
-import GameLoader from './GameLoader.js';
+
+import GameLoader from "./GameLoader.js";
 
 class Menu {
     constructor() {
@@ -33,21 +34,14 @@ class Menu {
             
             // Configurar o loop de renderização com verificação de cena nula
             this.engine.runRenderLoop(() => {
-                // Verificar se a cena existe antes de tentar renderizá-la
-                if (this.scene && !this.scene.isDisposed) {
+                if (this.scene) {
                     this.scene.render();
-                } else {
-                    // Se a cena foi descartada, parar o loop de renderização
-                    this.engine.stopRenderLoop();
-                    console.log("Loop de renderização parado devido à cena ausente ou descartada");
                 }
             });
             
             // Ajustar ao tamanho da janela
             window.addEventListener('resize', () => {
-                if (this.engine) {
-                    this.engine.resize();
-                }
+                this.engine.resize();
             });
             
             console.log("Menu inicializado com sucesso!");
@@ -68,14 +62,14 @@ class Menu {
             "camera", 
             -Math.PI / 2.2, // Ângulo alpha ligeiramente ajustado
             Math.PI / 2.7,  // Ângulo beta ligeiramente mais baixo para vista superior
-            17,            // Distância aumentada
+            15,            // Distância ajustada para focar no labirinto
             new BABYLON.Vector3(0, 1.5, 0), // Elevado um pouco para melhor visibilidade
             scene
         );
         camera.attachControl(this.canvas, true);
         camera.upperBetaLimit = Math.PI / 2.2;
-        camera.lowerRadiusLimit = 12;
-        camera.upperRadiusLimit = 25;
+        camera.lowerRadiusLimit = 10;
+        camera.upperRadiusLimit = 20;
         camera.fov = 0.8; // Campo de visão ligeiramente mais estreito para um look mais cinematográfico
         
         // Configurar movimento de câmera mais suave
@@ -101,28 +95,17 @@ class Menu {
         dirLight.intensity = 0.7;
         dirLight.diffuse = new BABYLON.Color3(1, 0.9, 0.7); // Luz mais quente
         
-        // Luz de spot para destacar os modelos de cada modo
-        const spotLightMaze = new BABYLON.SpotLight(
-            "spotLightMaze", 
-            new BABYLON.Vector3(-5, 8, 0), // Posição acima do modelo Maze
+        // Luz de spot para destacar o modelo do labirinto
+        const spotLight = new BABYLON.SpotLight(
+            "spotLight", 
+            new BABYLON.Vector3(0, 8, 0), // Posição acima do modelo
             new BABYLON.Vector3(0, -1, 0), // Direção para baixo
             Math.PI/3,                     // Ângulo
             10,                            // Expoente
             scene
         );
-        spotLightMaze.diffuse = new BABYLON.Color3(0.8, 0.5, 0.5); // Tom avermelhado para o labirinto
-        spotLightMaze.intensity = 0.7;
-        
-        const spotLightOpenWorld = new BABYLON.SpotLight(
-            "spotLightOpenWorld", 
-            new BABYLON.Vector3(5, 8, 0),  // Posição acima do modelo Open World
-            new BABYLON.Vector3(0, -1, 0), // Direção para baixo
-            Math.PI/3,                     // Ângulo
-            10,                            // Expoente
-            scene
-        );
-        spotLightOpenWorld.diffuse = new BABYLON.Color3(0.5, 0.8, 0.5); // Tom esverdeado para o mundo aberto
-        spotLightOpenWorld.intensity = 0.7;
+        spotLight.diffuse = new BABYLON.Color3(0.8, 0.5, 0.5); // Tom avermelhado para o labirinto
+        spotLight.intensity = 0.7;
         
         // Criar elementos visuais para o menu
         this.createVisualElements(scene);
@@ -148,19 +131,19 @@ class Menu {
         skybox.material = skyboxMaterial;
         
         // Criar plataforma central giratória
-        const platform = BABYLON.MeshBuilder.CreateDisc("platform", {radius: 12, tessellation: 64}, scene);
+        const platform = BABYLON.MeshBuilder.CreateDisc("platform", {radius: 8, tessellation: 64}, scene);
         const platformMaterial = new BABYLON.StandardMaterial("platformMaterial", scene);
         platformMaterial.diffuseTexture = new BABYLON.Texture("textures/floor.png", scene);
         platformMaterial.bumpTexture = new BABYLON.Texture("textures/floor.png", scene);
-        platformMaterial.diffuseTexture.uScale = 6;
-        platformMaterial.diffuseTexture.vScale = 6;
+        platformMaterial.diffuseTexture.uScale = 4;
+        platformMaterial.diffuseTexture.vScale = 4;
         platformMaterial.specularColor = new BABYLON.Color3(0.2, 0.2, 0.2);
         platform.material = platformMaterial;
         platform.rotation.x = Math.PI / 2;
         platform.position.y = -1;
         
         // Adicionar borda metálica à plataforma
-        const platformBorder = BABYLON.MeshBuilder.CreateTorus("platformBorder", {diameter: 24, thickness: 0.8, tessellation: 64}, scene);
+        const platformBorder = BABYLON.MeshBuilder.CreateTorus("platformBorder", {diameter: 16, thickness: 0.8, tessellation: 64}, scene);
         const borderMaterial = new BABYLON.StandardMaterial("borderMaterial", scene);
         borderMaterial.diffuseColor = new BABYLON.Color3(0.6, 0.6, 0.7);
         borderMaterial.specularColor = new BABYLON.Color3(0.9, 0.9, 1);
@@ -177,11 +160,8 @@ class Menu {
             platformBorder.rotation.y += 0.0008;
         });
         
-        // 1. Muro do labirinto (Modo Maze)
-        this.createMazePreview(scene, -8, 0, 0);
-        
-        // 2. Paisagem aberta (Modo Open World)
-        this.createOpenWorldPreview(scene, 8, 0, 0);
+        // Criar preview do labirinto no centro
+        this.createMazePreview(scene, 0, 0, 0);
     }
     
     // Novo método para criar luzes ao redor da plataforma
@@ -195,11 +175,11 @@ class Menu {
             new BABYLON.Color3(0.3, 1, 1)      // Ciano
         ];
         
-        // Criar 12 pontos de luz ao redor do círculo
-        for (let i = 0; i < 12; i++) {
-            const angle = (i / 12) * Math.PI * 2;
-            const x = Math.sin(angle) * 12;
-            const z = Math.cos(angle) * 12;
+        // Criar 8 pontos de luz ao redor do círculo
+        for (let i = 0; i < 8; i++) {
+            const angle = (i / 8) * Math.PI * 2;
+            const x = Math.sin(angle) * 8;
+            const z = Math.cos(angle) * 8;
             
             // Esfera para representar visualmente a luz
             const sphere = BABYLON.MeshBuilder.CreateSphere(`lightSphere${i}`, {diameter: 0.5}, scene);
@@ -240,7 +220,7 @@ class Menu {
     }
     
     createMazePreview(scene, x, y, z) {
-        // Criar um pequeno labirinto para representar o modo Maze
+        // Criar um labirinto maior para representar o modo Maze
         const mazeMaterial = new BABYLON.StandardMaterial("mazeMaterial", scene);
         mazeMaterial.diffuseTexture = new BABYLON.Texture("textures/wall.png", scene);
         
@@ -253,194 +233,55 @@ class Menu {
             return wall;
         };
         
-        // Criar um pequeno labirinto para preview
+        // Criar um labirinto mais complexo para preview
         const walls = [
             // Paredes externas
-            createWall(0, -2, 4, 0.5),  // Norte
-            createWall(0, 2, 4, 0.5),   // Sul
-            createWall(-2, 0, 0.5, 4),  // Oeste
-            createWall(2, 0, 0.5, 4),   // Leste
+            createWall(0, -3, 6, 0.5),  // Norte
+            createWall(0, 3, 6, 0.5),   // Sul
+            createWall(-3, 0, 0.5, 6),  // Oeste
+            createWall(3, 0, 0.5, 6),   // Leste
             
-            // Paredes internas
-            createWall(-1, 0, 0.5, 2),
-            createWall(0, -0.5, 2, 0.5),
+            // Paredes internas - padrão de labirinto
+            createWall(-1.5, -1, 0.5, 2),
+            createWall(1.5, 1, 0.5, 2),
+            createWall(0, -0.5, 3, 0.5),
+            createWall(-0.5, 1.5, 2, 0.5),
         ];
         
         // Agrupar os muros
         const mazePreview = new BABYLON.TransformNode("mazePreview", scene);
         walls.forEach(wall => wall.parent = mazePreview);
         
-        // Adicionar um monstro pequeno
-        const monsterSphere = BABYLON.MeshBuilder.CreateSphere("monster", {diameter: 0.7}, scene);
-        const monsterMaterial = new BABYLON.StandardMaterial("monsterMaterial", scene);
-        monsterMaterial.diffuseColor = new BABYLON.Color3(0.7, 0.1, 0.1);
-        monsterMaterial.emissiveColor = new BABYLON.Color3(0.5, 0, 0);
-        monsterSphere.material = monsterMaterial;
-        monsterSphere.position = new BABYLON.Vector3(x + 1, y + 0.5, z + 1);
-        monsterSphere.parent = mazePreview;
-        
-        // Animação
-        scene.registerBeforeRender(() => {
-            monsterSphere.position.x = x + 1 + Math.sin(performance.now() * 0.001) * 0.5;
-            monsterSphere.position.z = z + 1 + Math.cos(performance.now() * 0.001) * 0.5;
-        });
+        // Adicionar monstros pequenos
+        for (let i = 0; i < 3; i++) {
+            const monsterSphere = BABYLON.MeshBuilder.CreateSphere(`monster${i}`, {diameter: 0.7}, scene);
+            const monsterMaterial = new BABYLON.StandardMaterial(`monsterMaterial${i}`, scene);
+            monsterMaterial.diffuseColor = new BABYLON.Color3(0.7, 0.1, 0.1);
+            monsterMaterial.emissiveColor = new BABYLON.Color3(0.5, 0, 0);
+            monsterSphere.material = monsterMaterial;
+            
+            const angle = (i / 3) * Math.PI * 2;
+            const radius = 1.5;
+            monsterSphere.position = new BABYLON.Vector3(
+                x + Math.sin(angle) * radius, 
+                y + 0.5, 
+                z + Math.cos(angle) * radius
+            );
+            monsterSphere.parent = mazePreview;
+            
+            // Animação individual para cada monstro
+            scene.registerBeforeRender(() => {
+                const time = performance.now() * 0.001;
+                monsterSphere.position.x = x + Math.sin(angle + time) * radius;
+                monsterSphere.position.z = z + Math.cos(angle + time) * radius;
+            });
+        }
         
         // Adicionar texto "Maze Mode"
-        const mazeModeText = this.createFloatingText("MAZE MODE", x, y + 3, z, scene);
+        const mazeModeText = this.createFloatingText("MAZE MODE", x, y + 3.5, z, scene);
         mazeModeText.parent = mazePreview;
         
         return mazePreview;
-    }
-    
-    createOpenWorldPreview(scene, x, y, z) {
-        // Criar uma miniatura de mundo aberto
-        const ground = BABYLON.MeshBuilder.CreateGround("openWorldGround", {width: 4, height: 4, subdivisions: 20}, scene);
-        ground.position = new BABYLON.Vector3(x, y, z);
-        
-        // Material para terreno variado
-        const groundMaterial = new BABYLON.StandardMaterial("openWorldMaterial", scene);
-        groundMaterial.diffuseTexture = new BABYLON.Texture("textures/floor.png", scene);
-        groundMaterial.bumpTexture = new BABYLON.Texture("textures/floor.png", scene);
-        groundMaterial.diffuseTexture.uScale = 4;
-        groundMaterial.diffuseTexture.vScale = 4;
-        ground.material = groundMaterial;
-        
-        // Adicionar verticies deslocados para simular terreno
-        const positions = ground.getVerticesData(BABYLON.VertexBuffer.PositionKind);
-        for (let i = 0; i < positions.length; i += 3) {
-            // Pular pontos na borda para manter a forma
-            const idx = i / 3;
-            const row = Math.floor(idx / 21);
-            const col = idx % 21;
-            
-            if (row > 0 && row < 20 && col > 0 && col < 20) {
-                // Aplicar função de ruído para elevação
-                const nx = col / 20;
-                const nz = row / 20;
-                const elevation = this.noise(nx * 5, nz * 5) * 0.5;
-                positions[i + 1] = elevation; // Y component
-            }
-        }
-        ground.updateVerticesData(BABYLON.VertexBuffer.PositionKind, positions);
-        ground.updateVerticesData(BABYLON.VertexBuffer.NormalKind, []);
-        BABYLON.VertexData.ComputeNormals(positions, ground.getIndices(), ground.getVerticesData(BABYLON.VertexBuffer.NormalKind));
-        
-        // Criar grupo para mundo aberto
-        const openWorldPreview = new BABYLON.TransformNode("openWorldPreview", scene);
-        ground.parent = openWorldPreview;
-        
-        // Adicionar árvores
-        for (let i = 0; i < 6; i++) {
-            const treeX = (Math.random() - 0.5) * 3;
-            const treeZ = (Math.random() - 0.5) * 3;
-            
-            // Encontrar altura do terreno neste ponto
-            let heightAtPoint = 0;
-            const nx = (treeX / 4) + 0.5;
-            const nz = (treeZ / 4) + 0.5;
-            if (nx >= 0 && nx <= 1 && nz >= 1) {
-                heightAtPoint = this.noise(nx * 5, nz * 5) * 0.5;
-            }
-            
-            this.createTree(scene, x + treeX, y + heightAtPoint, z + treeZ, 0.3 + Math.random() * 0.3).parent = openWorldPreview;
-        }
-        
-        // Adicionar uma pequena casa
-        this.createHouse(scene, x - 1, y + 0.1, z - 1, 0.7).parent = openWorldPreview;
-        
-        // Adicionar texto "Open World Mode"
-        const openWorldText = this.createFloatingText("WORLD MODE", x, y + 3, z, scene);
-        openWorldText.parent = openWorldPreview;
-        
-        return openWorldPreview;
-    }
-    
-    // Função simples de ruído para simular elevação de terreno
-    noise(x, z) {
-        return Math.sin(x * 1.5) * Math.cos(z * 1.5) * 0.5 + 
-               Math.sin(x * 3) * Math.cos(z * 3) * 0.25 +
-               Math.sin(x * 6) * Math.cos(z * 6) * 0.125;
-    }
-    
-    createTree(scene, x, y, z, scale = 1) {
-        const tree = new BABYLON.TransformNode("tree", scene);
-        
-        // Tronco
-        const trunk = BABYLON.MeshBuilder.CreateCylinder("trunk", {height: 1, diameter: 0.2}, scene);
-        trunk.position.y = 0.5;
-        const trunkMaterial = new BABYLON.StandardMaterial("trunkMat", scene);
-        trunkMaterial.diffuseColor = new BABYLON.Color3(0.4, 0.3, 0.2);
-        trunk.material = trunkMaterial;
-        trunk.parent = tree;
-        
-        // Copa - CORRIGIDO: Usando CreateCylinder no lugar de CreateCone
-        const leaves = BABYLON.MeshBuilder.CreateCylinder("leaves", {
-            height: 1.5, 
-            diameterTop: 0, 
-            diameterBottom: 1,
-            tessellation: 8
-        }, scene);
-        leaves.position.y = 1.5;
-        const leavesMaterial = new BABYLON.StandardMaterial("leavesMat", scene);
-        leavesMaterial.diffuseColor = new BABYLON.Color3(0.1, 0.6, 0.1);
-        leaves.material = leavesMaterial;
-        leaves.parent = tree;
-        
-        // Posicionar e escalar a árvore
-        tree.position = new BABYLON.Vector3(x, y, z);
-        tree.scaling = new BABYLON.Vector3(scale, scale, scale);
-        
-        return tree;
-    }
-    
-    createHouse(scene, x, y, z, scale = 1) {
-        const house = new BABYLON.TransformNode("house", scene);
-        
-        // Base
-        const base = BABYLON.MeshBuilder.CreateBox("base", {width: 2, height: 1, depth: 2}, scene);
-        base.position.y = 0.5;
-        const baseMaterial = new BABYLON.StandardMaterial("baseMat", scene);
-        baseMaterial.diffuseColor = new BABYLON.Color3(0.7, 0.7, 0.6);
-        base.material = baseMaterial;
-        base.parent = house;
-        
-        // Telhado
-        const roof = BABYLON.MeshBuilder.CreateCylinder("roof", {height: 1, diameter: 0, diameterBottom: 2.3, diameterTop: 0, tessellation: 4}, scene);
-        roof.position.y = 1.5;
-        roof.rotation.y = Math.PI / 4;
-        const roofMaterial = new BABYLON.StandardMaterial("roofMat", scene);
-        roofMaterial.diffuseColor = new BABYLON.Color3(0.6, 0.2, 0.1);
-        roof.material = roofMaterial;
-        roof.parent = house;
-        
-        // Porta
-        const door = BABYLON.MeshBuilder.CreatePlane("door", {width: 0.5, height: 0.8}, scene);
-        door.position = new BABYLON.Vector3(0, 0.4, 1.01);
-        const doorMaterial = new BABYLON.StandardMaterial("doorMat", scene);
-        doorMaterial.diffuseColor = new BABYLON.Color3(0.4, 0.2, 0.1);
-        door.material = doorMaterial;
-        door.parent = house;
-        
-        // Janelas
-        const windowMaterial = new BABYLON.StandardMaterial("windowMat", scene);
-        windowMaterial.diffuseColor = new BABYLON.Color3(0.7, 0.9, 1);
-        windowMaterial.alpha = 0.7;
-        
-        const window1 = BABYLON.MeshBuilder.CreatePlane("window1", {width: 0.4, height: 0.4}, scene);
-        window1.position = new BABYLON.Vector3(-0.5, 0.6, 1.01);
-        window1.material = windowMaterial;
-        window1.parent = house;
-        
-        const window2 = BABYLON.MeshBuilder.CreatePlane("window2", {width: 0.4, height: 0.4}, scene);
-        window2.position = new BABYLON.Vector3(0.5, 0.6, 1.01);
-        window2.material = windowMaterial;
-        window2.parent = house;
-        
-        // Posicionar e escalar a casa
-        house.position = new BABYLON.Vector3(x, y, z);
-        house.scaling = new BABYLON.Vector3(scale, scale, scale);
-        
-        return house;
     }
     
     createFloatingText(text, x, y, z, scene) {
@@ -471,8 +312,8 @@ class Menu {
         const particleSystem = new BABYLON.ParticleSystem("particles", 2000, scene);
         particleSystem.particleTexture = new BABYLON.Texture("textures/flare.png", scene);
         particleSystem.emitter = new BABYLON.Vector3(0, 5, 0);
-        particleSystem.minEmitBox = new BABYLON.Vector3(-20, -10, -20);
-        particleSystem.maxEmitBox = new BABYLON.Vector3(20, 10, 20);
+        particleSystem.minEmitBox = new BABYLON.Vector3(-15, -10, -15);
+        particleSystem.maxEmitBox = new BABYLON.Vector3(15, 10, 15);
         
         // Propriedades das partículas
         particleSystem.color1 = new BABYLON.Color4(0.7, 0.8, 1.0, 0.1);
@@ -530,8 +371,7 @@ class Menu {
                 "sounds/menu_music.mp3", 
                 scene, 
                 () => {
-                    console.log("Menu music loaded");
-                    this.backgroundMusic.play();
+                    console.log("Música de fundo carregada com sucesso");
                 },
                 {
                     loop: true,
@@ -599,76 +439,65 @@ class Menu {
         titleLine.top = "15px";
         titleContainer.addControl(titleLine);
         
-        // Sub-título com estilo moderno
+        // Sub-título simplificado
         const subtitleContainer = new BABYLON.GUI.Rectangle();
         subtitleContainer.width = "100%";
         subtitleContainer.height = "50px";
         subtitleContainer.thickness = 0;
         subtitleContainer.paddingTop = "20px";
         panel.addControl(subtitleContainer);
-          const subtitle = new BABYLON.GUI.TextBlock();
-        subtitle.text = "CHOOSE YOUR GAME MODE";
+        
+        const subtitle = new BABYLON.GUI.TextBlock();
+        subtitle.text = "SURVIVE THE MAZE";
         subtitle.color = "#b3e0ff";
         subtitle.fontSize = 24;
         subtitle.fontFamily = "Arial, Helvetica, sans-serif";
         subtitle.letterSpacing = "3px";
         subtitleContainer.addControl(subtitle);
         
-        // Container para os botões
-        const buttonsContainer = new BABYLON.GUI.Rectangle();
-        buttonsContainer.width = "900px";
-        buttonsContainer.height = "450px";
-        buttonsContainer.thickness = 0;
-        buttonsContainer.verticalAlignment = BABYLON.GUI.Control.VERTICAL_ALIGNMENT_CENTER;
-        panel.addControl(buttonsContainer);
+        // Container para o botão principal
+        const buttonContainer = new BABYLON.GUI.Rectangle();
+        buttonContainer.width = "500px";
+        buttonContainer.height = "450px";
+        buttonContainer.thickness = 0;
+        buttonContainer.verticalAlignment = BABYLON.GUI.Control.VERTICAL_ALIGNMENT_CENTER;
+        panel.addControl(buttonContainer);
         
-        // Painéis para cada modo
-        const modesContainer = new BABYLON.GUI.Grid();
-        modesContainer.addColumnDefinition(0.5);
-        modesContainer.addColumnDefinition(0.5);
-        modesContainer.width = "100%";
-        modesContainer.height = "100%";
-        modesContainer.paddingLeft = "15px";
-        modesContainer.paddingRight = "15px";
-        buttonsContainer.addControl(modesContainer);
-        
-        // Botão do Modo Maze - Design moderno
-        const mazeModeContainer = new BABYLON.GUI.Rectangle();
-        mazeModeContainer.width = "380px";
-        mazeModeContainer.height = "400px";
-        mazeModeContainer.thickness = 0;
-        mazeModeContainer.cornerRadius = 15;
-        mazeModeContainer.color = "#3399ff";
-        mazeModeContainer.background = "linear-gradient(180deg, rgba(30, 30, 50, 0.8) 0%, rgba(60, 60, 100, 0.8) 100%)";
-        mazeModeContainer.hoverCursor = "pointer";
-        mazeModeContainer.horizontalAlignment = BABYLON.GUI.Control.HORIZONTAL_ALIGNMENT_RIGHT;
-        mazeModeContainer.paddingRight = "10px";
-        mazeModeContainer.shadowColor = "rgba(0, 0, 0, 0.5)";
-        mazeModeContainer.shadowBlur = 15;
-        mazeModeContainer.shadowOffsetX = 5;
-        mazeModeContainer.shadowOffsetY = 5;
-        modesContainer.addControl(mazeModeContainer, 0, 0);
+        // Botão principal do jogo - Design moderno
+        const gameContainer = new BABYLON.GUI.Rectangle();
+        gameContainer.width = "450px";
+        gameContainer.height = "400px";
+        gameContainer.thickness = 0;
+        gameContainer.cornerRadius = 15;
+        gameContainer.color = "#3399ff";
+        gameContainer.background = "linear-gradient(180deg, rgba(30, 30, 50, 0.8) 0%, rgba(60, 60, 100, 0.8) 100%)";
+        gameContainer.hoverCursor = "pointer";
+        gameContainer.shadowColor = "rgba(0, 0, 0, 0.5)";
+        gameContainer.shadowBlur = 15;
+        gameContainer.shadowOffsetX = 5;
+        gameContainer.shadowOffsetY = 5;
+        buttonContainer.addControl(gameContainer);
         
         // Borda com efeito de brilho
-        const mazeBorder = new BABYLON.GUI.Rectangle();
-        mazeBorder.width = "100%";
-        mazeBorder.height = "100%";
-        mazeBorder.thickness = 2;
-        mazeBorder.cornerRadius = 15;
-        mazeBorder.color = "rgba(102, 179, 255, 0.7)";
-        mazeBorder.background = "transparent";
-        mazeModeContainer.addControl(mazeBorder);
+        const gameBorder = new BABYLON.GUI.Rectangle();
+        gameBorder.width = "100%";
+        gameBorder.height = "100%";
+        gameBorder.thickness = 2;
+        gameBorder.cornerRadius = 15;
+        gameBorder.color = "rgba(102, 179, 255, 0.7)";
+        gameBorder.background = "transparent";
+        gameContainer.addControl(gameBorder);
         
-        // Adicionar evento de clique para iniciar o modo Maze
-        mazeModeContainer.onPointerClickObservable.add(() => {
+        // Adicionar evento de clique para iniciar o jogo
+        gameContainer.onPointerClickObservable.add(() => {
             this.startMazeMode();
         });
         
         // Adicionar eventos de hover para efeitos visuais
-        mazeModeContainer.onPointerEnterObservable.add(() => {
-            mazeModeContainer.background = "linear-gradient(180deg, rgba(40, 40, 70, 0.9) 0%, rgba(80, 80, 130, 0.9) 100%)";
-            mazeBorder.color = "rgba(153, 204, 255, 1)";
-            mazeBorder.thickness = 3;
+        gameContainer.onPointerEnterObservable.add(() => {
+            gameContainer.background = "linear-gradient(180deg, rgba(40, 40, 70, 0.9) 0%, rgba(80, 80, 130, 0.9) 100%)";
+            gameBorder.color = "rgba(153, 204, 255, 1)";
+            gameBorder.thickness = 3;
             this.playHoverSound();
             
             // Animar escala
@@ -686,14 +515,14 @@ class Menu {
                 BABYLON.Animation.ANIMATIONTYPE_FLOAT, BABYLON.Animation.ANIMATIONLOOPMODE_CONSTANT);
             animation2.setKeys(keys);
             
-            mazeModeContainer.animations = [animation, animation2];
-            this.scene.beginAnimation(mazeModeContainer, 0, 20, false);
+            gameContainer.animations = [animation, animation2];
+            this.scene.beginAnimation(gameContainer, 0, 20, false);
         });
         
-        mazeModeContainer.onPointerOutObservable.add(() => {
-            mazeModeContainer.background = "linear-gradient(180deg, rgba(30, 30, 50, 0.8) 0%, rgba(60, 60, 100, 0.8) 100%)";
-            mazeBorder.color = "rgba(102, 179, 255, 0.7)";
-            mazeBorder.thickness = 2;
+        gameContainer.onPointerOutObservable.add(() => {
+            gameContainer.background = "linear-gradient(180deg, rgba(30, 30, 50, 0.8) 0%, rgba(60, 60, 100, 0.8) 100%)";
+            gameBorder.color = "rgba(102, 179, 255, 0.7)";
+            gameBorder.thickness = 2;
             
             // Reverter escala
             const animation = new BABYLON.Animation("scaleAnimation", "scaleX", 30, 
@@ -709,251 +538,93 @@ class Menu {
                 BABYLON.Animation.ANIMATIONTYPE_FLOAT, BABYLON.Animation.ANIMATIONLOOPMODE_CONSTANT);
             animation2.setKeys(keys);
             
-            mazeModeContainer.animations = [animation, animation2];
-            this.scene.beginAnimation(mazeModeContainer, 0, 10, false);
+            gameContainer.animations = [animation, animation2];
+            this.scene.beginAnimation(gameContainer, 0, 10, false);
         });
         
         // Barra superior colorida
-        const mazeTopBar = new BABYLON.GUI.Rectangle();
-        mazeTopBar.width = "100%";
-        mazeTopBar.height = "8px";
-        mazeTopBar.cornerRadius = 4;
-        mazeTopBar.color = "transparent";
-        mazeTopBar.background = "linear-gradient(90deg, #ff3366 0%, #ff9933 100%)";
-        mazeTopBar.horizontalAlignment = BABYLON.GUI.Control.HORIZONTAL_ALIGNMENT_CENTER;
-        mazeTopBar.verticalAlignment = BABYLON.GUI.Control.VERTICAL_ALIGNMENT_TOP;
-        mazeModeContainer.addControl(mazeTopBar);
+        const topBar = new BABYLON.GUI.Rectangle();
+        topBar.width = "100%";
+        topBar.height = "8px";
+        topBar.cornerRadius = 4;
+        topBar.color = "transparent";
+        topBar.background = "linear-gradient(90deg, #ff3366 0%, #ff9933 100%)";
+        topBar.horizontalAlignment = BABYLON.GUI.Control.HORIZONTAL_ALIGNMENT_CENTER;
+        topBar.verticalAlignment = BABYLON.GUI.Control.VERTICAL_ALIGNMENT_TOP;
+        gameContainer.addControl(topBar);
         
-        // Imagem para o modo Maze
-        const mazeModeImage = new BABYLON.GUI.Image("mazeModeImage", "textures/maze_mode.png");
-        mazeModeImage.width = "360px";
-        mazeModeImage.height = "200px";
-        mazeModeImage.cornerRadius = 10;
-        mazeModeImage.paddingTop = "25px";
-        mazeModeContainer.addControl(mazeModeImage);
-          // Maze mode title
-        const mazeModeTitle = new BABYLON.GUI.TextBlock();
-        mazeModeTitle.text = "MAZE MODE";
-        mazeModeTitle.color = "#ffffff";
-        mazeModeTitle.fontSize = 28;
-        mazeModeTitle.fontFamily = "Tahoma, Arial, sans-serif";
-        mazeModeTitle.fontWeight = "bold";
-        mazeModeTitle.height = "40px";
-        mazeModeTitle.paddingTop = "15px";
-        mazeModeTitle.shadowColor = "rgba(0, 0, 0, 0.7)";
-        mazeModeTitle.shadowOffsetX = 2;
-        mazeModeTitle.shadowOffsetY = 2;
-        mazeModeTitle.shadowBlur = 3;
-        mazeModeContainer.addControl(mazeModeTitle);
-          // Maze mode description
-        const mazeModeDesc = new BABYLON.GUI.TextBlock();
-        mazeModeDesc.text = "Escape the maze, face hordes of monsters and solve puzzles to survive!";
-        mazeModeDesc.color = "#cccccc";
-        mazeModeDesc.fontSize = 16;
-        mazeModeDesc.fontFamily = "Segoe UI, Arial, sans-serif";
-        mazeModeDesc.height = "80px";
-        mazeModeDesc.textWrapping = true;
-        mazeModeDesc.paddingLeft = "20px";
-        mazeModeDesc.paddingRight = "20px";
-        mazeModeDesc.lineSpacing = "5px";
-        mazeModeContainer.addControl(mazeModeDesc);
+        // Imagem para o jogo
+        const gameImage = new BABYLON.GUI.Image("gameImage", "textures/maze_mode.png");
+        gameImage.width = "420px";
+        gameImage.height = "200px";
+        gameImage.cornerRadius = 10;
+        gameImage.paddingTop = "25px";
+        gameContainer.addControl(gameImage);
         
-        // Botão de início para o modo Maze
-        const mazeStartBtn = new BABYLON.GUI.Button();
-        mazeStartBtn.name = "mazeStartBtn";
-        mazeStartBtn.width = "150px";
-        mazeStartBtn.height = "40px";
-        mazeStartBtn.cornerRadius = 20;
-        mazeStartBtn.color = "#ffffff";
-        mazeStartBtn.background = "linear-gradient(90deg, #ff3366 0%, #ff9933 100%)";
-        mazeStartBtn.thickness = 0;
-        mazeStartBtn.verticalAlignment = BABYLON.GUI.Control.VERTICAL_ALIGNMENT_BOTTOM;
-        mazeStartBtn.paddingBottom = "25px";
-        mazeStartBtn.hoverCursor = "pointer";
-        mazeModeContainer.addControl(mazeStartBtn);        // Add text to the button
-        const mazeStartBtnText = new BABYLON.GUI.TextBlock();
-        mazeStartBtnText.text = "START";
-        mazeStartBtnText.color = "#ffffff";
-        mazeStartBtnText.fontSize = 18;
-        mazeStartBtnText.fontFamily = "Arial, sans-serif";
-        mazeStartBtnText.fontWeight = "bold";
-        mazeStartBtn.addControl(mazeStartBtnText);
+        // Título do jogo
+        const gameTitle = new BABYLON.GUI.TextBlock();
+        gameTitle.text = "MAZE MODE";
+        gameTitle.color = "#ffffff";
+        gameTitle.fontSize = 32;
+        gameTitle.fontFamily = "Tahoma, Arial, sans-serif";
+        gameTitle.fontWeight = "bold";
+        gameTitle.height = "40px";
+        gameTitle.paddingTop = "15px";
+        gameTitle.shadowColor = "rgba(0, 0, 0, 0.7)";
+        gameTitle.shadowOffsetX = 2;
+        gameTitle.shadowOffsetY = 2;
+        gameTitle.shadowBlur = 3;
+        gameContainer.addControl(gameTitle);
+        
+        // Descrição do jogo
+        const gameDesc = new BABYLON.GUI.TextBlock();
+        gameDesc.text = "Escape the maze, face demons and monsters, solve puzzles and survive the horror!";
+        gameDesc.color = "#cccccc";
+        gameDesc.fontSize = 18;
+        gameDesc.fontFamily = "Segoe UI, Arial, sans-serif";
+        gameDesc.height = "80px";
+        gameDesc.textWrapping = true;
+        gameDesc.paddingLeft = "20px";
+        gameDesc.paddingRight = "20px";
+        gameDesc.lineSpacing = "5px";
+        gameContainer.addControl(gameDesc);
+        
+        // Botão de início
+        const startBtn = new BABYLON.GUI.Button();
+        startBtn.name = "startBtn";
+        startBtn.width = "200px";
+        startBtn.height = "50px";
+        startBtn.cornerRadius = 25;
+        startBtn.color = "#ffffff";
+        startBtn.background = "linear-gradient(90deg, #ff3366 0%, #ff9933 100%)";
+        startBtn.thickness = 0;
+        startBtn.verticalAlignment = BABYLON.GUI.Control.VERTICAL_ALIGNMENT_BOTTOM;
+        startBtn.paddingBottom = "25px";
+        startBtn.hoverCursor = "pointer";
+        gameContainer.addControl(startBtn);
+        
+        // Texto do botão
+        const startBtnText = new BABYLON.GUI.TextBlock();
+        startBtnText.text = "START GAME";
+        startBtnText.color = "#ffffff";
+        startBtnText.fontSize = 20;
+        startBtnText.fontFamily = "Arial, sans-serif";
+        startBtnText.fontWeight = "bold";
+        startBtn.addControl(startBtnText);
 
         // Adicionar evento de clique ao botão
-        mazeStartBtn.onPointerClickObservable.add(() => {
+        startBtn.onPointerClickObservable.add(() => {
             this.startMazeMode();
         });
 
         // Eventos de hover para o botão
-        mazeStartBtn.onPointerEnterObservable.add(() => {
-            mazeStartBtn.background = "linear-gradient(90deg, #ff5c85 0%, #ffad5c 100%)";
+        startBtn.onPointerEnterObservable.add(() => {
+            startBtn.background = "linear-gradient(90deg, #ff5c85 0%, #ffad5c 100%)";
             this.playHoverSound();
         });
 
-        mazeStartBtn.onPointerOutObservable.add(() => {
-            mazeStartBtn.background = "linear-gradient(90deg, #ff3366 0%, #ff9933 100%)";
-        });
-        
-        // BOTÃO DO MUNDO ABERTO - Design moderno
-        const openWorldContainer = new BABYLON.GUI.Rectangle();
-        openWorldContainer.width = "380px";
-        openWorldContainer.height = "400px";
-        openWorldContainer.thickness = 0;
-        openWorldContainer.cornerRadius = 15;
-        openWorldContainer.color = "#33cc33";
-        openWorldContainer.background = "linear-gradient(180deg, rgba(30, 50, 30, 0.8) 0%, rgba(60, 100, 60, 0.8) 100%)";
-        openWorldContainer.hoverCursor = "pointer";
-        openWorldContainer.horizontalAlignment = BABYLON.GUI.Control.HORIZONTAL_ALIGNMENT_LEFT;
-        openWorldContainer.paddingLeft = "10px";
-        openWorldContainer.shadowColor = "rgba(0, 0, 0, 0.5)";
-        openWorldContainer.shadowBlur = 15;
-        openWorldContainer.shadowOffsetX = 5;
-        openWorldContainer.shadowOffsetY = 5;
-        modesContainer.addControl(openWorldContainer, 0, 1);
-        
-        // Borda com efeito de brilho
-        const openWorldBorder = new BABYLON.GUI.Rectangle();
-        openWorldBorder.width = "100%";
-        openWorldBorder.height = "100%";
-        openWorldBorder.thickness = 2;
-        openWorldBorder.cornerRadius = 15;
-        openWorldBorder.color = "rgba(102, 255, 102, 0.7)";
-        openWorldBorder.background = "transparent";
-        openWorldContainer.addControl(openWorldBorder);
-        
-        // Adicionar evento de clique para iniciar o modo Open World
-        openWorldContainer.onPointerClickObservable.add(() => {
-            this.startOpenWorldMode();
-        });
-        
-        // Adicionar eventos de hover para efeitos visuais
-        openWorldContainer.onPointerEnterObservable.add(() => {
-            openWorldContainer.background = "linear-gradient(180deg, rgba(40, 70, 40, 0.9) 0%, rgba(80, 130, 80, 0.9) 100%)";
-            openWorldBorder.color = "rgba(153, 255, 153, 1)";
-            openWorldBorder.thickness = 3;
-            this.playHoverSound();
-            
-            // Animar escala
-            const animation = new BABYLON.Animation("scaleAnimation", "scaleX", 30, 
-                BABYLON.Animation.ANIMATIONTYPE_FLOAT, BABYLON.Animation.ANIMATIONLOOPMODE_CONSTANT);
-            
-            const keys = [
-                { frame: 0, value: 1 },
-                { frame: 10, value: 1.03 },
-                { frame: 20, value: 1.03 }
-            ];
-            animation.setKeys(keys);
-            
-            const animation2 = new BABYLON.Animation("scaleAnimation2", "scaleY", 30, 
-                BABYLON.Animation.ANIMATIONTYPE_FLOAT, BABYLON.Animation.ANIMATIONLOOPMODE_CONSTANT);
-            animation2.setKeys(keys);
-            
-            openWorldContainer.animations = [animation, animation2];
-            this.scene.beginAnimation(openWorldContainer, 0, 20, false);
-        });
-        
-        openWorldContainer.onPointerOutObservable.add(() => {
-            openWorldContainer.background = "linear-gradient(180deg, rgba(30, 50, 30, 0.8) 0%, rgba(60, 100, 60, 0.8) 100%)";
-            openWorldBorder.color = "rgba(102, 255, 102, 0.7)";
-            openWorldBorder.thickness = 2;
-            
-            // Reverter escala
-            const animation = new BABYLON.Animation("scaleAnimation", "scaleX", 30, 
-                BABYLON.Animation.ANIMATIONTYPE_FLOAT, BABYLON.Animation.ANIMATIONLOOPMODE_CONSTANT);
-            
-            const keys = [
-                { frame: 0, value: 1.03 },
-                { frame: 10, value: 1 }
-            ];
-            animation.setKeys(keys);
-            
-            const animation2 = new BABYLON.Animation("scaleAnimation2", "scaleY", 30, 
-                BABYLON.Animation.ANIMATIONTYPE_FLOAT, BABYLON.Animation.ANIMATIONLOOPMODE_CONSTANT);
-            animation2.setKeys(keys);
-            
-            openWorldContainer.animations = [animation, animation2];
-            this.scene.beginAnimation(openWorldContainer, 0, 10, false);
-        });
-        
-        // Barra superior colorida
-        const openWorldTopBar = new BABYLON.GUI.Rectangle();
-        openWorldTopBar.width = "100%";
-        openWorldTopBar.height = "8px";
-        openWorldTopBar.cornerRadius = 4;
-        openWorldTopBar.color = "transparent";
-        openWorldTopBar.background = "linear-gradient(90deg, #33cc33 0%, #33ccff 100%)";
-        openWorldTopBar.horizontalAlignment = BABYLON.GUI.Control.HORIZONTAL_ALIGNMENT_CENTER;
-        openWorldTopBar.verticalAlignment = BABYLON.GUI.Control.VERTICAL_ALIGNMENT_TOP;
-        openWorldContainer.addControl(openWorldTopBar);
-        
-        // Imagem para o modo Open World
-        const openWorldImage = new BABYLON.GUI.Image("openWorldImage", "textures/open_world_mode.png");
-        openWorldImage.width = "360px";
-        openWorldImage.height = "200px";
-        openWorldImage.cornerRadius = 10;
-        openWorldImage.paddingTop = "25px";
-        openWorldContainer.addControl(openWorldImage);
-          // Open World mode title
-        const openWorldTitle = new BABYLON.GUI.TextBlock();
-        openWorldTitle.text = "OPEN WORLD MODE";
-        openWorldTitle.color = "#ffffff";
-        openWorldTitle.fontSize = 28;
-        openWorldTitle.fontFamily = "Tahoma, Arial, sans-serif";
-        openWorldTitle.fontWeight = "bold";
-        openWorldTitle.height = "40px";
-        openWorldTitle.paddingTop = "15px";
-        openWorldTitle.shadowColor = "rgba(0, 0, 0, 0.7)";
-        openWorldTitle.shadowOffsetX = 2;
-        openWorldTitle.shadowOffsetY = 2;
-        openWorldTitle.shadowBlur = 3;
-        openWorldContainer.addControl(openWorldTitle);
-          // Open World mode description
-        const openWorldDesc = new BABYLON.GUI.TextBlock();
-        openWorldDesc.text = "Explore a procedurally generated world with different biomes, villages, constructions and resources!";
-        openWorldDesc.color = "#cccccc";
-        openWorldDesc.fontSize = 16;
-        openWorldDesc.fontFamily = "Segoe UI, Arial, sans-serif";
-        openWorldDesc.height = "80px";
-        openWorldDesc.textWrapping = true;
-        openWorldDesc.paddingLeft = "20px";
-        openWorldDesc.paddingRight = "20px";
-        openWorldDesc.lineSpacing = "5px";
-        openWorldContainer.addControl(openWorldDesc);
-        
-        // Botão de início para o modo Open World
-        const openWorldStartBtn = new BABYLON.GUI.Button();
-        openWorldStartBtn.name = "openWorldStartBtn";
-        openWorldStartBtn.width = "150px";
-        openWorldStartBtn.height = "40px";
-        openWorldStartBtn.cornerRadius = 20;
-        openWorldStartBtn.color = "#ffffff";
-        openWorldStartBtn.background = "linear-gradient(90deg, #33cc33 0%, #33ccff 100%)";
-        openWorldStartBtn.thickness = 0;
-        openWorldStartBtn.verticalAlignment = BABYLON.GUI.Control.VERTICAL_ALIGNMENT_BOTTOM;
-        openWorldStartBtn.paddingBottom = "25px";
-        openWorldStartBtn.hoverCursor = "pointer";
-        openWorldContainer.addControl(openWorldStartBtn);        // Add text to the button
-        const openWorldStartBtnText = new BABYLON.GUI.TextBlock();
-        openWorldStartBtnText.text = "START";
-        openWorldStartBtnText.color = "#ffffff";
-        openWorldStartBtnText.fontSize = 18;
-        openWorldStartBtnText.fontFamily = "Arial, sans-serif";
-        openWorldStartBtnText.fontWeight = "bold";
-        openWorldStartBtn.addControl(openWorldStartBtnText);
-
-        // Adicionar evento de clique ao botão
-        openWorldStartBtn.onPointerClickObservable.add(() => {
-            this.startOpenWorldMode();
-        });
-
-        // Eventos de hover para o botão
-        openWorldStartBtn.onPointerEnterObservable.add(() => {
-            openWorldStartBtn.background = "linear-gradient(90deg, #5cd65c 0%, #5cd9ff 100%)";
-            this.playHoverSound();
-        });
-
-        openWorldStartBtn.onPointerOutObservable.add(() => {
-            openWorldStartBtn.background = "linear-gradient(90deg, #33cc33 0%, #33ccff 100%)";
+        startBtn.onPointerOutObservable.add(() => {
+            startBtn.background = "linear-gradient(90deg, #ff3366 0%, #ff9933 100%)";
         });
         
         // Rodapé com créditos e versão
@@ -964,7 +635,8 @@ class Menu {
         footerContainer.verticalAlignment = BABYLON.GUI.Control.VERTICAL_ALIGNMENT_BOTTOM;
         footerContainer.paddingBottom = "15px";
         panel.addControl(footerContainer);
-          const footerText = new BABYLON.GUI.TextBlock();
+        
+        const footerText = new BABYLON.GUI.TextBlock();
         footerText.text = "© 2025 Demon survivor horror | v1.2.0 | Developed with Babylon.js";
         footerText.color = "rgba(255, 255, 255, 0.7)";
         footerText.fontSize = 14;
@@ -993,72 +665,28 @@ class Menu {
         }
     }
     
-
-    // Corrigir os métodos para iniciar os modos de jogo
+    // Iniciar o modo labirinto
     startMazeMode() {
         try {
             this.playClickSound();
             
             // Mostrar tela de carregamento
-            this.showLoadingScreen("Carregando Modo Labirinto...");
+            this.showLoadingScreen("Carregando Labirinto...");
             
             // Parar a música do menu
             this.stopBackgroundMusic();
             
-            // Carregar o modo Maze (modo existente)
+            // Carregar o modo Maze
             setTimeout(() => {
-                try {
-                    if (this.gameLoader) {
-                        this.gameLoader.loadMazeMode();
-                        
-                        // Limpar recursos do menu
-                        this.cleanupMenu();
-                    } else {
-                        console.error("gameLoader não está disponível");
-                    }
-                } catch (error) {
-                    console.error("Erro ao iniciar modo labirinto:", error);
-                }
+                this.cleanupMenu();
+                this.gameLoader.loadMazeMode();
             }, 1500);
         } catch (error) {
             console.error("Erro ao iniciar modo labirinto:", error);
         }
     }
     
-    // Iniciar o modo Open World
-
-    startOpenWorldMode() {
-        try {
-            this.playClickSound();
-            
-            // Mostrar tela de carregamento
-            this.showLoadingScreen("Gerando Mundo Aberto...");
-            
-            // Parar a música do menu
-            this.stopBackgroundMusic();
-            
-            // Carregar o modo Open World (novo modo)
-            setTimeout(() => {
-                try {
-                    if (this.gameLoader) {
-                        this.gameLoader.loadOpenWorldMode();
-                        
-                        // Limpar recursos do menu
-                        this.cleanupMenu();
-                    } else {
-                        console.error("gameLoader não está disponível");
-                    }
-                } catch (error) {
-                    console.error("Erro ao iniciar modo mundo aberto:", error);
-                }
-            }, 1500);
-        } catch (error) {
-            console.error("Erro ao iniciar modo mundo aberto:", error);
-        }
-    }
-    
-
-    // Corrigir a função showLoadingScreen para transição mais suave
+    // Função para mostrar tela de carregamento
     showLoadingScreen(text) {
         console.log(`Mostrando tela de carregamento: ${text}`);
         
@@ -1066,6 +694,7 @@ class Menu {
             // Remover UI existente
             if (this.menuUI) {
                 this.menuUI.dispose();
+                this.menuUI = null;
             }
             
             // Criar nova textura para tela de carregamento
@@ -1094,7 +723,7 @@ class Menu {
             centerContainer.shadowOffsetY = 0;
             background.addControl(centerContainer);
             
-            // Adicionar logo ou ícone do jogo na parte superior
+            // Adicionar logo do jogo
             const logoContainer = new BABYLON.GUI.Rectangle();
             logoContainer.width = "150px";
             logoContainer.height = "150px";
@@ -1114,7 +743,7 @@ class Menu {
             
             // Texto do Logo
             const logoText = new BABYLON.GUI.TextBlock();
-            logoText.text = "ER3D";
+            logoText.text = "DSH";
             logoText.color = "white";
             logoText.fontSize = 48;
             logoText.fontFamily = "Impact, Arial, sans-serif";
@@ -1124,20 +753,8 @@ class Menu {
             
             // Animar o círculo do logo (rotação)
             const animateLogo = () => {
-                let rotation = 0;
-                const rotateLogo = setInterval(() => {
-                    if (!logoCircle || logoCircle.isDisposed) {
-                        clearInterval(rotateLogo);
-                        return;
-                    }
-                    rotation += 0.02;
-                    logoCircle.rotation = rotation;
-                }, 30);
-                
-                // Limpar o intervalo após 5 segundos para economizar recursos
-                setTimeout(() => {
-                    clearInterval(rotateLogo);
-                }, 5000);
+                logoCircle.rotation += 0.01;
+                requestAnimationFrame(animateLogo);
             };
             animateLogo();
             
@@ -1178,11 +795,26 @@ class Menu {
             progressText.fontSize = 16;
             progressText.fontFamily = "Arial, sans-serif";
             progressBarContainer.addControl(progressText);
-              // Random tip
+            
+            // Simular progresso de carregamento
+            let progress = 0;
+            const updateProgress = () => {
+                progress += Math.random() * 15;
+                if (progress > 100) progress = 100;
+                
+                progressBar.width = progress + "%";
+                progressText.text = Math.floor(progress) + "%";
+                
+                if (progress < 100) {
+                    setTimeout(updateProgress, 100);
+                }
+            };
+            updateProgress();
+            
+            // Dica aleatória
             const tips = [
                 "Tip: Look for hidden items in the maze to gain advantages.",
                 "Tip: Zombies are slower but attack in groups.",
-                "Tip: In open world mode, build shelters before nightfall.",
                 "Tip: Barricades can be destroyed by monsters after several attacks.",
                 "Tip: The pistol has infinite ammo but deals less damage.",
                 "Tip: Press 'H' to start a horde of monsters.",
@@ -1193,125 +825,51 @@ class Menu {
             
             const tipText = new BABYLON.GUI.TextBlock();
             tipText.text = randomTip;
-            tipText.color = "rgba(255, 255, 255, 0.7)";
+            tipText.color = "rgba(255, 255, 255, 0.8)";
             tipText.fontSize = 16;
             tipText.fontFamily = "Segoe UI, Arial, sans-serif";
             tipText.textWrapping = true;
-            tipText.resizeToFit = true;
             tipText.top = "130px";
+            tipText.height = "60px";
             tipText.paddingLeft = "20px";
             tipText.paddingRight = "20px";
             centerContainer.addControl(tipText);
-              // Footer text
-            const footerText = new BABYLON.GUI.TextBlock();
-            footerText.text = "Please wait while your game is being prepared...";
-            footerText.color = "rgba(255, 255, 255, 0.5)";
-            footerText.fontSize = 14;
-            footerText.fontFamily = "Segoe UI, Arial, sans-serif";
-            footerText.textWrapping = true;
-            footerText.verticalAlignment = BABYLON.GUI.Control.VERTICAL_ALIGNMENT_BOTTOM;
-            footerText.paddingBottom = "20px";
-            background.addControl(footerText);
             
-            // Animar a barra de progresso com suavização
-            let progress = 0;
-            const progressSpeed = 0.5; // Velocidade de progresso
-            const interval = setInterval(() => {
-                // Aumentar o progresso de forma não linear para simular carregamento real
-                if (progress < 70) {
-                    progress += progressSpeed * (1.0 - progress/100);
-                } else if (progress < 90) {
-                    progress += progressSpeed * 0.3;
-                } else if (progress < 98) {
-                    progress += progressSpeed * 0.1;
-                } else {
-                    progress = 100;
-                }
-                
-                const progressWidth = Math.min(100, Math.floor(progress));
-                
-                if (progressBar && !progressBar.isDisposed) {
-                    progressBar.width = progressWidth + "%";
-                    progressText.text = progressWidth + "%";
-                }
-                
-                if (progressWidth >= 100 || !progressBar || progressBar.isDisposed) {
-                    clearInterval(interval);
-                }
-            }, 30);
-            
-            // Efeito de pulsar no container principal
-            const pulsateContainer = () => {
-                const pulsateAnimation = new BABYLON.Animation(
-                    "pulsateAnimation",
-                    "scaleX",
-                    30,
-                    BABYLON.Animation.ANIMATIONTYPE_FLOAT,
-                    BABYLON.Animation.ANIMATIONLOOPMODE_CYCLE
-                );
-                
-                const keyFrames = [];
-                keyFrames.push({ frame: 0, value: 1.0 });
-                keyFrames.push({ frame: 15, value: 1.02 });
-                keyFrames.push({ frame: 30, value: 1.0 });
-                pulsateAnimation.setKeys(keyFrames);
-                
-                const pulsateAnimation2 = new BABYLON.Animation(
-                    "pulsateAnimation2",
-                    "scaleY",
-                    30,
-                    BABYLON.Animation.ANIMATIONTYPE_FLOAT,
-                    BABYLON.Animation.ANIMATIONLOOPMODE_CYCLE
-                );
-                pulsateAnimation2.setKeys(keyFrames);
-                
-                centerContainer.animations = [pulsateAnimation, pulsateAnimation2];
-                this.scene.beginAnimation(centerContainer, 0, 30, true);
-            };
-            pulsateContainer();
-            
-            // Guardar referência à UI de carregamento
-            this.menuUI = loadingTexture;
         } catch (error) {
-            console.error("Erro ao mostrar tela de carregamento:", error);
+            console.error("Erro ao criar tela de carregamento:", error);
         }
     }
     
-
-    // Corrigir o método cleanupMenu para evitar erros ao limpar recursos
+    // Limpar recursos do menu
     cleanupMenu() {
         console.log("Limpando recursos do menu...");
         
         // Limpar recursos para liberar memória
         try {
-            // Parar o loop de renderização antes de limpar a cena
-            if (this.engine) {
-                this.engine.stopRenderLoop();
-            }
-            
-            // Parar a música do menu
-            this.stopBackgroundMusic();
-            
-            // Limpar a cena
-            if (this.scene && !this.scene.isDisposed) {
-                this.scene.dispose();
-            }
-            
-            // Limpar a interface do menu
+            // Dispose da UI
             if (this.menuUI) {
                 this.menuUI.dispose();
+                this.menuUI = null;
             }
             
-            // Limpar referências
-            this.scene = null;
-            this.menuUI = null;
+            // Parar música
+            this.stopBackgroundMusic();
             
-            console.log("Recursos do menu limpos com sucesso!");
+            // Dispose da cena
+            if (this.scene) {
+                this.scene.dispose();
+                this.scene = null;
+            }
+            
+            // Dispose do engine
+            if (this.engine) {
+                this.engine.dispose();
+                this.engine = null;
+            }
         } catch (error) {
             console.error("Erro ao limpar recursos do menu:", error);
         }
     }
-
 }
 
 export default Menu;
