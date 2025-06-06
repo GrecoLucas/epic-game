@@ -406,9 +406,12 @@ class Game {
                 });
             }
         }
-        
-        // Dispose do jogador
+          // Dispose do jogador
         if (this.player) {
+            // Chamar o dispose do player que limpará o GameOver
+            this.player.dispose();
+            
+            // Dispose do mesh do player
             const playerMesh = this.player.getMesh();
             if (playerMesh) {
                 playerMesh.dispose();

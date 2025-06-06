@@ -1,6 +1,7 @@
 import PlayerModel from './model/PlayerModel.js';
 import PlayerView from './view/PlayerView.js';
 import PlayerController from './controller/PlayerController.js';
+import GameOver from './utils/GameOver.js';
 
 class Player {
     constructor(scene) {
@@ -14,10 +15,13 @@ class Player {
         this.maxHealth = 100;
         this.healthBar = null;
         this.ammoText = null; 
-        
-        // Sistema monetário
+          // Sistema monetário
         this.money = 1000;
         this.moneyText = null;
+        
+        // Sistema GameOver
+        this.gameOver = new GameOver(scene, this);
+        this.gameStartTime = Date.now();
         
         // Inicializar barra de vida e munição
         this.initializePlayerUI(); // Rename method
@@ -83,13 +87,14 @@ class Player {
         
         return this.health;
     }
-    
-    // Método para lidar com a morte do jogador
+      // Método para lidar com a morte do jogador
     die() {
-        // Mostrar mensagem de morte
+        // Definir o tempo de início do jogo no GameOver
+        this.gameOver.setStartTime(this.gameStartTime);
+        
+        // Mostrar tela de Game Over
         setTimeout(() => {
-            alert("Você foi derrotado pelo monstro! O jogo será reiniciado.");
-            location.reload(); // Recarregar a página para reiniciar o jogo
+            this.gameOver.show();
         }, 500);
     }
     
@@ -272,6 +277,14 @@ class Player {
             this.moneyText.color = originalColor;
             this.moneyText.fontSize = originalSize;
         }, 300);
+    }
+    
+    // Método para limpar recursos
+    dispose() {
+        if (this.gameOver) {
+            this.gameOver.dispose();
+            this.gameOver = null;
+        }
     }
 }
 
