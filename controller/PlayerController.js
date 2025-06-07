@@ -531,7 +531,7 @@ class PlayerController {
         if (!this.scene.actionManager) { // Garante que o actionManager exista
              this.scene.actionManager = new BABYLON.ActionManager(this.scene);
         }
-
+    
         // Detectar teclas pressionadas
         this.scene.actionManager.registerAction(
             new BABYLON.ExecuteCodeAction(
@@ -544,14 +544,22 @@ class PlayerController {
                         console.log("Tecla F pressionada, lançando raio de coleta");
                         this.castRayToCollectStructure(); 
                     }
-
-                    // --- Tecla P para pausar o jogo ---
+    
+                    // --- Tecla P ou ESC para pausar o jogo ---
                     if (key === "p" || key === "escape") {
+                        // Se ESC for pressionado e o pointer lock estiver ativo, desbloquear primeiro
+                        if (key === "escape" && this.pointerLockActive) {
+                            this.unlockPointer();
+                        }
+                        
+                        // Sempre mostrar o menu de pausa
                         this.pause.togglePause();
                         return; // Não processar outros inputs se estamos pausando
                     }
+                    
                     // Não processar outros comandos se o jogo estiver pausado
                     if (this.pause.isPaused()) return;
+                    
                     // --- Inputs Gerais (Fora do Modo Construção ou Sempre Ativos) ---
                     if (key === "e") {
                         if (!this.buildingController?.isEnabled) { // Só interage se NÃO estiver construindo
@@ -574,7 +582,7 @@ class PlayerController {
                             }
                         }
                     }
-
+    
                     // --- Inputs do Modo Construção ---
                     if (this.buildingController) {
                         if (key === "b") { // Tecla para ativar/desativar modo construção
@@ -604,7 +612,7 @@ class PlayerController {
                 }
             )
         );
-
+    
         // Detectar teclas liberadas
         this.scene.actionManager.registerAction(
             new BABYLON.ExecuteCodeAction(
@@ -614,6 +622,24 @@ class PlayerController {
                 }
             )
         );
+    }
+    
+    unlockPointer() {
+        try {
+            if (document.exitPointerLock) {
+                document.exitPointerLock();
+            } else if (document.msExitPointerLock) {
+                document.msExitPointerLock();
+            } else if (document.mozExitPointerLock) {
+                document.mozExitPointerLock();
+            } else if (document.webkitExitPointerLock) {
+                document.webkitExitPointerLock();
+            }
+            
+            console.log("Pointer Lock desbloqueado");
+        } catch (e) {
+            console.error("Erro ao desbloquear Pointer Lock:", e);
+        }
     }
     
     // Ativar o botão mais próximo

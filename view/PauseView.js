@@ -23,20 +23,25 @@ class PauseView {
         panel.color = "white";
         panel.thickness = 2;
         panel.background = "rgba(0, 0, 0, 0.8)";
+        
+        // Tornar o painel não clicável para evitar toques acidentais
+        panel.isPointerBlocker = true;
+        panel.onPointerClickObservable.add(() => {
+            // Bloquear cliques - não fazer nada
+            return;
+        });
+        
         this.fullscreenUI.addControl(panel);
         
         // Painel de layout vertical para organizar elementos
         const stackPanel = new BABYLON.GUI.StackPanel();
         stackPanel.verticalAlignment = BABYLON.GUI.Control.VERTICAL_ALIGNMENT_TOP;
         stackPanel.paddingTop = "20px";
+        
+        // Também tornar o stackPanel não clicável
+        stackPanel.isPointerBlocker = true;
+        
         panel.addControl(stackPanel);
-          // Menu title
-        const titleText = new BABYLON.GUI.TextBlock();
-        titleText.text = "PAUSE MENU";
-        titleText.color = "white";
-        titleText.fontSize = 24;
-        titleText.height = "40px";
-        stackPanel.addControl(titleText);
         
         // Espaço entre título e sliders
         const spacer1 = new BABYLON.GUI.Rectangle();
@@ -120,7 +125,7 @@ class PauseView {
         
         // Espaço maior antes do botão
         const spacer3 = new BABYLON.GUI.Rectangle();
-        spacer3.height = "50px";
+        spacer3.height = "100px";
         spacer3.alpha = 0;
         stackPanel.addControl(spacer3);
           // Button to return to the game

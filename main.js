@@ -125,8 +125,6 @@ class Game {
         const camera = this.player.getCamera();
         camera.minZ = 0.1; // Distância mínima de renderização pequena para facilitar interação
                         
-        // Criar e inicializar os monstros
-        this.createMonstersFromMaze();
         
         // Inicializar o sistema de hordas de zumbis
         this.initializeZombieSpawner();
@@ -160,26 +158,7 @@ class Game {
         console.log("Controlador de torretas inicializado com sucesso!");
     }
     
-    // Método para criar monstros baseados no labirinto
-    createMonstersFromMaze() {
-        // Obter todas as posições de monstros do labirinto
-        const monsterPositions = this.maze.getMonsterPositions();
-        
-        if (monsterPositions && monsterPositions.length > 0) {
-            // Criar um monstro para cada posição M encontrada no labirinto
-            console.log(`Criando ${monsterPositions.length} monstros nas posições marcadas...`);
-            
-            monsterPositions.forEach((position, index) => {
-                this.addMonster(position);
-                console.log(`Monstro #${index + 1} criado na posição [${position.x}, ${position.y}, ${position.z}]`);
-            });
-        } else {
-            // Se não tiver posição definida no labirinto, criar em posição padrão
-            console.log("Nenhuma posição de monstro encontrada no labirinto. Criando em posição padrão.");
-            const defaultPosition = new BABYLON.Vector3(10, 1, 10);
-            this.addMonster(defaultPosition);
-        }
-    }
+
     
     // Método para adicionar um novo monstro
     addMonster(position, health = 100, speed = 0.08) {

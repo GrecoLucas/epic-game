@@ -26,7 +26,7 @@ class ZombieSView {
     // Mostrar mensagem para iniciar horda
     showReadyToStart(hordeNumber) {
         if (this.hordeInfoDisplay) {
-            this.hordeInfoDisplay.text = `Press H(2x) to start Horde-${hordeNumber}`;
+            this.hordeInfoDisplay.text = `Press H(2x) to start Horde-${hordeNumber} or P to pause`;
             this.hordeInfoDisplay.color = "lime";
             this.hordeInfoDisplay.fontSize = 22;
         }

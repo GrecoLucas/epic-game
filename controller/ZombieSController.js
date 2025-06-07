@@ -76,17 +76,29 @@ class ZombieSController {
         }
     }
 
-    // Criar posições padrão de spawn caso não exista no labirinto
     createDefaultSpawnPositions() {
+        const centerX = 10; // Posição X do centro baseada no maze.txt
+        const centerZ = 8;  // Posição Z do centro baseada no maze.txt
+        const spawnRadius = 60; // Raio ao redor do centro para spawns
+        const spawnHeight = 1; // Altura dos spawns
         
-        // Criar 4 posições em cantos diferentes
-        this.spawnPositions = [
-            new BABYLON.Vector3(10, 1, 10),
-            new BABYLON.Vector3(-10, 1, 10),
-            new BABYLON.Vector3(10, 1, -10),
-            new BABYLON.Vector3(-10, 1, -10)
-        ];
+        // Gerar múltiplas posições aleatórias dentro da esfera
+        this.spawnPositions = [];
+        const numberOfSpawnPoints = 100; // Número de pontos de spawn a gerar
+        
+        for (let i = 0; i < numberOfSpawnPoints; i++) {
+            const angle = Math.random() * 2 * Math.PI;
+            
+            const distance = Math.sqrt(Math.random()) * spawnRadius;
+            
+            const x = centerX + Math.cos(angle) * distance;
+            const z = centerZ + Math.sin(angle) * distance;
+            
+            // Adicionar posição à lista
+            this.spawnPositions.push(new BABYLON.Vector3(x, spawnHeight, z));
+        }
     }
+
 
     // Iniciar o sistema de hordas
     startHordeSystem() {
