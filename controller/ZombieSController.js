@@ -78,18 +78,18 @@ class ZombieSController {
 
     createDefaultSpawnPositions() {
         const centerX = 10; // Posição X do centro baseada no maze.txt
-        const centerZ = 8;  // Posição Z do centro baseada no maze.txt
-        const spawnRadius = 60; // Raio ao redor do centro para spawns
+        const centerZ = 10;  // Posição Z do centro baseada no maze.txt
+        const spawnRadius = 80; // Raio ao redor do centro para spawns
         const spawnHeight = 1; // Altura dos spawns
         
         // Gerar múltiplas posições aleatórias dentro da esfera
         this.spawnPositions = [];
-        const numberOfSpawnPoints = 100; // Número de pontos de spawn a gerar
+        const numberOfSpawnPoints = 200; // Número de pontos de spawn a gerar
         
         for (let i = 0; i < numberOfSpawnPoints; i++) {
             const angle = Math.random() * 2 * Math.PI;
             
-            const distance = Math.sqrt(Math.random()) * spawnRadius;
+            const distance = spawnRadius;
             
             const x = centerX + Math.cos(angle) * distance;
             const z = centerZ + Math.sin(angle) * distance;

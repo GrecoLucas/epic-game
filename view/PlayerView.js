@@ -7,11 +7,12 @@ class PlayerView {
         // Configurações padrão para sensibilidade e FOV
         this.sensitivity = 5000; // Sensibilidade da câmera (valores maiores = movimento mais lento)
         this.fieldOfView = 1.2; // FOV em radianos (aproximadamente 45 graus)
+        this.cameraHeight = 2; // Altura da câmera em relação ao jogador 
     }
 
     initialize(playerMesh) {
-        // Configurar câmera
-        this.camera = new BABYLON.UniversalCamera("playerCamera", new BABYLON.Vector3(0, 1.7, 0), this.scene);
+        // Configurar câmera usando a altura configurável
+        this.camera = new BABYLON.UniversalCamera("playerCamera", new BABYLON.Vector3(0, this.cameraHeight, 0), this.scene);
         this.camera.parent = playerMesh; // Parenting com o mesh do jogador para mover junto
         this.camera.minZ = 0.1; // Para evitar clipping
         
@@ -35,11 +36,11 @@ class PlayerView {
         // Garantir que a câmera siga exatamente a posição do jogador
         // Registramos uma função para atualizar a posição relativa da câmera a cada frame
         this.scene.registerBeforeRender(() => {
-            // Manter a posição Y da câmera relativa ao jogador fixa (1.7 unidades acima)
+            // Manter a posição Y da câmera relativa ao jogador fixa (usando a altura configurável)
             if (this.camera && playerMesh) {
                 // A câmera já tem o playerMesh como pai, então suas coordenadas são relativas
                 // Apenas garantimos que ela esteja na altura correta
-                this.camera.position.y = 1.7;
+                this.camera.position.y = this.cameraHeight;
             }
         });
     }
@@ -87,6 +88,13 @@ class PlayerView {
         this.camera.attachControl(canvas);
     }
     
+    setCameraHeight(height) {
+        this.cameraHeight = height;
+        if (this.camera) {
+            this.camera.position.y = this.cameraHeight;
+        }
+    }
+
     // Métodos para manipular o FOV (Field of View)
     setFieldOfView(fovRadians) {
         if (!this.camera) return;

@@ -1023,8 +1023,8 @@ class PlayerController {
         
         // CORREÇÃO: Usar a posição do JOGADOR, não da câmera!
         const playerPosition = this.model.getPosition().clone();
-        // Ajustar para a altura dos olhos do jogador
-        playerPosition.y += 1.7; // Aproximadamente a altura dos olhos
+        // Ajustar para a altura dos olhos do jogador usando a altura configurável da câmera
+        playerPosition.y += this.view.getCameraHeight();
         
         // Manter a direção da câmera para o raycasting
         const cameraDirection = this.camera.getForwardRay().direction;

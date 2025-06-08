@@ -1,20 +1,9 @@
-// filepath: c:\Users\gluca\OneDrive\Ambiente de Trabalho\game\view\Blocks\Barricade.js
-// Barricade.js - Class for handling barricades in the game (half-height, half-depth walls)
-
 class Barricade {
     constructor(scene, materials) {
         this.scene = scene;
         this.wallMaterial = materials.wallMaterial;
     }
 
-    /**
-     * Creates a single barricade instance built by the player.
-     * @param {BABYLON.Vector3} position Central position of the barricade.
-     * @param {number} cellSize Size of the grid cell.
-     * @param {number} rotation Rotation in radians on Y axis.
-     * @param {number} initialHealth Initial health points of the barricade.
-     * @returns {BABYLON.Mesh} The barricade mesh.
-     */
     createPlayerBarricade(position, cellSize, rotation = 0, initialHealth = 200) {
         // Use cellSize if provided, otherwise use default
         const barricadeWidth = cellSize || 4;
@@ -40,9 +29,37 @@ class Barricade {
                             new BABYLON.StandardMaterial(`playerBarricadeMat_${barricade.uniqueId}`, this.scene);
         barricade.checkCollisions = true;
         barricade.isPickable = true;
-    
+
+        // Create invisible upper hitbox for zombie collision
+        const upperHitboxHeight = barricadeHeight * 1.5; // Higher than barricade to block zombies
+        const upperHitbox = BABYLON.MeshBuilder.CreateBox(`${barricade.name}_upperHitbox`, {
+            width: barricadeWidth,
+            height: upperHitboxHeight,
+            depth: barricadeDepth
+        }, this.scene);
+
+        // Position the upper hitbox above the barricade
+        const upperHitboxPosition = adjustedPosition.clone();
+        upperHitboxPosition.y = adjustedPosition.y + (barricadeHeight / 2) + (upperHitboxHeight / 2);
+        upperHitbox.position = upperHitboxPosition;
+        upperHitbox.rotation.y = rotation;
+
+        // Make upper hitbox invisible but with collision for zombies
+        upperHitbox.visibility = 0; // Completely invisible
+        upperHitbox.checkCollisions = true; // Block zombie movement
+        upperHitbox.isPickable = false; // Don't interfere with player shooting
+
+        // Create invisible material for upper hitbox
+        const invisibleMaterial = new BABYLON.StandardMaterial(`${barricade.name}_invisibleMat`, this.scene);
+        invisibleMaterial.alpha = 0;
+        upperHitbox.material = invisibleMaterial;
+
+        // Parent the upper hitbox to the main barricade for easier management
+        upperHitbox.parent = barricade;
+
         // Add tag for identification and grid snapping
         BABYLON.Tags.AddTagsTo(barricade, `cell_${position.x}_${position.z}`);
+        BABYLON.Tags.AddTagsTo(upperHitbox, `cell_${position.x}_${position.z} upperHitbox`);
         
         // Initialize metadata as an empty object if it doesn't exist
         barricade.metadata = barricade.metadata || {};
@@ -52,6 +69,7 @@ class Barricade {
         barricade.metadata.isPlayerBuilt = true;
         barricade.metadata.initialHealth = initialHealth || 200; // Ensure default value
         barricade.metadata.health = initialHealth || 200; // Ensure default value
+        barricade.metadata.upperHitbox = upperHitbox; // Reference to upper hitbox for destruction
         
         // Add metadata for dependency tracking
         barricade.metadata.supportingBlock = null; // Block below (support)
@@ -100,14 +118,6 @@ class Barricade {
         return barricade;
     }
 
-    /**
-     * Destroys the visual representation of a barricade.
-     * @param {string} barricadeName Name of the barricade mesh to destroy.
-     * @param {BABYLON.Vector3} position Position of the barricade.
-     * @param {Function} onDestroy Callback to handle destruction effects.
-     * @param {Function} destroyDependentBlock Callback to destroy dependent blocks.
-     * @returns {boolean} Whether the barricade was successfully destroyed.
-     */
     destroyBarricadeVisual(barricadeName, position, onDestroy, destroyDependentBlock) {
         const barricadeMesh = this.scene.getMeshByName(barricadeName);
 
@@ -118,6 +128,16 @@ class Barricade {
             if (barricadeMesh.metadata) {
                 barricadeMesh.metadata.isBeingDestroyed = true;
             }
+            
+            // Destroy upper hitbox if it exists
+            if (barricadeMesh.metadata && barricadeMesh.metadata.upperHitbox) {
+                const upperHitbox = barricadeMesh.metadata.upperHitbox;
+                if (upperHitbox && !upperHitbox.isDisposed()) {
+                    upperHitbox.dispose();
+                    console.log(`Destroyed upper hitbox for ${barricadeName}`);
+                }
+            }
+
             // Check if there are dependent blocks that need to be destroyed first
             if (barricadeMesh.metadata && barricadeMesh.metadata.dependentBlocks && barricadeMesh.metadata.dependentBlocks.length > 0) {
                 console.log(`${barricadeName} has ${barricadeMesh.metadata.dependentBlocks.length} dependent blocks that will be destroyed in cascade`);
