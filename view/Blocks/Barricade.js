@@ -28,26 +28,27 @@ class Barricade {
                             this.wallMaterial.clone(`playerBarricadeMat_${barricade.uniqueId}`) : 
                             new BABYLON.StandardMaterial(`playerBarricadeMat_${barricade.uniqueId}`, this.scene);
         barricade.checkCollisions = true;
-        barricade.isPickable = true;
-
-        // Create invisible upper hitbox for zombie collision
-        const upperHitboxHeight = barricadeHeight * 1.5; // Higher than barricade to block zombies
+        barricade.isPickable = true;        // Create invisible upper hitbox for zombie collision
+        const upperHitboxHeight = barricadeHeight * 0.8; // Reduced height to not interfere with collection
         const upperHitbox = BABYLON.MeshBuilder.CreateBox(`${barricade.name}_upperHitbox`, {
             width: barricadeWidth,
             height: upperHitboxHeight,
             depth: barricadeDepth
         }, this.scene);
 
-        // Position the upper hitbox above the barricade
+        // Position the upper hitbox closer to the barricade
         const upperHitboxPosition = adjustedPosition.clone();
-        upperHitboxPosition.y = adjustedPosition.y + (barricadeHeight / 2) + (upperHitboxHeight / 2);
+        upperHitboxPosition.y = adjustedPosition.y + (barricadeHeight * 0.6); // Lower position
         upperHitbox.position = upperHitboxPosition;
-        upperHitbox.rotation.y = rotation;
-
-        // Make upper hitbox invisible but with collision for zombies
+        upperHitbox.rotation.y = rotation;        // Make upper hitbox invisible and non-interfering with player actions
         upperHitbox.visibility = 0; // Completely invisible
-        upperHitbox.checkCollisions = true; // Block zombie movement
-        upperHitbox.isPickable = false; // Don't interfere with player shooting
+        upperHitbox.checkCollisions = true; // Block zombie movement but not player raycasts
+        upperHitbox.isPickable = false; // Don't interfere with player shooting or collection
+        
+        // Add special property to identify it as a zombie collision box
+        upperHitbox.metadata = upperHitbox.metadata || {};
+        upperHitbox.metadata.isZombieCollisionOnly = true;
+        upperHitbox.metadata.isBarricadeHitbox = true;
 
         // Create invisible material for upper hitbox
         const invisibleMaterial = new BABYLON.StandardMaterial(`${barricade.name}_invisibleMat`, this.scene);

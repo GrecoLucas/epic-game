@@ -1,0 +1,296 @@
+{
+  "accessors": [
+    {
+      "bufferView": 2,
+      "componentType": 5126,
+      "count": 1075,
+      "max": [
+        257.99932861328125,
+        84.6215591430664,
+        78.73188018798828
+      ],
+      "min": [
+        -257.9991149902344,
+        -84.62164306640625,
+        -78.73204803466797
+      ],
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 2,
+      "byteOffset": 12900,
+      "componentType": 5126,
+      "count": 1075,
+      "max": [
+        0.9999992847442627,
+        0.9999892711639404,
+        0.9999983310699463
+      ],
+      "min": [
+        -0.9999992847442627,
+        -0.9999929666519165,
+        -0.955105185508728
+      ],
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 3,
+      "componentType": 5126,
+      "count": 1075,
+      "max": [
+        0.9297109246253967,
+        0.9999945759773254,
+        0.9999929666519165,
+        1.0
+      ],
+      "min": [
+        -0.9999991655349731,
+        -0.991771399974823,
+        -0.9999924898147583,
+        -1.0
+      ],
+      "type": "VEC4"
+    },
+    {
+      "bufferView": 1,
+      "componentType": 5126,
+      "count": 1075,
+      "max": [
+        0.991876482963562,
+        0.9918785691261292
+      ],
+      "min": [
+        0.0028545260429382324,
+        0.008123636245727539
+      ],
+      "type": "VEC2"
+    },
+    {
+      "bufferView": 0,
+      "componentType": 5125,
+      "count": 3204,
+      "type": "SCALAR"
+    }
+  ],
+  "asset": {
+    "extras": {
+      "author": "Mehdi Shahsavan (https://sketchfab.com/ahmagh2e)",
+      "license": "CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)",
+      "source": "https://sketchfab.com/3d-models/barrier---wooden--barbed--wire-protection-13-mb-a99f8daa113a4439b24869e41643ecb4",
+      "title": "Barrier _ Wooden_ Barbed_ Wire Protection_13_MB"
+    },
+    "generator": "Sketchfab-16.59.0",
+    "version": "2.0"
+  },
+  "bufferViews": [
+    {
+      "buffer": 0,
+      "byteLength": 12816,
+      "name": "floatBufferViews",
+      "target": 34963
+    },
+    {
+      "buffer": 0,
+      "byteLength": 8600,
+      "byteOffset": 12816,
+      "byteStride": 8,
+      "name": "floatBufferViews",
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteLength": 25800,
+      "byteOffset": 21416,
+      "byteStride": 12,
+      "name": "floatBufferViews",
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteLength": 17200,
+      "byteOffset": 47216,
+      "byteStride": 16,
+      "name": "floatBufferViews",
+      "target": 34962
+    }
+  ],
+  "buffers": [
+    {
+      "byteLength": 64416,
+      "uri": "scene.bin"
+    }
+  ],
+  "images": [
+    {
+      "uri": "textures/object_0_baseColor.png"
+    },
+    {
+      "uri": "textures/object_0_metallicRoughness.png"
+    },
+    {
+      "uri": "textures/object_0_normal.png"
+    }
+  ],
+  "materials": [
+    {
+      "alphaCutoff": 0.05397450862289363,
+      "alphaMode": "MASK",
+      "doubleSided": true,
+      "name": "object_0",
+      "normalTexture": {
+        "index": 2
+      },
+      "pbrMetallicRoughness": {
+        "baseColorTexture": {
+          "index": 0
+        },
+        "metallicRoughnessTexture": {
+          "index": 1
+        }
+      }
+    }
+  ],
+  "meshes": [
+    {
+      "name": "object_0_object_0_0",
+      "primitives": [
+        {
+          "attributes": {
+            "NORMAL": 1,
+            "POSITION": 0,
+            "TANGENT": 2,
+            "TEXCOORD_0": 3
+          },
+          "indices": 4,
+          "material": 0,
+          "mode": 4
+        }
+      ]
+    }
+  ],
+  "nodes": [
+    {
+      "children": [
+        1
+      ],
+      "matrix": [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        2.220446049250313e-16,
+        -1.0,
+        0.0,
+        0.0,
+        1.0,
+        2.220446049250313e-16,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "name": "Sketchfab_model"
+    },
+    {
+      "children": [
+        2
+      ],
+      "matrix": [
+        0.009999999776482582,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.009999999776482582,
+        0.0,
+        0.0,
+        -0.009999999776482582,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "name": "b403d5c27ab546a693f12e04df51f692.fbx"
+    },
+    {
+      "children": [
+        3,
+        5
+      ],
+      "name": "RootNode"
+    },
+    {
+      "children": [
+        4
+      ],
+      "matrix": [
+        -0.6667539179723689,
+        -0.3329841223496841,
+        -0.6667539179723695,
+        0.0,
+        -0.23545533094091287,
+        0.9429324335619231,
+        -0.23545533094091242,
+        0.0,
+        0.7071067811865474,
+        4.0245584642661925e-16,
+        -0.707106781186547,
+        0.0,
+        618.0640869140625,
+        280.3147277832031,
+        624.4078979492188,
+        1.0
+      ],
+      "name": "CINEMA_4D_Editor"
+    },
+    {
+      "name": "Object_4"
+    },
+    {
+      "children": [
+        6
+      ],
+      "name": "object_0"
+    },
+    {
+      "mesh": 0,
+      "name": "object_0_object_0_0"
+    }
+  ],
+  "samplers": [
+    {
+      "magFilter": 9729,
+      "minFilter": 9987,
+      "wrapS": 10497,
+      "wrapT": 10497
+    }
+  ],
+  "scene": 0,
+  "scenes": [
+    {
+      "name": "Sketchfab_Scene",
+      "nodes": [
+        0
+      ]
+    }
+  ],
+  "textures": [
+    {
+      "sampler": 0,
+      "source": 0
+    },
+    {
+      "sampler": 0,
+      "source": 1
+    },
+    {
+      "sampler": 0,
+      "source": 2
+    }
+  ]
+}

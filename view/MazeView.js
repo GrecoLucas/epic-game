@@ -4,6 +4,7 @@ import Block from './Blocks/Block.js';
 import Ramp from './Blocks/Ramp.js';
 import Barricade from './Blocks/Barricade.js';
 import Turret from './Blocks/Turret.js';
+import Wired_Fence from './Blocks/Wired_Fence.js';
 
 class MazeView {
     constructor(scene) {
@@ -16,12 +17,12 @@ class MazeView {
 
         // Initialize materials
         this.initializeMaterials();
-        
-        // Initialize block and ramp handlers
+          // Initialize block and ramp handlers
         this.blockHandler = new Block(scene, { wallMaterial: this.wallMaterial });
         this.rampHandler = new Ramp(scene, { rampMaterial: this.rampMaterial });
         this.barricadeHandler = new Barricade(scene, { wallMaterial: this.wallMaterial });
         this.turretHandler = new Turret(scene, { wallMaterial: this.wallMaterial });
+        this.wiredFenceHandler = new Wired_Fence(scene, { wallMaterial: this.wallMaterial });
     }
     
     // Initialize materials for walls, floor and ceiling
@@ -671,8 +672,7 @@ class MazeView {
         this.meshes.push(barricade);
         return barricade;
     }
-    
-    /**
+      /**
      * Creates a single turret instance built by the player.
      * @param {BABYLON.Vector3} position Central position of the turret.
      * @param {number} cellSize Size of the grid cell.
@@ -685,6 +685,49 @@ class MazeView {
         this.meshes.push(turret);
         return turret;
     }
+    
+    createPlayerWiredFence(position, cellSize, rotation = 0, initialHealth = 100) {
+        const wiredFence = this.wiredFenceHandler.createPlayerWiredFence(position, cellSize, rotation, initialHealth);
+        this.meshes.push(wiredFence);
+        return wiredFence;
+    }
+
+    // Method to destroy the *visual representation* of the wired fence
+    destroyWiredFenceVisual(fenceName, position) {
+        const onDestroy = (pos) => {
+            this.createWallDestructionEffect(pos);
+        };
+
+        const destroyDependentBlock = (blockName, blockPosition) => {
+            // Handle destruction of dependent blocks
+            if (blockName.startsWith("playerWall_")) {
+                this.destroyWallVisual(blockName, blockPosition);
+            } else if (blockName.startsWith("playerRamp_")) {
+                this.destroyRampVisual(blockName, blockPosition);
+            } else if (blockName.startsWith("playerBarricade_")) {
+                this.destroyBarricadeVisual(blockName, blockPosition);
+            } else if (blockName.startsWith("playerTurret_")) {
+                this.destroyTurretVisual(blockName, blockPosition);
+            } else if (blockName.startsWith("playerWiredFence_")) {
+                this.destroyWiredFenceVisual(blockName, blockPosition);
+            }
+        };
+
+        const result = this.wiredFenceHandler.destroyWiredFenceVisual(fenceName, position, onDestroy, destroyDependentBlock);
+        
+        // If successful and it was in our meshes array, remove it
+        if (result) {
+            const fenceMesh = this.scene.getMeshByName(fenceName);
+            const index = this.meshes.indexOf(fenceMesh);
+            if (index > -1) {
+                this.meshes.splice(index, 1);
+            }
+        }
+        
+        return result;
+    }
+
+
     
     // Return all meshes created by MazeView
     getMeshes() {

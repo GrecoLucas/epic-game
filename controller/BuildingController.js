@@ -3,6 +3,7 @@ import BlockController from './BlocksController/BlockController.js';
 import RampController from './BlocksController/RampController.js';
 import BarricadeController from './BlocksController/BarricadeController.js';
 import TurretController from './BlocksController/TurretController.js';
+import Wired_FenceController from './BlocksController/Wired_FenceController.js';
 
 class BuildingController {
     constructor(scene, camera, collisionSystem, mazeView, mazeModel) {
@@ -19,20 +20,18 @@ class BuildingController {
         // Access cellSize from the model
         this.cellSize = this.mazeModel?.cellSize || 4;
         // Access wallHeight via mazeView
-        this.wallHeight = this.mazeView?.wallMaterial?.wallHeight || 4;
-
-        // Initialize specialized controllers
+        this.wallHeight = this.mazeView?.wallMaterial?.wallHeight || 4;        // Initialize specialized controllers
         this.blockController = new BlockController(scene, camera, collisionSystem, mazeView, mazeModel);
         this.rampController = new RampController(scene, camera, collisionSystem, mazeView, mazeModel);
         this.barricadeController = new BarricadeController(scene, camera, collisionSystem, mazeView, mazeModel);
         this.turretController = new TurretController(scene, camera, collisionSystem, mazeView, mazeModel);
-
-        // Sistema de materiais disponíveis
+        this.wiredFenceController = new Wired_FenceController(scene, camera, collisionSystem, mazeView, mazeModel);        // Sistema de materiais disponíveis
         this.availableMaterials = {
             wall: 0,
             ramp: 0,
             barricade: 0,
-            turret: 0
+            turret: 0,
+            wiredFence: 0
         };
 
         this.currentPlacementValid = false;
@@ -117,8 +116,7 @@ class BuildingController {
         barricadeText.fontSize = 16;
         barricadeText.width = "150px";
         barricadeText.textHorizontalAlignment = BABYLON.GUI.Control.HORIZONTAL_ALIGNMENT_LEFT;
-        materialsPanel.addControl(barricadeText);
-          // Text for turrets
+        materialsPanel.addControl(barricadeText);        // Text for turrets
         const turretText = new BABYLON.GUI.TextBlock();
         turretText.text = "Turrets: 0";
         turretText.color = "white";
@@ -127,14 +125,32 @@ class BuildingController {
         turretText.paddingLeft = "30px";
         turretText.textHorizontalAlignment = BABYLON.GUI.Control.HORIZONTAL_ALIGNMENT_LEFT;
         materialsPanel.addControl(turretText);
-          // Control tips (at the bottom)
+
+        // Second row for materials
+        const materialsPanel2 = new BABYLON.GUI.StackPanel();
+        materialsPanel2.isVertical = false;
+        materialsPanel2.height = "40px";
+        materialsPanel2.paddingTop = "5px";
+        contentContainer.addControl(materialsPanel2);
+
+        // Text for wired fences
+        const wiredFenceText = new BABYLON.GUI.TextBlock();
+        wiredFenceText.text = "W.Fences: 0";
+        wiredFenceText.color = "white";
+        wiredFenceText.fontSize = 16;
+        wiredFenceText.width = "150px";
+        wiredFenceText.paddingLeft = "30px";
+        wiredFenceText.textHorizontalAlignment = BABYLON.GUI.Control.HORIZONTAL_ALIGNMENT_LEFT;
+        materialsPanel2.addControl(wiredFenceText);
+
+        // Control tips (at the bottom)
         const controlsText = new BABYLON.GUI.TextBlock();
-        controlsText.text = "1: Block | 2: Ramp | 3: Barricade | 4: Turret";
+        controlsText.text = "1: Block | 2: Ramp | 3: Barricade | 4: Turret | 5: W.Fence";
         controlsText.color = "yellow";
         controlsText.fontSize = 14;
         controlsText.height = "30px";
         controlsText.paddingTop = "15px";
-        contentContainer.addControl(controlsText);        // Bottom line
+        contentContainer.addControl(controlsText);// Bottom line
         const constolsText2 = new BABYLON.GUI.TextBlock();
         constolsText2.text = "R: Rotate | B: Build Mode | F: Collect";
         constolsText2.color = "yellow";
@@ -150,26 +166,27 @@ class BuildingController {
         constolsText3.height = "30px";
         constolsText3.paddingTop = "15px";
         contentContainer.addControl(constolsText3);
-        
-        // Armazenar referências para atualização
+          // Armazenar referências para atualização
         this.buildModeUI = {
             panel: panel,
             wallText: wallText,
             rampText: rampText,
             barricadeText: barricadeText,
-            turretText: turretText
+            turretText: turretText,
+            wiredFenceText: wiredFenceText
         };
     }
-    
-    // Adicionar materiais ao inventário do jogador
-    addMaterials(wallCount, rampCount, barricadeCount, turretCount = 0) {
+      // Adicionar materiais ao inventário do jogador
+    addMaterials(wallCount, rampCount, barricadeCount, turretCount = 0, wiredFenceCount = 0) {
         this.availableMaterials.wall += wallCount;
         this.availableMaterials.ramp += rampCount;
         this.availableMaterials.barricade += barricadeCount;
         this.availableMaterials.turret += turretCount;
+        this.availableMaterials.wiredFence += wiredFenceCount;
         this._updateBuildModeUI();
-    }
-      // Update the building mode UI
+    }      
+    
+    // Update the building mode UI
     _updateBuildModeUI() {
         if (!this.buildModeUI) return;
         
@@ -178,6 +195,7 @@ class BuildingController {
         this.buildModeUI.rampText.text = `Ramps: ${this.availableMaterials.ramp}`;
         this.buildModeUI.barricadeText.text = `Barricades: ${this.availableMaterials.barricade}`;
         this.buildModeUI.turretText.text = `Turrets: ${this.availableMaterials.turret}`;
+        this.buildModeUI.wiredFenceText.text = `W.Fences: ${this.availableMaterials.wiredFence}`;
         
         // Atualizar visibilidade da UI
         this.buildModeUI.panel.isVisible = this.isEnabled;
@@ -193,8 +211,7 @@ class BuildingController {
     disable() {
         if (!this.isEnabled) return;
         this.isEnabled = false;
-        
-        // Limpar recursos de visualização do preview
+          // Limpar recursos de visualização do preview
         if (this.selectedItem === 'wall') {
             this.blockController.dispose();
         } else if (this.selectedItem === 'ramp') {
@@ -203,6 +220,8 @@ class BuildingController {
             this.barricadeController.dispose();
         } else if (this.selectedItem === 'turret') {
             this.turretController.dispose();
+        } else if (this.selectedItem === 'wiredFence') {
+            this.wiredFenceController.dispose();
         }
         
         this.currentPlacementValid = false;
@@ -217,10 +236,8 @@ class BuildingController {
         } else {
             this.enable();
         }
-    }
-
-    setSelectedItem(itemType) {
-        if (!this.isEnabled || !['wall', 'ramp', 'barricade', 'turret'].includes(itemType)) return;
+    }    setSelectedItem(itemType) {
+        if (!this.isEnabled || !['wall', 'ramp', 'barricade', 'turret', 'wiredFence'].includes(itemType)) return;
         if (this.selectedItem !== itemType) {
             // Limpar preview anterior
             if (this.selectedItem === 'wall') {
@@ -231,6 +248,8 @@ class BuildingController {
                 this.barricadeController.dispose();
             } else if (this.selectedItem === 'turret') {
                 this.turretController.dispose();
+            } else if (this.selectedItem === 'wiredFence') {
+                this.wiredFenceController.dispose();
             }
             
             this.selectedItem = itemType;
@@ -268,12 +287,17 @@ class BuildingController {
             if (this.currentPlacementPosition) {
                 this.currentPlacementValid = this.barricadeController.isValidPlacement(this.currentPlacementPosition);
                 this.barricadeController.updatePreviewMesh(this.currentPlacementPosition, this.currentPlacementValid);
-            }
-        } else if (this.selectedItem === 'turret') {
+            }        } else if (this.selectedItem === 'turret') {
             this.currentPlacementPosition = this.turretController.getPlacementPosition(ray);
             if (this.currentPlacementPosition) {
                 this.currentPlacementValid = this.turretController.isValidPlacement(this.currentPlacementPosition);
                 this.turretController.updatePreviewMesh(this.currentPlacementPosition, this.currentPlacementValid);
+            }
+        } else if (this.selectedItem === 'wiredFence') {
+            this.currentPlacementPosition = this.wiredFenceController.getPlacementPosition(ray);
+            if (this.currentPlacementPosition) {
+                this.currentPlacementValid = this.wiredFenceController.isValidPlacement(this.currentPlacementPosition);
+                this.wiredFenceController.updatePreviewMesh(this.currentPlacementPosition, this.currentPlacementValid);
             }
         }
     }
@@ -302,11 +326,15 @@ class BuildingController {
             console.log("No barricades available!");
             this._showNotification("No barricades available!", "red");
             return false;
-        }
-
-        if (this.selectedItem === 'turret' && this.availableMaterials.turret <= 0) {
+        }        if (this.selectedItem === 'turret' && this.availableMaterials.turret <= 0) {
             console.log("No turrets available!");
             this._showNotification("No turrets available!", "red");
+            return false;
+        }
+
+        if (this.selectedItem === 'wiredFence' && this.availableMaterials.wiredFence <= 0) {
+            console.log("No wired fences available!");
+            this._showNotification("No wired fences available!", "red");
             return false;
         }
         
@@ -318,9 +346,10 @@ class BuildingController {
         } else if (this.selectedItem === 'ramp') {
             success = this.rampController.placeRamp(this.currentPlacementPosition, 150);
         } else if (this.selectedItem === 'barricade') {
-            success = this.barricadeController.placeBarricade(this.currentPlacementPosition, 50);
-        } else if (this.selectedItem === 'turret') {
+            success = this.barricadeController.placeBarricade(this.currentPlacementPosition, 50);        } else if (this.selectedItem === 'turret') {
             success = this.turretController.placeTurret(this.currentPlacementPosition, 150);
+        } else if (this.selectedItem === 'wiredFence') {
+            success = this.wiredFenceController.placeWiredFence(this.currentPlacementPosition, 75);
         }
         
         if (success) {
@@ -330,18 +359,19 @@ class BuildingController {
             } else if (this.selectedItem === 'ramp') {
                 this.availableMaterials.ramp--;
             } else if (this.selectedItem === 'barricade') {
-                this.availableMaterials.barricade--;
-            } else if (this.selectedItem === 'turret') {
+                this.availableMaterials.barricade--;            } else if (this.selectedItem === 'turret') {
                 this.availableMaterials.turret--;
+            } else if (this.selectedItem === 'wiredFence') {
+                this.availableMaterials.wiredFence--;
             }
             
             // Atualizar a UI
             this._updateBuildModeUI();
-            
-            // Mostrar notificação de sucesso
+              // Mostrar notificação de sucesso
             const itemName = this.selectedItem === 'wall' ? 'Bloco' : 
                             this.selectedItem === 'ramp' ? 'Rampa' : 
-                            this.selectedItem === 'barricade' ? 'Barricada' : 'Torreta';
+                            this.selectedItem === 'barricade' ? 'Barricada' : 
+                            this.selectedItem === 'turret' ? 'Torreta' : 'Cerca de Arame';
             this._showNotification(`${itemName} built!`, "green");
 
             if (this.scene.gameInstance?.soundManager) {
@@ -426,13 +456,19 @@ class BuildingController {
             // Re-validar posicionamento após a rotação
             if (this.currentPlacementPosition) {
                 this.currentPlacementValid = this.barricadeController.isValidPlacement(this.currentPlacementPosition);
-            }
-        } else if (this.selectedItem === 'turret') {
+            }        } else if (this.selectedItem === 'turret') {
             this.turretController.rotatePreview(clockwise);
             
             // Re-validar posicionamento após a rotação
             if (this.currentPlacementPosition) {
                 this.currentPlacementValid = this.turretController.isValidPlacement(this.currentPlacementPosition);
+            }
+        } else if (this.selectedItem === 'wiredFence') {
+            this.wiredFenceController.rotatePreview(clockwise);
+            
+            // Re-validar posicionamento após a rotação
+            if (this.currentPlacementPosition) {
+                this.currentPlacementValid = this.wiredFenceController.isValidPlacement(this.currentPlacementPosition);
             }
         }
     }

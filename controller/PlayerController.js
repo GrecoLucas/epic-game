@@ -77,9 +77,6 @@ class PlayerController {
             console.error("Falha ao inicializar BuildingController: Dependências (collisionSystem, mazeView, mazeModel) não encontradas na cena.");
             // this.buildingController remains null
         }
-        setTimeout(() => {
-            this.initializeBuildingController();
-        }, 2000); // Atraso de 2 segundos para garantir que o jogo foi inicializado
 
         this.hotbar = new HotBar(this.scene);
         this.hotbar.initialize();
@@ -118,59 +115,7 @@ class PlayerController {
     
 
     // Adicionando um novo método para inicializar o BuildingController com segurança
-    initializeBuildingController() {
-        // Verificar se já existe um buildingController
-        if (this.buildingController) {
-            return;
-        }
-        
-        console.log("Tentando inicializar BuildingController...");
-        
-        // Obter referências para o mundo aberto se for o modo escolhido
-        if (this.scene.gameInstance && this.scene.gameInstance.gameMode === 'openworld') {
-            if (this.scene.gameInstance.collisionSystem) {
-                // Criar um BuildingController simplificado sem dependências do maze
-                this.buildingController = new BuildingController(
-                    this.scene,
-                    this.view.getCamera(),
-                    this.scene.gameInstance.collisionSystem,
-                    null, // mazeView não necessário no modo mundo aberto
-                    null  // mazeModel não necessário no modo mundo aberto
-                );
-                
-                // Configurar valores padrão que seriam fornecidos pelo maze
-                this.buildingController.cellSize = this.scene.gameInstance.chunkSize || 16;
-                this.buildingController.wallHeight = 4;
-                
-                // Adicionar materiais iniciais - incluindo torretas
-                this.buildingController.addMaterials(10, 5, 5, 5); // 10 blocos, 5 rampas, 5 barricadas, 5 torretas
-                
-                console.log("BuildingController inicializado com sucesso no modo mundo aberto!");
-            } else {
-                console.error("collisionSystem não disponível para inicializar BuildingController");
-            }
-        } 
-        // Modo labirinto - usar a implementação original
-        else if (this.scene.gameInstance && this.scene.gameInstance.maze?.view && this.scene.gameInstance.maze?.model) {
-            this.buildingController = new BuildingController(
-                this.scene,
-                this.view.getCamera(),
-                this.scene.gameInstance.collisionSystem,
-                this.scene.gameInstance.maze.view,
-                this.scene.gameInstance.maze.model
-            );
-            
-            // Adicionar materiais iniciais - incluindo torretas
-            this.buildingController.addMaterials(10, 5, 5, 5); // 10 blocos, 5 rampas, 5 barricadas, 5 torretas
-            
-            console.log("BuildingController inicializado com sucesso no modo labirinto!");
-        } else {
-            // Caso ainda não tenha as dependências necessárias, tentar novamente mais tarde
-            setTimeout(() => {
-                this.initializeBuildingController();
-            }, 2000);
-        }
-    }    // Create a UI element to show interaction hint with buttons
+   // Create a UI element to show interaction hint with buttons
     createInteractionHint() {
         // Create a GUI texture to add 2D elements
         const advancedTexture = BABYLON.GUI.AdvancedDynamicTexture.CreateFullscreenUI("interactionUI");
@@ -211,12 +156,15 @@ class PlayerController {
                     "playerWall_", 
                     "playerRamp_", 
                     "playerBarricade_", 
-                    "playerTurret_"
+                    "playerTurret_",
+                    "playerWiredFence_"
                 ];
-                
-                // Função de predicado melhorada para detectar estruturas
+                  // Função de predicado melhorada para detectar estruturas
                 const structurePredicate = (mesh) => {
                     if (!mesh.isPickable) return false;
+                    
+                    // Ignorar hitboxes especiais de barricadas
+                    if (mesh.metadata && (mesh.metadata.isZombieCollisionOnly || mesh.metadata.isBarricadeHitbox)) return false;
                     
                     // Verificar se o nome corresponde a algum dos prefixos
                     for (const prefix of structurePrefixes) {
@@ -603,9 +551,12 @@ class PlayerController {
                             }
                             if (key === "3") { // Selecionar Barricada
                                 this.buildingController.setSelectedItem('barricade');
-                            }
+                            }                            
                             if (key === "4") { // Selecionar Torreta
                                 this.buildingController.setSelectedItem('turret');
+                            }
+                            if (key === "5") { // Selecionar Cerca de Arame
+                                this.buildingController.setSelectedItem('wiredFence');
                             }
                         }
                     }
@@ -962,18 +913,18 @@ class PlayerController {
         
         // Determinar tipo da estrutura
         let structureType = null;
-        if (this.nearbyStructure.name.startsWith("playerWall_")) structureType = 'wall';
-        else if (this.nearbyStructure.name.startsWith("playerRamp_")) structureType = 'ramp';
+        if (this.nearbyStructure.name.startsWith("playerWall_")) structureType = 'wall';        else if (this.nearbyStructure.name.startsWith("playerRamp_")) structureType = 'ramp';
         else if (this.nearbyStructure.name.startsWith("playerBarricade_")) structureType = 'barricade';
         else if (this.nearbyStructure.name.startsWith("playerTurret_")) structureType = 'turret';
-        
+        else if (this.nearbyStructure.name.startsWith("playerWiredFence_")) structureType = 'wiredFence';        
         // Adicionar material de volta ao inventário
         if (this.buildingController && structureType) {
             this.buildingController.addMaterials(
                 structureType === 'wall' ? 1 : 0,
                 structureType === 'ramp' ? 1 : 0,
                 structureType === 'barricade' ? 1 : 0,
-                structureType === 'turret' ? 1 : 0
+                structureType === 'turret' ? 1 : 0,
+                structureType === 'wiredFence' ? 1 : 0
             );
             
             // Remover a estrutura do mundo
@@ -987,11 +938,12 @@ class PlayerController {
                 } else if (structureType === 'ramp' && this.scene.gameInstance?.mazeView) {
                     this.scene.gameInstance.mazeView.destroyRampVisual(structureName, position);
                 } else if (structureType === 'barricade' && this.scene.gameInstance?.mazeView) {
-                    this.scene.gameInstance.mazeView.destroyBarricadeVisual(structureName, position);
-                } else if (structureType === 'turret' && this.scene.gameInstance?.turretController) {
+                    this.scene.gameInstance.mazeView.destroyBarricadeVisual(structureName, position);                } else if (structureType === 'turret' && this.scene.gameInstance?.turretController) {
                     this.scene.gameInstance.turretController.turretHandler.destroyTurretVisual(
                         structureName, position, null
                     );
+                } else if (structureType === 'wiredFence' && this.scene.gameInstance?.mazeView) {
+                    this.scene.gameInstance.mazeView.destroyWiredFenceVisual(structureName, position);
                 } else {
                     // Fallback: simplesmente remover o mesh se não conseguir usar métodos específicos
                     this.nearbyStructure.dispose();
@@ -1037,19 +989,20 @@ class PlayerController {
             playerPosition,
             cameraDirection,
             30 // Distância do raio (30 unidades)
-        );
-
-        // Lista de prefixos de estruturas que podem ser coletadas
+        );        // Lista de prefixos de estruturas que podem ser coletadas
         const structurePrefixes = [
             "playerWall_", 
             "playerRamp_", 
             "playerBarricade_", 
-            "playerTurret_"
+            "playerTurret_",
+            "playerWiredFence_"
         ];
-                
-        // Predicado para verificar estruturas coletáveis
+                  // Predicado para verificar estruturas coletáveis
         const structurePredicate = (mesh) => {
             if (!mesh.isPickable) return false;
+            
+            // Ignorar meshes de colisão especiais para zombies
+            if (mesh.metadata && mesh.metadata.isZombieCollisionOnly) return false;
             
             // Verificar se o nome corresponde a algum prefixo
             for (const prefix of structurePrefixes) {

@@ -171,9 +171,8 @@ class ButtonController {
                     // Deduzir 60$ do dinheiro do jogador
                     player.money -= this.barricadeCost;
                     player.updateMoneyDisplay();
-                    
-                    // Adicionar materiais ao inventário de construção (2 blocos e 1 rampa)
-                    buildingController.addMaterials(2, 2, 2, 0);
+                      // Adicionar materiais ao inventário de construção (2 blocos e 1 rampa)
+                    buildingController.addMaterials(2, 2, 2, 0, 2);
                     
                     this.showSuccessNotification("Barricades purchased!", "blue");
                     // Exibir mensagem de ajuda
@@ -200,9 +199,8 @@ class ButtonController {
                     // Deduzir 80$ do dinheiro do jogador
                     player.money -= this.turretCost;
                     player.updateMoneyDisplay();
-                    
-                    // Adicionar torretas ao inventário de construção
-                    buildingController.addMaterials(0, 0, 0, 1); // Adiciona apenas 1 torreta
+                      // Adicionar torretas ao inventário de construção
+                    buildingController.addMaterials(0, 0, 0, 1, 0); // Adiciona 1 torreta 
 
                     this.showSuccessNotification("Turret purchased!", "yellow");
                     // Exibir mensagem de ajuda

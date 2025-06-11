@@ -18,11 +18,14 @@ class MonsterController {
         this.OBSTACLE_CONTACT_DAMAGE_THRESHOLD = 2500;
         this.OBSTACLE_DAMAGE_AMOUNT = 15;
         this.OBSTACLE_DAMAGE_COOLDOWN = 3000;
-        
         // Cache para raycasts
         this._directions = null; 
         this._obstaclePredicate = null;
         this._collisionRay = null;
+        
+        // Wired fence interaction tracking
+        this.currentWiredFenceEffects = new Set();
+        this.wiredFenceContactTimes = {};
         
 
         // Sound
@@ -237,10 +240,89 @@ class MonsterController {
                     );
                 }
             } 
-            
-            return true;
+                  return true;
         }
     }
+
+    // Check for wired fence interactions
+    checkWiredFenceInteraction() {
+        if (this.isDisposed || !this.model || !this.model.getMesh()) return;
+        
+        const monsterPosition = this.model.getPosition();
+        const now = Date.now();
+        
+        // Check for wired fence damage zones
+        const ray = new BABYLON.Ray(monsterPosition, new BABYLON.Vector3(0, 0, 0), 2.0);
+        
+        // Find all meshes within range that could be wired fence damage zones
+        const nearbyMeshes = this.scene.meshes.filter(mesh => {
+            if (!mesh.metadata?.isWiredFenceDamageZone) return false;
+            
+            const distance = BABYLON.Vector3.Distance(monsterPosition, mesh.position);
+            return distance < 3.0; // Within damage zone range
+        });
+        
+        this.currentWiredFenceEffects = this.currentWiredFenceEffects || new Set();
+        const currentFrameFences = new Set();
+        
+        for (const damageZone of nearbyMeshes) {
+            const fenceName = damageZone.metadata.parentFence;
+            currentFrameFences.add(fenceName);
+            
+            if (!this.currentWiredFenceEffects.has(fenceName)) {
+                // Just entered wired fence
+                this.currentWiredFenceEffects.add(fenceName);
+                this.wiredFenceContactTimes = this.wiredFenceContactTimes || {};
+                this.wiredFenceContactTimes[fenceName] = now;
+                
+                console.log(`Zombie entered wired fence: ${fenceName}`);
+            }
+            
+            // Apply damage over time while in contact
+            const contactTime = now - (this.wiredFenceContactTimes[fenceName] || now);
+            const damageInterval = 1000; // Damage every second
+            
+            if (contactTime > 0 && contactTime % damageInterval < 50) { // Damage tick
+                const damageAmount = damageZone.metadata.damageAmount || 2;
+                this.takeDamage(damageAmount);
+            }
+        }
+        
+        // Clean up fences no longer in contact
+        for (const fenceName of this.currentWiredFenceEffects) {
+            if (!currentFrameFences.has(fenceName)) {
+                this.currentWiredFenceEffects.delete(fenceName);
+                if (this.wiredFenceContactTimes) {
+                    delete this.wiredFenceContactTimes[fenceName];
+                }
+                console.log(`Zombie left wired fence: ${fenceName}`);
+            }
+        }
+    }
+    
+    // Get speed multiplier based on wired fence contact
+    getWiredFenceSpeedMultiplier() {
+        if (!this.currentWiredFenceEffects || this.currentWiredFenceEffects.size === 0) {
+            return 1.0; // Normal speed
+        }
+        
+        // Find the strongest slowdown effect
+        let maxSlowdown = 1.0;
+        for (const fenceName of this.currentWiredFenceEffects) {
+            // Find the damage zone to get slowdown factor
+            const damageZone = this.scene.meshes.find(mesh => 
+                mesh.metadata?.isWiredFenceDamageZone && 
+                mesh.metadata?.parentFence === fenceName
+            );
+            
+            if (damageZone && damageZone.metadata.slowdownFactor) {
+                maxSlowdown = Math.min(maxSlowdown, damageZone.metadata.slowdownFactor);
+            }
+        }
+        
+        return maxSlowdown;
+    }
+    
 
 
     update() {
@@ -249,9 +331,11 @@ class MonsterController {
         this.lastFrameTime = currentTime;
         
         if (!this.player) return;
-        
-        // Aplicar gravidade
+          // Aplicar gravidade
         this.model.applyGravity(delta);
+        
+        // Check for wired fence interactions
+        this.checkWiredFenceInteraction();
     
         // Obter posição do jogador
         this.playerPosition = this.player.getPosition();
@@ -280,9 +364,9 @@ class MonsterController {
             if (this.view.textPlane) {
                 this.view.textPlane.isVisible = false;
             }
-            
-            // Reduzir frequência de atualizações
-            this.model.moveTowardsPlayer(this.playerPosition, delta * 0.6);
+              // Reduzir frequência de atualizações
+            const speedMultiplier = this.getWiredFenceSpeedMultiplier();
+            this.model.moveTowardsPlayer(this.playerPosition, delta * 0.6 * speedMultiplier);
             
             // Reduzir verificações de colisão
             this.obstacleCheckInterval = 2000;
@@ -291,9 +375,9 @@ class MonsterController {
             // Zumbis a média distância
             if (this.view.textPlane) {
                 this.view.textPlane.isVisible = true;
-            }
-            
-            this.model.moveTowardsPlayer(this.playerPosition, delta * 0.8);
+            }            
+            const speedMultiplier = this.getWiredFenceSpeedMultiplier();
+            this.model.moveTowardsPlayer(this.playerPosition, delta * 0.8 * speedMultiplier);
             
             // Verificar ataques apenas se estiver realmente próximo
             if (this.model.canAttackPlayer(this.playerPosition)) {
@@ -307,9 +391,9 @@ class MonsterController {
             // Zumbis próximos (comportamento completo)
             if (this.view.textPlane) {
                 this.view.textPlane.isVisible = true;
-            }
-            
-            this.model.moveTowardsPlayer(this.playerPosition, delta);
+            }            
+            const speedMultiplier = this.getWiredFenceSpeedMultiplier();
+            this.model.moveTowardsPlayer(this.playerPosition, delta * speedMultiplier);
             
             if (this.model.canAttackPlayer(this.playerPosition)) {
                 this.attackPlayer();
@@ -363,8 +447,7 @@ class MonsterController {
         if (this.isDisposed) return;
         
         this.isDisposed = true;
-        
-        // Limpar timers
+          // Limpar timers
         if (this.model.moveTimeout) {
             clearTimeout(this.model.moveTimeout);
             this.model.moveTimeout = null;
@@ -372,6 +455,14 @@ class MonsterController {
         if (this.stunTimer) {
             clearTimeout(this.stunTimer);
             this.stunTimer = null;
+        }
+        
+        // Clean up wired fence effects
+        if (this.currentWiredFenceEffects) {
+            this.currentWiredFenceEffects.clear();
+        }
+        if (this.wiredFenceContactTimes) {
+            this.wiredFenceContactTimes = {};
         }
 
         // Recompensa ao jogador
