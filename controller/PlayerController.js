@@ -158,13 +158,14 @@ class PlayerController {
                     "playerBarricade_", 
                     "playerTurret_",
                     "playerWiredFence_"
-                ];
-                  // Função de predicado melhorada para detectar estruturas
+                ];                  // Função de predicado melhorada para detectar estruturas
                 const structurePredicate = (mesh) => {
                     if (!mesh.isPickable) return false;
                     
-                    // Ignorar hitboxes especiais de barricadas
-                    if (mesh.metadata && (mesh.metadata.isZombieCollisionOnly || mesh.metadata.isBarricadeHitbox)) return false;
+                    // Ignorar hitboxes especiais de barricadas e damage zones
+                    if (mesh.metadata && (mesh.metadata.isZombieCollisionOnly || 
+                                         mesh.metadata.isBarricadeHitbox || 
+                                         mesh.metadata.isWiredFenceDamageZone)) return false;
                     
                     // Verificar se o nome corresponde a algum dos prefixos
                     for (const prefix of structurePrefixes) {
@@ -172,6 +173,12 @@ class PlayerController {
                             return true;
                         }
                     }
+                    
+                    // NOVO: Verificar se é um collection hitbox de cerca de arame
+                    if (mesh.metadata && mesh.metadata.isWiredFenceCollectionHitbox) {
+                        return true;
+                    }
+                    
                     return false;
                 };
                 
@@ -486,9 +493,7 @@ class PlayerController {
                 BABYLON.ActionManager.OnKeyDownTrigger,
                 (evt) => {
                     const key = evt.sourceEvent.key.toLowerCase();
-                    this.inputMap[key] = true;
-                    
-                    if (key === "f") {
+                    this.inputMap[key] = true;                    if (key === "f") {
                         console.log("Tecla F pressionada, lançando raio de coleta");
                         this.castRayToCollectStructure(); 
                     }
@@ -913,12 +918,34 @@ class PlayerController {
         
         // Determinar tipo da estrutura
         let structureType = null;
-        if (this.nearbyStructure.name.startsWith("playerWall_")) structureType = 'wall';        else if (this.nearbyStructure.name.startsWith("playerRamp_")) structureType = 'ramp';
-        else if (this.nearbyStructure.name.startsWith("playerBarricade_")) structureType = 'barricade';
-        else if (this.nearbyStructure.name.startsWith("playerTurret_")) structureType = 'turret';
-        else if (this.nearbyStructure.name.startsWith("playerWiredFence_")) structureType = 'wiredFence';        
+        let actualStructureName = null;
+        
+        // NOVO: Verificar se é um collection hitbox de cerca de arame
+        if (this.nearbyStructure.metadata && this.nearbyStructure.metadata.isWiredFenceCollectionHitbox) {
+            structureType = 'wiredFence';
+            actualStructureName = this.nearbyStructure.metadata.parentFence;
+            console.log("Detectado collection hitbox de cerca de arame:", actualStructureName);
+        }
+        // Verificações existentes para outros tipos
+        else if (this.nearbyStructure.name.startsWith("playerWall_")) {
+            structureType = 'wall';
+            actualStructureName = this.nearbyStructure.name;
+        } else if (this.nearbyStructure.name.startsWith("playerRamp_")) {
+            structureType = 'ramp';
+            actualStructureName = this.nearbyStructure.name;
+        } else if (this.nearbyStructure.name.startsWith("playerBarricade_")) {
+            structureType = 'barricade';
+            actualStructureName = this.nearbyStructure.name;
+        } else if (this.nearbyStructure.name.startsWith("playerTurret_")) {
+            structureType = 'turret';
+            actualStructureName = this.nearbyStructure.name;
+        } else if (this.nearbyStructure.name.startsWith("playerWiredFence_")) {
+            structureType = 'wiredFence';
+            actualStructureName = this.nearbyStructure.name;
+        }
+        
         // Adicionar material de volta ao inventário
-        if (this.buildingController && structureType) {
+        if (this.buildingController && structureType && actualStructureName) {
             this.buildingController.addMaterials(
                 structureType === 'wall' ? 1 : 0,
                 structureType === 'ramp' ? 1 : 0,
@@ -927,26 +954,44 @@ class PlayerController {
                 structureType === 'wiredFence' ? 1 : 0
             );
             
-            // Remover a estrutura do mundo
-            const position = this.nearbyStructure.position.clone();
-            const structureName = this.nearbyStructure.name;
+            // Obter a posição da estrutura real (não do hitbox)
+            let position;
+            if (structureType === 'wiredFence' && this.nearbyStructure.metadata?.isWiredFenceCollectionHitbox) {
+                // Para collection hitbox, usar a posição do parent
+                const parentFence = this.scene.getMeshByName(actualStructureName) || 
+                                   this.scene.getTransformNodeByName(actualStructureName);
+                position = parentFence ? parentFence.position.clone() : this.nearbyStructure.position.clone();
+            } else {
+                position = this.nearbyStructure.position.clone();
+            }
             
             try {
                 // Usar os métodos de destruição existentes
                 if (structureType === 'wall' && this.scene.gameInstance?.mazeView) {
-                    this.scene.gameInstance.mazeView.destroyWallVisual(structureName, position);
+                    this.scene.gameInstance.mazeView.destroyWallVisual(actualStructureName, position);
                 } else if (structureType === 'ramp' && this.scene.gameInstance?.mazeView) {
-                    this.scene.gameInstance.mazeView.destroyRampVisual(structureName, position);
+                    this.scene.gameInstance.mazeView.destroyRampVisual(actualStructureName, position);
                 } else if (structureType === 'barricade' && this.scene.gameInstance?.mazeView) {
-                    this.scene.gameInstance.mazeView.destroyBarricadeVisual(structureName, position);                } else if (structureType === 'turret' && this.scene.gameInstance?.turretController) {
+                    this.scene.gameInstance.mazeView.destroyBarricadeVisual(actualStructureName, position);
+                } else if (structureType === 'turret' && this.scene.gameInstance?.turretController) {
                     this.scene.gameInstance.turretController.turretHandler.destroyTurretVisual(
-                        structureName, position, null
+                        actualStructureName, position, null
                     );
                 } else if (structureType === 'wiredFence' && this.scene.gameInstance?.mazeView) {
-                    this.scene.gameInstance.mazeView.destroyWiredFenceVisual(structureName, position);
+                    // NOVO: Usar o método de destruição de cerca de arame
+                    this.scene.gameInstance.mazeView.destroyWiredFenceVisual(actualStructureName, position);
                 } else {
                     // Fallback: simplesmente remover o mesh se não conseguir usar métodos específicos
-                    this.nearbyStructure.dispose();
+                    if (structureType === 'wiredFence') {
+                        // Para cerca de arame, remover o fence principal, não o hitbox
+                        const parentFence = this.scene.getMeshByName(actualStructureName) || 
+                                           this.scene.getTransformNodeByName(actualStructureName);
+                        if (parentFence) {
+                            parentFence.dispose();
+                        }
+                    } else {
+                        this.nearbyStructure.dispose();
+                    }
                     console.log("Estrutura removida via dispose padrão");
                 }
                 
@@ -955,7 +1000,15 @@ class PlayerController {
                 console.error("Erro ao destruir estrutura:", error);
                 // Ainda assim, tentar remover o mesh
                 try {
-                    this.nearbyStructure.dispose();
+                    if (structureType === 'wiredFence') {
+                        const parentFence = this.scene.getMeshByName(actualStructureName) || 
+                                           this.scene.getTransformNodeByName(actualStructureName);
+                        if (parentFence) {
+                            parentFence.dispose();
+                        }
+                    } else {
+                        this.nearbyStructure.dispose();
+                    }
                     this.showNotification(`${structureType} recolhido (modo de recuperação)`, "orange");
                 } catch (e) {
                     console.error("Falha ao remover estrutura:", e);
@@ -996,13 +1049,13 @@ class PlayerController {
             "playerBarricade_", 
             "playerTurret_",
             "playerWiredFence_"
-        ];
-                  // Predicado para verificar estruturas coletáveis
+        ];        // Predicado para verificar estruturas coletáveis
         const structurePredicate = (mesh) => {
             if (!mesh.isPickable) return false;
             
-            // Ignorar meshes de colisão especiais para zombies
-            if (mesh.metadata && mesh.metadata.isZombieCollisionOnly) return false;
+            // Ignorar meshes de colisão especiais para zombies e damage zones
+            if (mesh.metadata && (mesh.metadata.isZombieCollisionOnly || 
+                                 mesh.metadata.isWiredFenceDamageZone)) return false;
             
             // Verificar se o nome corresponde a algum prefixo
             for (const prefix of structurePrefixes) {
@@ -1010,11 +1063,82 @@ class PlayerController {
                     return true;
                 }
             }
+            
+            // NOVO: Verificar se é um collection hitbox de cerca de arame
+            if (mesh.metadata && mesh.metadata.isWiredFenceCollectionHitbox) {
+                return true;
+            }
+            
             return false;
         };
         
-        // Realizar o raycast com o predicado
+        // DEBUG: Log all meshes that could be related to wired fence
+        const allMeshes = this.scene.meshes.filter(mesh => 
+            mesh.name && (mesh.name.includes("Fence") || mesh.name.includes("fence") || 
+                         mesh.name.includes("playerWiredFence") || mesh.name.includes("collectionHitbox"))
+        );
+        console.log("DEBUG - All fence-related meshes in scene:", allMeshes.map(m => ({
+            name: m.name,
+            pickable: m.isPickable,
+            visible: m.visibility,
+            metadata: m.metadata ? {
+                isWiredFenceCollectionHitbox: m.metadata.isWiredFenceCollectionHitbox,
+                parentFence: m.metadata.parentFence
+            } : null
+        })));
+        
+        // DEBUG: Log ray details
+        console.log("DEBUG - Ray details:", {
+            origin: ray.origin,
+            direction: ray.direction,
+            length: ray.length
+        });        // Realizar o raycast com o predicado
         const hit = this.scene.pickWithRay(ray, structurePredicate);
+        
+        // DEBUG: Log all intersections
+        console.log("DEBUG - All pickable meshes near raycast:", this.scene.meshes.filter(mesh => {
+            if (!mesh.isPickable) return false;
+            const distance = BABYLON.Vector3.Distance(ray.origin, mesh.position);
+            return distance < 50; // Show meshes within 50 units
+        }).map(m => ({
+            name: m.name,
+            position: m.position,
+            distance: BABYLON.Vector3.Distance(ray.origin, m.position).toFixed(2),
+            pickable: m.isPickable,
+            metadata: m.metadata ? {
+                isWiredFenceCollectionHitbox: m.metadata.isWiredFenceCollectionHitbox,
+                parentFence: m.metadata.parentFence
+            } : null
+        })));
+        
+        // FALLBACK: Se o raycast não encontrou, tentar busca por proximidade
+        if (!hit || !hit.pickedMesh) {
+            console.log("DEBUG - Raycast failed, trying proximity search...");
+            const nearbyFences = this.scene.meshes.filter(mesh => {
+                if (!mesh.isPickable) return false;
+                
+                // Check if it's a wired fence or collection hitbox
+                if (mesh.metadata?.isWiredFenceCollectionHitbox || mesh.name.startsWith("playerWiredFence_")) {
+                    const distance = BABYLON.Vector3.Distance(playerPosition, mesh.position);
+                    console.log(`DEBUG - Found fence mesh: ${mesh.name}, distance: ${distance.toFixed(2)}, pickable: ${mesh.isPickable}`);
+                    return distance < 10; // Within 10 units
+                }
+                return false;
+            });
+            
+            if (nearbyFences.length > 0) {
+                const closestFence = nearbyFences.reduce((closest, current) => {
+                    const closestDist = BABYLON.Vector3.Distance(playerPosition, closest.position);
+                    const currentDist = BABYLON.Vector3.Distance(playerPosition, current.position);
+                    return currentDist < closestDist ? current : closest;
+                });
+                
+                console.log("DEBUG - Found nearby fence via proximity:", closestFence.name);
+                this.nearbyStructure = closestFence;
+                this.collectNearbyStructure();
+                return true;
+            }
+        }
         
         if (hit && hit.pickedMesh) {
             // Armazenar temporariamente a estrutura encontrada

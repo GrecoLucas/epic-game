@@ -242,24 +242,22 @@ class MonsterController {
             } 
                   return true;
         }
-    }
-
-    // Check for wired fence interactions
+    }    // Check for wired fence interactions
     checkWiredFenceInteraction() {
         if (this.isDisposed || !this.model || !this.model.getMesh()) return;
         
         const monsterPosition = this.model.getPosition();
         const now = Date.now();
         
-        // Check for wired fence damage zones
-        const ray = new BABYLON.Ray(monsterPosition, new BABYLON.Vector3(0, 0, 0), 2.0);
-        
         // Find all meshes within range that could be wired fence damage zones
         const nearbyMeshes = this.scene.meshes.filter(mesh => {
             if (!mesh.metadata?.isWiredFenceDamageZone) return false;
             
-            const distance = BABYLON.Vector3.Distance(monsterPosition, mesh.position);
-            return distance < 3.0; // Within damage zone range
+            // CORREÇÃO: Usar absolutePosition em vez de position para meshes com parent
+            const meshPosition = mesh.parent ? mesh.absolutePosition : mesh.position;
+            const distance = BABYLON.Vector3.Distance(monsterPosition, meshPosition);
+            
+            return distance < 4.0; // Increased range for better detection
         });
         
         this.currentWiredFenceEffects = this.currentWiredFenceEffects || new Set();
@@ -275,7 +273,10 @@ class MonsterController {
                 this.wiredFenceContactTimes = this.wiredFenceContactTimes || {};
                 this.wiredFenceContactTimes[fenceName] = now;
                 
-                console.log(`Zombie entered wired fence: ${fenceName}`);
+                // Registrar que este zumbi entrou em contato com a cerca
+                this.registerZombieContact(fenceName);
+                
+                console.log(`Zombie entered wired fence: ${fenceName} - applying slowdown`);
             }
             
             // Apply damage over time while in contact
@@ -288,19 +289,144 @@ class MonsterController {
             }
         }
         
-        // Clean up fences no longer in contact
+        // Clean up fences no longer in contact and destroy them if limit reached
         for (const fenceName of this.currentWiredFenceEffects) {
             if (!currentFrameFences.has(fenceName)) {
                 this.currentWiredFenceEffects.delete(fenceName);
                 if (this.wiredFenceContactTimes) {
                     delete this.wiredFenceContactTimes[fenceName];
                 }
-                console.log(`Zombie left wired fence: ${fenceName}`);
+                
+                console.log(`Zombie left wired fence: ${fenceName} - removing slowdown effect`);
+                
+                // Verificar se a cerca deve ser destruída baseado no limite de contatos
+                if (this.shouldDestroyFenceAfterContact(fenceName)) {
+                    console.log(`Zombie left wired fence: ${fenceName} - DESTROYING FENCE (contact limit reached)`);
+                    this.destroyWiredFenceOnContact(fenceName);
+                } else {
+                    console.log(`Zombie left wired fence: ${fenceName} - Fence still has uses remaining`);
+                }
             }
+        }    }
+    
+    // Registrar que um zumbi entrou em contato com a cerca
+    registerZombieContact(fenceName) {
+        const fenceMesh = this.scene.getMeshByName(fenceName) || this.scene.getTransformNodeByName(fenceName);
+        
+        if (!fenceMesh || !fenceMesh.metadata) return;
+        
+        // Verificar se este zumbi já foi contado para esta cerca
+        const zombieId = this.model?.getMesh()?.uniqueId || Math.random().toString(36);
+        
+        if (!fenceMesh.metadata.zombiesInContact.has(zombieId)) {
+            // Adicionar zumbi ao set de contato atual
+            fenceMesh.metadata.zombiesInContact.add(zombieId);
+            
+            // Incrementar contador total
+            fenceMesh.metadata.zombieContactCount++;
+            
+            console.log(`Zombie ${zombieId} registered contact with fence ${fenceName}. Total contacts: ${fenceMesh.metadata.zombieContactCount}/${fenceMesh.metadata.maxZombieContacts}`);
         }
     }
     
-    // Get speed multiplier based on wired fence contact
+    // Verificar se a cerca deve ser destruída após o contato
+    shouldDestroyFenceAfterContact(fenceName) {
+        const fenceMesh = this.scene.getMeshByName(fenceName) || this.scene.getTransformNodeByName(fenceName);
+        
+        if (!fenceMesh || !fenceMesh.metadata) return true; // Default: destroy if no metadata
+        
+        // Remover este zumbi do set de contato atual
+        const zombieId = this.model?.getMesh()?.uniqueId || Math.random().toString(36);
+        fenceMesh.metadata.zombiesInContact.delete(zombieId);
+        
+        // Verificar se o limite foi atingido
+        const contactLimit = fenceMesh.metadata.maxZombieContacts || 1;
+        const currentContacts = fenceMesh.metadata.zombieContactCount || 0;
+        
+        console.log(`Fence ${fenceName}: ${currentContacts}/${contactLimit} zombie contacts`);
+        
+        return currentContacts >= contactLimit;
+    }
+
+    // Destroy wired fence when zombie leaves contact
+    destroyWiredFenceOnContact(fenceName) {
+        try {
+            // Find the fence mesh or transform node
+            const fenceMesh = this.scene.getMeshByName(fenceName) || this.scene.getTransformNodeByName(fenceName);
+            
+            if (!fenceMesh) {
+                console.warn(`Wired fence not found for destruction: ${fenceName}`);
+                return false;
+            }
+            
+            console.log(`Destroying wired fence: ${fenceName}`);
+            
+            // Get fence position for destruction effect
+            const fencePosition = fenceMesh.position.clone();
+            
+            // Determine game mode
+            const isOpenWorldMode = this.scene.gameInstance?.gameMode === 'openworld';
+            const mazeController = !isOpenWorldMode ? this.scene.gameInstance?.maze?.controller : null;
+            
+            // Try to use the proper destruction method from MazeView
+            if (mazeController && mazeController.getView) {
+                const view = mazeController.getView();
+                if (view.destroyWiredFenceVisual) {
+                    const destroyResult = view.destroyWiredFenceVisual(
+                        fenceName, 
+                        fencePosition,
+                        null, // onDestroy effect (optional)
+                        (blockName, blockPosition) => {
+                            // Callback for destroying dependent blocks if necessary
+                            console.log(`Destroying dependent block: ${blockName} at ${blockPosition}`);
+                        }
+                    );
+                    
+                    if (destroyResult) {
+                        console.log(`Successfully destroyed wired fence: ${fenceName}`);
+                        return true;
+                    }
+                }
+            }
+            
+            // Fallback: Direct destruction for Open World mode or if MazeView method fails
+            console.log(`Using fallback destruction for fence: ${fenceName}`);
+            
+            // Find and destroy all related components
+            const relatedMeshes = this.scene.meshes.filter(mesh => 
+                mesh.name.includes(fenceName) || 
+                (mesh.metadata && mesh.metadata.parentFence === fenceName)
+            );
+            
+            for (const relatedMesh of relatedMeshes) {
+                if (relatedMesh && !relatedMesh.isDisposed()) {
+                    console.log(`Disposing related mesh: ${relatedMesh.name}`);
+                    relatedMesh.dispose();
+                }
+            }
+            
+            // Dispose main fence mesh/node if it still exists
+            if (fenceMesh && !fenceMesh.isDisposed()) {
+                // Dispose all children first
+                if (fenceMesh.getChildren) {
+                    fenceMesh.getChildren().forEach(child => {
+                        if (child && child.dispose && !child.isDisposed()) {
+                            child.dispose();
+                        }
+                    });
+                }
+                
+                fenceMesh.dispose();
+                console.log(`Disposed main fence mesh: ${fenceName}`);
+            }
+            
+            return true;
+            
+        } catch (error) {
+            console.error(`Error destroying wired fence ${fenceName}:`, error);
+            return false;
+        }
+    }    // Get speed multiplier based on wired fence contact
     getWiredFenceSpeedMultiplier() {
         if (!this.currentWiredFenceEffects || this.currentWiredFenceEffects.size === 0) {
             return 1.0; // Normal speed

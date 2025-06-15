@@ -2,6 +2,35 @@ class Wired_Fence {
     constructor(scene, materials) {
         this.scene = scene;
         this.wallMaterial = materials.wallMaterial;
+          // CONFIGURAÇÃO: Quantos zumbis podem passar pela cerca antes dela ser destruída
+        this.maxZombieContacts = 3; // Valor padrão: 3 zumbis
+    }    // Método para configurar quantos zumbis podem passar pela cerca
+    setMaxZombieContacts(maxContacts) {
+        this.maxZombieContacts = Math.max(1, maxContacts); // Mínimo de 1 zumbi
+        console.log(`Wired fence max zombie contacts set to: ${this.maxZombieContacts}`);
+        return this; // Para permitir method chaining
+    }
+
+    // Método para obter a configuração atual
+    getMaxZombieContacts() {
+        return this.maxZombieContacts;
+    }
+
+    // Método para criar uma cerca com configuração personalizada
+    createCustomWiredFence(position, cellSize, rotation = 0, initialHealth = 100, maxZombieContacts = null) {
+        // Se um valor personalizado for fornecido, usar ele temporariamente
+        const originalMax = this.maxZombieContacts;
+        if (maxZombieContacts !== null) {
+            this.maxZombieContacts = Math.max(1, maxZombieContacts);
+        }
+        
+        // Criar a cerca normalmente
+        const fence = this.createPlayerWiredFence(position, cellSize, rotation, initialHealth);
+        
+        // Restaurar valor original
+        this.maxZombieContacts = originalMax;
+        
+        return fence;
     }
 
     createPlayerWiredFence(position, cellSize, rotation = 0, initialHealth = 100) {
@@ -42,20 +71,24 @@ class Wired_Fence {
         }).catch((error) => {
             console.error("Failed to load wired fence 3D model:", error);
         });
-        
-        // NOVO: Criar hitbox invisível para detecção de coleta (separado da damage zone)
+          // NOVO: Criar hitbox invisível para detecção de coleta (separado da damage zone)
         const collectionHitbox = BABYLON.MeshBuilder.CreateBox(`${fenceRoot.name}_collectionHitbox`, {
             width: cellSize || 4,
             height: (this.wallMaterial?.wallHeight || 4) * 0.8,
             depth: (cellSize || 4) * 0.2 // Slightly thicker than fence for easier detection
         }, this.scene);
-        
-        // Position and configure collection hitbox
-        collectionHitbox.position = position.clone();
+          // Position and configure collection hitbox
         collectionHitbox.parent = fenceRoot;
+        collectionHitbox.position = new BABYLON.Vector3(0, 0, 0); // Posição relativa ao parent (center)
         collectionHitbox.visibility = 0; // Invisible
         collectionHitbox.checkCollisions = false; // No physical collision with player
         collectionHitbox.isPickable = true; // IMPORTANTE: Deve ser pickable para detecção F
+        
+        // CORREÇÃO: Garantir que seja realmente pickable
+        setTimeout(() => {
+            collectionHitbox.isPickable = true;
+            console.log(`FORCED hitbox pickable: ${collectionHitbox.isPickable} for ${collectionHitbox.name}`);
+        }, 100);
         
         // Add metadata to identify as collection hitbox
         collectionHitbox.metadata = {
@@ -64,8 +97,7 @@ class Wired_Fence {
             isPlayerBuilt: true,
             isWiredFence: true
         };
-        
-        // Create invisible zombie damage zone (larger than the fence)
+          // Create invisible zombie damage zone (larger than the fence)
         const damageZoneSize = cellSize * 1.5; // Make damage zone bigger than the fence
         const damageZone = BABYLON.MeshBuilder.CreateBox(`${fenceRoot.name}_damageZone`, {
             width: damageZoneSize,
@@ -74,13 +106,11 @@ class Wired_Fence {
         }, this.scene);
         
         // Position and configure damage zone
-        damageZone.position = position.clone();
         damageZone.parent = fenceRoot;
+        damageZone.position = new BABYLON.Vector3(0, 0, 0); // Posição relativa ao parent
         damageZone.visibility = 0; // Invisible
         damageZone.checkCollisions = false; // No physical collision
-        damageZone.isPickable = false; // Don't interfere with player interactions
-    
-        // Add metadata to identify as damage zone
+        damageZone.isPickable = false; // Don't interfere with player interactions        // Add metadata to identify as damage zone
         damageZone.metadata = {
             isWiredFenceDamageZone: true,
             parentFence: fenceRoot.name,
@@ -97,6 +127,11 @@ class Wired_Fence {
         fenceRoot.metadata.health = initialHealth || 100;
         fenceRoot.metadata.hasCollision = false; // Mark as no collision
         fenceRoot.metadata.collectionHitbox = collectionHitbox; // NOVO: Referência para o hitbox
+        
+        // NOVO: Metadata para controle de contatos de zumbis
+        fenceRoot.metadata.maxZombieContacts = this.maxZombieContacts; // Quantos zumbis podem passar
+        fenceRoot.metadata.zombieContactCount = 0; // Contador de zumbis que já passaram
+        fenceRoot.metadata.zombiesInContact = new Set(); // Zumbis atualmente em contato
         
         // Add metadata for dependency tracking
         fenceRoot.metadata.supportingBlock = null;
@@ -133,18 +168,20 @@ class Wired_Fence {
         
         // Add tag for identification and grid snapping
         BABYLON.Tags.AddTagsTo(fenceRoot, `cell_${position.x}_${position.z}`);
-        BABYLON.Tags.AddTagsTo(collectionHitbox, `cell_${position.x}_${position.z} collectionHitbox`);
-        
-        // Make the root pickable for interaction (backup)
+        BABYLON.Tags.AddTagsTo(collectionHitbox, `cell_${position.x}_${position.z} collectionHitbox`);        // Make the root pickable for interaction (backup)
         fenceRoot.isPickable = true;
         fenceRoot.checkCollisions = false; // No collision as specified
+          // Debug: Log created components
+        console.log(`Created wired fence components:
+        - Main fence: ${fenceRoot.name} (pickable: ${fenceRoot.isPickable})
+        - Collection hitbox: ${collectionHitbox.name} (pickable: ${collectionHitbox.isPickable})
+        - Damage zone: ${damageZone.name} (slowdown: ${damageZone.metadata.slowdownFactor})`);
         
         console.log(`Created player wired fence at ${position} with health ${initialHealth} (no collision, with collection hitbox)`);
         return fenceRoot;
     }
-    
-    destroyWiredFenceVisual(fenceName, position, onDestroy, destroyDependentBlock) {
-        const fenceMesh = this.scene.getMeshByName(fenceName);
+      destroyWiredFenceVisual(fenceName, position, onDestroy, destroyDependentBlock) {
+        const fenceMesh = this.scene.getMeshByName(fenceName) || this.scene.getTransformNodeByName(fenceName);
     
         if (fenceMesh) {
             if (fenceMesh.metadata && fenceMesh.metadata.isBeingDestroyed) {
@@ -153,6 +190,8 @@ class Wired_Fence {
             if (fenceMesh.metadata) {
                 fenceMesh.metadata.isBeingDestroyed = true;
             }
+            
+            console.log(`Starting destruction of wired fence: ${fenceName}`);
     
             // NOVO: Destruir o collection hitbox se existir
             if (fenceMesh.metadata && fenceMesh.metadata.collectionHitbox) {
@@ -160,6 +199,19 @@ class Wired_Fence {
                 if (collectionHitbox && !collectionHitbox.isDisposed()) {
                     collectionHitbox.dispose();
                     console.log(`Destroyed collection hitbox for ${fenceName}`);
+                }
+            }
+            
+            // Find and destroy all related components in the scene
+            const relatedMeshes = this.scene.meshes.filter(mesh => 
+                mesh.name.includes(fenceName) || 
+                (mesh.metadata && mesh.metadata.parentFence === fenceName)
+            );
+            
+            for (const relatedMesh of relatedMeshes) {
+                if (relatedMesh && !relatedMesh.isDisposed()) {
+                    console.log(`Disposing related mesh: ${relatedMesh.name}`);
+                    relatedMesh.dispose();
                 }
             }
     
@@ -205,17 +257,21 @@ class Wired_Fence {
             // Dispose all child meshes and the root
             if (fenceMesh.getChildren) {
                 fenceMesh.getChildren().forEach(child => {
-                    if (child.dispose) {
+                    if (child.dispose && !child.isDisposed()) {
                         child.dispose();
                     }
                 });
             }
             
             // Remove the mesh from the scene
-            fenceMesh.dispose();
-    
+            if (!fenceMesh.isDisposed()) {
+                fenceMesh.dispose();
+            }
+            
+            console.log(`Successfully destroyed wired fence: ${fenceName}`);
             return true;
         } else {
+            console.warn(`Wired fence not found for destruction: ${fenceName}`);
             return false;
         }
     }

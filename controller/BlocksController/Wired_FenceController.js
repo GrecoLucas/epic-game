@@ -15,9 +15,11 @@ class Wired_FenceController {
         this.previewMaterialValid = null;
         this.previewMaterialInvalid = null;
         this._createPreviewMaterials();
-        
-        // Current placement state
+          // Current placement state
         this.buildPreviewMesh = null;
+        this.previewModel = null; // Store the 3D model for preview
+        this.previewRoot = null; // Store the root transform node
+        this.isLoadingPreview = false; // Flag to prevent multiple loads
         this.currentPlacementValid = false;
         this.currentPlacementPosition = null;
         this.currentPlacementRotation = 0;
@@ -32,31 +34,116 @@ class Wired_FenceController {
         this.previewMaterialInvalid.diffuseColor = new BABYLON.Color3(1, 0, 0); // Red
         this.previewMaterialInvalid.alpha = 0.5;
     }
-    
-    // Create or update wired fence preview mesh
+      // Create or update wired fence preview mesh
     updatePreviewMesh(position, isValid) {
-        const previewName = "preview_wired_fence";
+        // Load 3D model for preview if not already loaded
+        if (!this.previewRoot && !this.isLoadingPreview) {
+            this._loadPreviewModel();
+        }
         
-        // Create preview mesh if it doesn't exist
-        if (!this.buildPreviewMesh) {
+        // If we have a preview model, update it
+        if (this.previewRoot) {
+            this.previewRoot.position = position;
+            this.previewRoot.rotation.y = this.currentPlacementRotation;
+            this.previewRoot.setEnabled(true);
+            
+            // Apply preview material to all child meshes
+            const material = isValid ? this.previewMaterialValid : this.previewMaterialInvalid;
+            this._applyMaterialToPreview(material);
+        }
+        // Fallback to box preview while model is loading
+        else if (!this.buildPreviewMesh) {
+            const previewName = "preview_wired_fence_fallback";
             this.buildPreviewMesh = BABYLON.MeshBuilder.CreateBox(previewName, {
                 width: this.cellSize, 
                 height: this.fenceHeight, 
-                depth: this.cellSize * 0.1 // Very thin fence
+                depth: this.cellSize * 0.1
             }, this.scene);
             
             this.buildPreviewMesh.isPickable = false;
             this.buildPreviewMesh.checkCollisions = false;
+            this.buildPreviewMesh.position = position;
+            this.buildPreviewMesh.rotation.y = this.currentPlacementRotation;
+            this.buildPreviewMesh.material = isValid ? this.previewMaterialValid : this.previewMaterialInvalid;
+            this.buildPreviewMesh.setEnabled(true);
+        } else if (this.buildPreviewMesh) {
+            this.buildPreviewMesh.position = position;
+            this.buildPreviewMesh.rotation.y = this.currentPlacementRotation;
+            this.buildPreviewMesh.material = isValid ? this.previewMaterialValid : this.previewMaterialInvalid;
+            this.buildPreviewMesh.setEnabled(true);
         }
-        
-        // Update position and material
-        this.buildPreviewMesh.position = position;
-        this.buildPreviewMesh.rotation.y = this.currentPlacementRotation;
-        this.buildPreviewMesh.material = isValid ? this.previewMaterialValid : this.previewMaterialInvalid;
-        this.buildPreviewMesh.setEnabled(true);
     }
 
-    // Rotate wired fence preview
+    // Load the 3D model for preview
+    _loadPreviewModel() {
+        if (this.isLoadingPreview) return;
+        this.isLoadingPreview = true;
+        
+        BABYLON.SceneLoader.ImportMeshAsync("", "models/Barricade/", "scene.gltf", this.scene).then((result) => {
+            const fenceModel = result.meshes[0];
+            
+            if (fenceModel) {
+                // Create a root transform node for the preview
+                this.previewRoot = new BABYLON.TransformNode("preview_wired_fence_3d", this.scene);
+                
+                // Parent the model to the preview root
+                fenceModel.parent = this.previewRoot;
+                
+                // Scale the model appropriately
+                const fenceWidth = this.cellSize;
+                const fenceHeight = this.fenceHeight;
+                
+                fenceModel.scaling = new BABYLON.Vector3(
+                    fenceWidth / 5,
+                    fenceHeight / 2,
+                    1.5
+                );
+                
+                fenceModel.position = new BABYLON.Vector3(0, 0, 0);
+                
+                // Configure all child meshes for preview
+                result.meshes.forEach(mesh => {
+                    mesh.checkCollisions = false;
+                    mesh.isPickable = false;
+                });
+                
+                // Store reference to the model
+                this.previewModel = fenceModel;
+                
+                // Initially disable the preview
+                this.previewRoot.setEnabled(false);
+                
+                // Dispose fallback box if it exists
+                if (this.buildPreviewMesh) {
+                    this.buildPreviewMesh.dispose();
+                    this.buildPreviewMesh = null;
+                }
+                
+                console.log("Wired fence 3D preview model loaded successfully");
+            }
+            this.isLoadingPreview = false;
+        }).catch((error) => {
+            console.error("Failed to load wired fence preview model:", error);
+            this.isLoadingPreview = false;
+        });
+    }
+
+    // Apply material to all meshes in the preview model
+    _applyMaterialToPreview(material) {
+        if (this.previewModel && this.previewModel.getChildMeshes) {
+            const childMeshes = this.previewModel.getChildMeshes();
+            childMeshes.forEach(mesh => {
+                if (mesh.material) {
+                    mesh.material = material;
+                }
+            });
+            
+            // Also apply to the root model mesh
+            if (this.previewModel.material) {
+                this.previewModel.material = material;
+            }
+        }
+    }    // Rotate wired fence preview
     rotatePreview(clockwise = true) {
         // Rotate in 90 degree increments
         const increment = Math.PI / 2;
@@ -65,8 +152,10 @@ class Wired_FenceController {
         // Normalize rotation to 0-2π range
         this.currentPlacementRotation = (this.currentPlacementRotation + 2 * Math.PI) % (2 * Math.PI);
 
-        // Update preview visualization if visible
-        if (this.buildPreviewMesh?.isEnabled()) {
+        // Update preview visualization if visible (3D model or fallback)
+        if (this.previewRoot?.isEnabled()) {
+            this.previewRoot.rotation.y = this.currentPlacementRotation;
+        } else if (this.buildPreviewMesh?.isEnabled()) {
             this.buildPreviewMesh.rotation.y = this.currentPlacementRotation;
         }
     }
@@ -232,19 +321,29 @@ class Wired_FenceController {
             return new BABYLON.Vector3(gridX, buildY, gridZ);
         }
     }
-    
-    // Hide preview mesh
+      // Hide preview mesh
     hidePreview() {
+        if (this.previewRoot) {
+            this.previewRoot.setEnabled(false);
+        }
         if (this.buildPreviewMesh) {
             this.buildPreviewMesh.setEnabled(false);
         }
     }
-    
-    // Dispose resources
+      // Dispose resources
     dispose() {
         if (this.buildPreviewMesh) {
             this.buildPreviewMesh.dispose();
             this.buildPreviewMesh = null;
+        }
+        
+        if (this.previewRoot) {
+            this.previewRoot.dispose();
+            this.previewRoot = null;
+        }
+        
+        if (this.previewModel) {
+            this.previewModel = null;
         }
         
         if (this.previewMaterialValid) {
