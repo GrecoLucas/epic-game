@@ -83,9 +83,8 @@ class Game {
         
         // Obter a posição inicial do jogador do labirinto
         const playerStartPosition = this.maze.getPlayerStartPosition();
-        
-        // Criar jogador usando a classe Player
-        this.player = new Player(this.scene);
+          // Criar jogador usando a classe Player
+        this.player = new Player(this.scene, this.soundManager);
         this.player.initialize(this.engine.getRenderingCanvas());
         // Add player mesh to collision system
         this.collisionSystem.addMesh(this.player.getMesh()); 

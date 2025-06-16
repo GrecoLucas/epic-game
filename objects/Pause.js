@@ -4,11 +4,11 @@ import PauseView from '../view/PauseView.js';
 import PauseController from '../controller/PauseController.js';
 
 class Pause {
-    constructor(scene, playerView) {
+    constructor(scene, playerView, soundManager) {
         this.scene = scene;
         
         // Criar model
-        this.model = new PauseModel(playerView);
+        this.model = new PauseModel(playerView, soundManager);
         
         // Criar view
         this.view = new PauseView(scene);

@@ -15,10 +15,10 @@ class PauseController {
         
         // Sincronizar os valores iniciais do modelo com o PlayerView
         this.model.syncWithPlayerView();
-        
-        // Atualizar exibição com valores iniciais do modelo
+          // Atualizar exibição com valores iniciais do modelo
         this.view.updateSensitivityDisplay(this.model.getSensitivity());
         this.view.updateFOVDisplay(this.model.getFieldOfView());
+        this.view.updateVolumeDisplay(this.model.getVolume());
         
         // Configurar callbacks para os controles de UI
         this.setupCallbacks();
@@ -35,11 +35,16 @@ class PauseController {
             this.model.setSensitivity(value);
             this.view.updateSensitivityDisplay(value);
         });
-        
-        // Callback para o slider de FOV
+          // Callback para o slider de FOV
         this.view.setFOVCallback((value) => {
             this.model.setFieldOfView(value);
             this.view.updateFOVDisplay(value);
+        });
+        
+        // Callback para o slider de volume
+        this.view.setVolumeCallback((value) => {
+            this.model.setVolume(value);
+            this.view.updateVolumeDisplay(value);
         });
     }
     
@@ -69,10 +74,10 @@ class PauseController {
         
         // Pausar a física e animações
         this.scene.paused = true;
-        
-        // Atualizar sliders com valores atuais
+          // Atualizar sliders com valores atuais
         this.view.updateSensitivityDisplay(this.model.getSensitivity());
         this.view.updateFOVDisplay(this.model.getFieldOfView());
+        this.view.updateVolumeDisplay(this.model.getVolume());
     }
     
     // Retomar o jogo

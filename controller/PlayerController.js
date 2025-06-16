@@ -4,10 +4,11 @@ import Pause from '../objects/Pause.js'; // Importar o objeto de pausa
 import HotBar from '../objects/HotBar.js';
 
 class PlayerController {
-    constructor(scene, playerModel, playerView) {
+    constructor(scene, playerModel, playerView, soundManager = null) {
         this.scene = scene;
         this.model = playerModel;
         this.view = playerView;
+        this.soundManager = soundManager;
         this.inputMap = {};
         this.nearbyButton = null;
         this.nearbyGun = null;
@@ -24,7 +25,7 @@ class PlayerController {
         this.pointerLockActive = false;
         
         // Inicializar o sistema de pausa
-        this.pause = new Pause(scene, playerView);
+        this.pause = new Pause(scene, playerView, soundManager);
 
         this.lastFootstepTime = 0;
         this.footstepInterval = 300;

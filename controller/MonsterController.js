@@ -18,16 +18,20 @@ class MonsterController {
         this.OBSTACLE_CONTACT_DAMAGE_THRESHOLD = 2500;
         this.OBSTACLE_DAMAGE_AMOUNT = 15;
         this.OBSTACLE_DAMAGE_COOLDOWN = 3000;
+
         // Cache para raycasts
         this._directions = null; 
         this._obstaclePredicate = null;
         this._collisionRay = null;
-        
+
         // Wired fence interaction tracking
         this.currentWiredFenceEffects = new Set();
         this.wiredFenceContactTimes = {};
+        this.WIRED_FENCE_DAMAGE_INTERVAL = 2000; // Damage every second
+        this.WIRED_FENCE_DETECTION_RANGE = 2.0; // Range for detecting fence zones
+        this.WIRED_FENCE_DAMAGE_AMOUNT = 2; // Damage per contact
+        this.WIRED_FENCE_DEFAULT_SLOWDOWN = 0.6; // Default slowdown factor
         
-
         // Sound
         this.soundManager = scene.gameInstance?.soundManager;
         this.soundCooldown = 5000 + Math.random() * 5000;
@@ -242,7 +246,8 @@ class MonsterController {
             } 
                   return true;
         }
-    }    // Check for wired fence interactions
+    }    
+    // Check for wired fence interactions
     checkWiredFenceInteraction() {
         if (this.isDisposed || !this.model || !this.model.getMesh()) return;
         
@@ -257,7 +262,7 @@ class MonsterController {
             const meshPosition = mesh.parent ? mesh.absolutePosition : mesh.position;
             const distance = BABYLON.Vector3.Distance(monsterPosition, meshPosition);
             
-            return distance < 4.0; // Increased range for better detection
+            return distance < this.WIRED_FENCE_DETECTION_RANGE; // Use constant from constructor
         });
         
         this.currentWiredFenceEffects = this.currentWiredFenceEffects || new Set();
@@ -275,16 +280,13 @@ class MonsterController {
                 
                 // Registrar que este zumbi entrou em contato com a cerca
                 this.registerZombieContact(fenceName);
-                
-                console.log(`Zombie entered wired fence: ${fenceName} - applying slowdown`);
-            }
-            
-            // Apply damage over time while in contact
+                            }
+              // Apply damage over time while in contact
             const contactTime = now - (this.wiredFenceContactTimes[fenceName] || now);
-            const damageInterval = 1000; // Damage every second
+            const damageInterval = this.WIRED_FENCE_DAMAGE_INTERVAL; // Use constant from constructor
             
             if (contactTime > 0 && contactTime % damageInterval < 50) { // Damage tick
-                const damageAmount = damageZone.metadata.damageAmount || 2;
+                const damageAmount = damageZone.metadata.damageAmount || this.WIRED_FENCE_DAMAGE_AMOUNT;
                 this.takeDamage(damageAmount);
             }
         }
@@ -440,9 +442,11 @@ class MonsterController {
                 mesh.metadata?.isWiredFenceDamageZone && 
                 mesh.metadata?.parentFence === fenceName
             );
-            
-            if (damageZone && damageZone.metadata.slowdownFactor) {
+              if (damageZone && damageZone.metadata.slowdownFactor) {
                 maxSlowdown = Math.min(maxSlowdown, damageZone.metadata.slowdownFactor);
+            } else {
+                // Use default slowdown from constructor if no specific metadata
+                maxSlowdown = Math.min(maxSlowdown, this.WIRED_FENCE_DEFAULT_SLOWDOWN);
             }
         }
         
@@ -612,8 +616,7 @@ class MonsterController {
             this.model.mesh.dispose();
             this.model.mesh = null;
         }
-        
-        // Remover da lista de monstros do jogo
+          // Remover da lista de monstros do jogo
         if (this.scene.gameInstance?.monsters?.length > 0) {
             const index = this.scene.gameInstance.monsters.findIndex(
                 monster => monster.getController?.() === this
@@ -621,6 +624,14 @@ class MonsterController {
             
             if (index !== -1) {
                 this.scene.gameInstance.monsters.splice(index, 1);
+                
+                // Notificar o sistema de hordas que um zumbi morreu
+                if (this.scene.gameInstance.zombieSpawner?.controller) {
+                    // Chamar verificação imediata de conclusão de horda
+                    setTimeout(() => {
+                        this.scene.gameInstance.zombieSpawner.controller.checkHordeCompletion();
+                    }, 100); // Pequeno delay para garantir que o monstro foi removido da lista
+                }
             }
         }
     }

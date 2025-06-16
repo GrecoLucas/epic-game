@@ -646,12 +646,112 @@ class Menu {
         startBtn.onPointerEnterObservable.add(() => {
             startBtn.background = "linear-gradient(90deg, #ff5c85 0%, #ffad5c 100%)";
             this.playHoverSound();
-        });
-    
-        startBtn.onPointerOutObservable.add(() => {
+        });        startBtn.onPointerOutObservable.add(() => {
             startBtn.background = "linear-gradient(90deg, #ff3366 0%, #ff9933 100%)";
         });
 
+        // Container separado para as instruções - posicionado no espaço vazio
+        const instructionsMainContainer = new BABYLON.GUI.Rectangle();
+        instructionsMainContainer.width = "100%";
+        instructionsMainContainer.height = "280px";
+        instructionsMainContainer.thickness = 0;
+        instructionsMainContainer.verticalAlignment = BABYLON.GUI.Control.VERTICAL_ALIGNMENT_BOTTOM;
+        instructionsMainContainer.paddingBottom = "80px";
+        panel.addControl(instructionsMainContainer);
+
+        // Seção de instruções de como jogar
+        const instructionsContainer = new BABYLON.GUI.Rectangle();
+        instructionsContainer.width = "650px";
+        instructionsContainer.height = "200px";
+        instructionsContainer.thickness = 2;
+        instructionsContainer.cornerRadius = 15;
+        instructionsContainer.shadowBlur = 10;
+        instructionsContainer.shadowOffsetX = 3;
+        instructionsContainer.shadowOffsetY = 3;
+        instructionsMainContainer.addControl(instructionsContainer);
+
+        const instructionsPanel = new BABYLON.GUI.StackPanel();
+        instructionsPanel.width = "90%";
+        instructionsPanel.height = "140px";
+        instructionsPanel.verticalAlignment = BABYLON.GUI.Control.VERTICAL_ALIGNMENT_CENTER;
+        instructionsPanel.paddingTop = "5px";
+        instructionsContainer.addControl(instructionsPanel);
+
+        // Criar as instruções
+        const instructions = [
+            "WASD - Move around the maze",
+            "MOUSE - Look around and aim",
+            "LEFT CLICK - Shoot / Use weapon",
+            "R - Reload weapon",
+            "1, 2, 3, 4, 5 - Switch weapons",
+            "E - Pick up items and weapons",
+            "B - Build mode (place blocks)",
+            "H - Start monster horde",
+            "P/ESC - Pause game",
+            "wired fence - slows zombies",
+        ];
+
+        // Dividir as instruções em duas colunas
+        const leftColumn = instructions.slice(0, 5);
+        const rightColumn = instructions.slice(5);
+
+        // Container para as colunas
+        const columnsContainer = new BABYLON.GUI.Rectangle();
+        columnsContainer.width = "100%";
+        columnsContainer.height = "120px";
+        columnsContainer.thickness = 0;
+        instructionsPanel.addControl(columnsContainer);
+
+        // Coluna esquerda
+        const leftColumnContainer = new BABYLON.GUI.StackPanel();
+        leftColumnContainer.width = "48%";
+        leftColumnContainer.height = "100%";
+        leftColumnContainer.horizontalAlignment = BABYLON.GUI.Control.HORIZONTAL_ALIGNMENT_LEFT;
+        leftColumnContainer.paddingLeft = "20px";
+        columnsContainer.addControl(leftColumnContainer);        leftColumn.forEach(instruction => {
+            const instructionText = new BABYLON.GUI.TextBlock();
+            instructionText.text = instruction;
+            instructionText.color = "#ffffff";
+            instructionText.fontSize = 14;
+            instructionText.fontFamily = "Consolas, monospace";
+            instructionText.height = "20px";
+            instructionText.textHorizontalAlignment = BABYLON.GUI.Control.HORIZONTAL_ALIGNMENT_LEFT;
+            instructionText.paddingLeft = "10px";
+            instructionText.paddingBottom = "2px";
+            leftColumnContainer.addControl(instructionText);
+        });
+
+        // Coluna direita
+        const rightColumnContainer = new BABYLON.GUI.StackPanel();
+        rightColumnContainer.width = "48%";
+        rightColumnContainer.height = "100%";
+        rightColumnContainer.horizontalAlignment = BABYLON.GUI.Control.HORIZONTAL_ALIGNMENT_RIGHT;
+        rightColumnContainer.paddingRight = "20px";
+        columnsContainer.addControl(rightColumnContainer);
+
+        rightColumn.forEach(instruction => {
+            const instructionText = new BABYLON.GUI.TextBlock();
+            instructionText.text = instruction;
+            instructionText.color = "#ffffff";
+            instructionText.fontSize = 14;
+            instructionText.fontFamily = "Consolas, monospace";
+            instructionText.height = "20px";
+            instructionText.textHorizontalAlignment = BABYLON.GUI.Control.HORIZONTAL_ALIGNMENT_LEFT;
+            instructionText.paddingLeft = "10px";
+            instructionText.paddingBottom = "2px";
+            rightColumnContainer.addControl(instructionText);
+        });
+
+        // Linha decorativa no final das instruções
+        const instructionsLine = new BABYLON.GUI.Rectangle();
+        instructionsLine.width = "80%";
+        instructionsLine.height = "2px";
+        instructionsLine.cornerRadius = 1;
+        instructionsLine.color = "transparent";
+        instructionsLine.background = "linear-gradient(90deg, rgba(102,179,255,0) 0%, rgba(102,179,255,0.8) 50%, rgba(102,179,255,0) 100%)";
+        instructionsLine.verticalAlignment = BABYLON.GUI.Control.VERTICAL_ALIGNMENT_BOTTOM;
+        instructionsLine.paddingBottom = "10px";
+        instructionsContainer.addControl(instructionsLine);
         
         // Rodapé com créditos e versão
         const footerContainer = new BABYLON.GUI.Rectangle();

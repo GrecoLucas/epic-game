@@ -2,23 +2,24 @@
 class PauseView {
     constructor(scene) {
         this.scene = scene;
-        this.pauseUI = null;
+        this.pauseUI = null;        
         this.fullscreenUI = null;
         this.sensitivitySlider = null;
         this.fovSlider = null;
+        this.volumeSlider = null;
         this.sensitivityText = null;
         this.fovText = null;
+        this.volumeText = null;
         this.resumeButton = null;
     }
 
     initialize() {
         // Criar a interface fullscreen para o menu de pausa
         this.fullscreenUI = BABYLON.GUI.AdvancedDynamicTexture.CreateFullscreenUI("pauseUI");
-        
-        // Criar o painel principal do menu
+          // Criar o painel principal do menu
         const panel = new BABYLON.GUI.Rectangle("pausePanel");
         panel.width = "500px";
-        panel.height = "400px";
+        panel.height = "500px"; // Aumentar altura para acomodar o controle de volume
         panel.cornerRadius = 10;
         panel.color = "white";
         panel.thickness = 2;
@@ -119,15 +120,55 @@ class PauseView {
         this.fovText.text = "1.20";
         this.fovText.color = "white";
         this.fovText.width = "80px";
-        this.fovText.fontSize = 18;
-        this.fovText.textHorizontalAlignment = BABYLON.GUI.Control.HORIZONTAL_ALIGNMENT_LEFT;
+        this.fovText.fontSize = 18;        this.fovText.textHorizontalAlignment = BABYLON.GUI.Control.HORIZONTAL_ALIGNMENT_LEFT;
         fovPanel.addControl(this.fovText);
         
-        // Espaço maior antes do botão
+        // Espaço entre controles
         const spacer3 = new BABYLON.GUI.Rectangle();
-        spacer3.height = "100px";
+        spacer3.height = "20px";
         spacer3.alpha = 0;
         stackPanel.addControl(spacer3);
+        
+        // Painel para o controle de volume
+        const volumePanel = new BABYLON.GUI.StackPanel();
+        volumePanel.isVertical = false;
+        volumePanel.height = "50px";
+        stackPanel.addControl(volumePanel);
+        
+        // Volume label
+        const volumeLabel = new BABYLON.GUI.TextBlock();
+        volumeLabel.text = "Volume: ";
+        volumeLabel.color = "white";
+        volumeLabel.width = "150px";
+        volumeLabel.fontSize = 18;
+        volumeLabel.textHorizontalAlignment = BABYLON.GUI.Control.HORIZONTAL_ALIGNMENT_RIGHT;
+        volumePanel.addControl(volumeLabel);
+        
+        // Slider para ajustar volume
+        this.volumeSlider = new BABYLON.GUI.Slider();
+        this.volumeSlider.minimum = 0.0; // Sem som
+        this.volumeSlider.maximum = 1.0; // Volume máximo
+        this.volumeSlider.value = 0.5; // Valor padrão
+        this.volumeSlider.height = "20px";
+        this.volumeSlider.width = "200px";
+        this.volumeSlider.color = "#00aaff";
+        this.volumeSlider.background = "gray";
+        volumePanel.addControl(this.volumeSlider);
+        
+        // Texto que mostra o valor atual do volume
+        this.volumeText = new BABYLON.GUI.TextBlock();
+        this.volumeText.text = "50%";
+        this.volumeText.color = "white";
+        this.volumeText.width = "80px";
+        this.volumeText.fontSize = 18;
+        this.volumeText.textHorizontalAlignment = BABYLON.GUI.Control.HORIZONTAL_ALIGNMENT_LEFT;
+        volumePanel.addControl(this.volumeText);
+        
+        // Espaço maior antes do botão
+        const spacer4 = new BABYLON.GUI.Rectangle();
+        spacer4.height = "80px";
+        spacer4.alpha = 0;
+        stackPanel.addControl(spacer4);
           // Button to return to the game
         this.resumeButton = BABYLON.GUI.Button.CreateSimpleButton("resumeButton", "BACK TO GAME");
         this.resumeButton.width = "200px";
@@ -177,8 +218,7 @@ class PauseView {
             this.sensitivitySlider.value = value;
         }
     }
-    
-    // Atualizar a exibição do FOV
+      // Atualizar a exibição do FOV
     updateFOVDisplay(value) {
         if (this.fovText) {
             this.fovText.text = value.toFixed(2);
@@ -186,6 +226,17 @@ class PauseView {
         
         if (this.fovSlider) {
             this.fovSlider.value = value;
+        }
+    }
+    
+    // Atualizar a exibição do volume
+    updateVolumeDisplay(value) {
+        if (this.volumeText) {
+            this.volumeText.text = Math.round(value * 100) + "%";
+        }
+        
+        if (this.volumeSlider) {
+            this.volumeSlider.value = value;
         }
     }
     
@@ -202,11 +253,17 @@ class PauseView {
             this.sensitivitySlider.onValueChangedObservable.add(callback);
         }
     }
-    
-    // Configurar evento para o slider de FOV
+      // Configurar evento para o slider de FOV
     setFOVCallback(callback) {
         if (this.fovSlider) {
             this.fovSlider.onValueChangedObservable.add(callback);
+        }
+    }
+    
+    // Configurar evento para o slider de volume
+    setVolumeCallback(callback) {
+        if (this.volumeSlider) {
+            this.volumeSlider.onValueChangedObservable.add(callback);
         }
     }
 }

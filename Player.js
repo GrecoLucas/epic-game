@@ -4,11 +4,12 @@ import PlayerController from './controller/PlayerController.js';
 import GameOver from './utils/GameOver.js';
 
 class Player {
-    constructor(scene) {
+    constructor(scene, soundManager = null) {
         this.scene = scene;
+        this.soundManager = soundManager;
         this.model = new PlayerModel(scene);
         this.view = new PlayerView(scene);
-        this.controller = new PlayerController(scene, this.model, this.view);
+        this.controller = new PlayerController(scene, this.model, this.view, soundManager);
         
         // Adicionar atributos de saúde
         this.health = 100;

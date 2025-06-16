@@ -1,8 +1,7 @@
 import ZombieSModel from '../model/ZombieSModel.js';
 import ZombieSView from '../view/ZombieSView.js';
 
-class ZombieSController {
-    constructor(scene, game, zombieSpawner) {
+class ZombieSController {    constructor(scene, game, zombieSpawner) {
         this.scene = scene;
         this.game = game;
         this.zombieSpawner = zombieSpawner;
@@ -15,6 +14,9 @@ class ZombieSController {
         // Flags para controle de estado
         this.waitingForKeyPress = false;
         this.keyListener = null;
+        
+        // Controle de verificação de conclusão de horda
+        this.hordeCompletionInterval = null;
     }
 
     initialize() {
@@ -111,9 +113,7 @@ class ZombieSController {
             this.view.showReadyToStart(1);
             
         }
-    }
-
-    // Parar o sistema de hordas
+    }    // Parar o sistema de hordas
     stopHordeSystem() {
         this.model.hordeActive = false;
         this.waitingForKeyPress = false;
@@ -127,9 +127,17 @@ class ZombieSController {
             clearInterval(this.model.countdownTimer);
         }
         
-    }
-
-    // Iniciar uma horda de monstros
+        // Limpar verificação de conclusão de horda
+        if (this.hordeCompletionInterval) {
+            clearInterval(this.hordeCompletionInterval);
+            this.hordeCompletionInterval = null;
+        }
+        
+        // Parar música da horda
+        if (this.game?.soundManager) {
+            this.game.soundManager.stopHordeMusic();
+        }
+    }// Iniciar uma horda de monstros
     startHorde() {
         // Incrementar o contador de hordas
         this.model.currentHorde++;
@@ -141,6 +149,11 @@ class ZombieSController {
         // Calcular atributos dos monstros da horda atual
         const monsterHealth = this.model.calculateMonsterHealth();
         const monsterSpeed = this.model.calculateMonsterSpeed();
+        
+        // Iniciar música da horda
+        if (this.game?.soundManager) {
+            this.game.soundManager.startHordeMusic();
+        }
         
         // Notificar o início da horda - agora passando saúde e velocidade
         this.view.showHordeStarting(hordeNumber, monsterCount, monsterHealth, monsterSpeed);
@@ -188,6 +201,72 @@ class ZombieSController {
                 // Adicionar o monstro com os atributos específicos para esta horda
                 this.game.addMonster(finalPosition, monsterHealth, monsterSpeed);
                 }, i * 100); 
+        }
+        
+        // Iniciar verificação periódica se todos os zumbis morreram
+        this.startHordeCompletionCheck();
+    }
+    
+    // Verificar periodicamente se todos os zumbis da horda morreram
+    startHordeCompletionCheck() {
+        // Limpar verificação anterior se existir
+        if (this.hordeCompletionInterval) {
+            clearInterval(this.hordeCompletionInterval);
+        }
+        
+        // Verificar a cada 2 segundos se todos os zumbis morreram
+        this.hordeCompletionInterval = setInterval(() => {
+            this.checkHordeCompletion();
+        }, 2000);
+    }
+    
+    // Verificar se a horda foi completada (todos os zumbis mortos)
+    checkHordeCompletion() {
+        if (!this.game || !this.model.hordeActive) {
+            return;
+        }
+        
+        // Obter lista atual de monstros
+        const currentMonsters = this.game.getMonsters ? this.game.getMonsters() : [];
+        
+        // Filtrar apenas monstros que estão realmente vivos (não disposed)
+        const aliveMonsters = currentMonsters.filter(monster => {
+            const controller = monster.getController ? monster.getController() : null;
+            return controller && !controller.isDisposed;
+        });
+        
+        // Se não há monstros vivos, a horda foi completada
+        if (aliveMonsters.length === 0) {
+            this.onHordeCompleted();
+        }
+    }
+    
+    // Executado quando uma horda é completada
+    onHordeCompleted() {
+        console.log(`Horda ${this.model.currentHorde} completada! Todos os zumbis foram eliminados.`);
+        
+        // Parar música da horda
+        if (this.game?.soundManager) {
+            this.game.soundManager.stopHordeMusic();
+        }
+        
+        // Parar verificação de conclusão da horda
+        if (this.hordeCompletionInterval) {
+            clearInterval(this.hordeCompletionInterval);
+            this.hordeCompletionInterval = null;
+        }
+        
+        // Mostrar mensagem de horda completada (opcional)
+        if (this.view && this.view.hordeInfoDisplay) {
+            this.view.hordeInfoDisplay.text = `Horde ${this.model.currentHorde} Completed!`;
+            this.view.hordeInfoDisplay.color = "green";
+            
+            // Voltar para a mensagem normal após 3 segundos
+            setTimeout(() => {
+                if (this.view && this.view.hordeInfoDisplay) {
+                    this.view.showReadyToStart(this.model.currentHorde + 1);
+                }
+            }, 3000);
         }
     }
     

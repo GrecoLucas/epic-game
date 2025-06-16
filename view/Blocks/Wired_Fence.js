@@ -2,9 +2,10 @@ class Wired_Fence {
     constructor(scene, materials) {
         this.scene = scene;
         this.wallMaterial = materials.wallMaterial;
-          // CONFIGURAÇÃO: Quantos zumbis podem passar pela cerca antes dela ser destruída
         this.maxZombieContacts = 3; // Valor padrão: 3 zumbis
-    }    // Método para configurar quantos zumbis podem passar pela cerca
+    }    
+    
+    // Método para configurar quantos zumbis podem passar pela cerca
     setMaxZombieContacts(maxContacts) {
         this.maxZombieContacts = Math.max(1, maxContacts); // Mínimo de 1 zumbi
         console.log(`Wired fence max zombie contacts set to: ${this.maxZombieContacts}`);
