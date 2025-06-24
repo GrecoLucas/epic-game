@@ -87,7 +87,8 @@ class PlayerView {
     attachCameraControl(canvas) {
         this.camera.attachControl(canvas);
     }
-      setCameraHeight(height) {
+    
+    setCameraHeight(height) {
         this.cameraHeight = height;
         if (this.camera) {
             this.camera.position.y = this.cameraHeight;

@@ -4,8 +4,7 @@ class SoundManager {
         
         // Volume global do jogo (0.0 a 1.0)
         this.masterVolume = this.loadVolumeFromStorage();
-        
-        // Mapeamento de sons para caminhos de arquivos
+          // Mapeamento de sons para caminhos de arquivos
         this.soundPaths = {
             "pistol_shot": "sounds/pistol_shot.mp3",
             "assault_rifle_shot": "sounds/assault_rifle_shot.mp3", 
@@ -14,6 +13,8 @@ class SoundManager {
             "pistol_reload": "sounds/pistol_reload.mp3",
             "assault_rifle_reload": "sounds/assault_rifle_reload.mp3",
             "hammer_hit": "sounds/hammer_hit.mp3",
+            "granade_throw": "sounds/weapon_pickup.mp3", // Usando som de pickup temporariamente
+            "granade_explosion": "sounds/assault_rifle_shot.mp3", // Som temporário para explosão
             "footstep1": "sounds/footstep1.mp3",
             "footstep2": "sounds/footstep2.mp3",
             "put_block": "sounds/put_block.mp3",
@@ -84,9 +85,7 @@ class SoundManager {
         } catch (e) {
             console.warn('Não foi possível salvar o volume');
         }
-    }
-
-    // Método específico para sons de armas
+    }    // Método específico para sons de armas
     playGunSound(gunType, action) {
         switch (action) {
             case 'shoot':
@@ -96,16 +95,19 @@ class SoundManager {
                     this.play('assault_rifle_shot');
                 } else if (gunType === 'hammer') {
                     this.play('hammer_hit');
+                } else if (gunType === 'granade') {
+                    this.play('granade_throw');
                 }
                 break;
             case 'empty':
                 this.play('empty');
-                break;
-            case 'reload':
+                break;            case 'reload':
                 if (gunType === 'pistol') {
                     this.play('pistol_reload');
                 } else if (gunType === 'assault_rifle') {
                     this.play('assault_rifle_reload');
+                } else if (gunType === 'granade') {
+                    this.play('pickup'); // Som temporário para reload de granada
                 }
                 break;
             case 'pickup':

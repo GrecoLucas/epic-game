@@ -3,9 +3,9 @@ import Pistol from '../view/Guns/Pistol.js';
 import AssaultRifle from '../view/Guns/Assalt_rifle.js';
 import GunController from '../controller/GunController.js';
 import Hammer from '../view/Guns/Hammer.js';
+import Granade from '../view/Guns/Granade.js';
 
-class Gun {
-    constructor(scene, type = 'pistol', x = 0, y = 0, z = 0) {
+class Gun {    constructor(scene, type = 'pistol', x = 0, y = 0, z = 0) {
         // Inicializar o modelo com posição
         this.model = new GunModel(type,);
         this.model.setPosition(x, y, z);
@@ -17,7 +17,11 @@ class Gun {
             this.view = new AssaultRifle(scene, this.model);
         } else if (type === 'hammer') {
             this.view = new Hammer(scene, this.model);
-        } 
+        } else if (type === 'granade') {
+            this.view = new Granade(scene, this.model);
+        } else {
+            console.warn(`❌ Tipo de arma desconhecido: ${type}`);
+        }
               
         // Inicializar o controlador
         this.controller = new GunController(this.model, this.view);

@@ -127,8 +127,7 @@ class ButtonController {
                     this.showErrorNotification("Insufficient funds!");
                 }
                 break;
-                
-            case 3: // 50 Ammo - aumenta munição com custo de 40$
+                  case 3: // 50 Ammo - aumenta munição com custo de 40$
                 // Verificar se o jogador possui arma equipada
                 const equippedGun = player.controller.getPlayerEquippedGun();
                 if (!equippedGun) {
@@ -142,14 +141,23 @@ class ButtonController {
                     player.money -= this.ammoCost;
                     player.updateMoneyDisplay();
                     
-                    // Adicionar 50 balas à munição total da arma
-                    equippedGun.model.addAmmo(50);
+                    // Verificar se é granada para adicionar apenas 3 de munição
+                    let ammoToAdd = 50;
+                    let message = "50 Ammo added!";
+                    
+                    if (equippedGun.model.type === 'granade') {
+                        ammoToAdd = 3;
+                        message = "3 Grenades added!";
+                    }
+                    
+                    // Adicionar munição à arma
+                    equippedGun.model.addAmmo(ammoToAdd);
                     
                     // Atualizar a exibição de munição
                     player.updateAmmoDisplay();
                     
                     // Efeito visual e sonoro de sucesso
-                    this.showSuccessNotification("50 Ammo added!", "blue");
+                    this.showSuccessNotification(message, "blue");
 
                 } else {
                     // Jogador não tem dinheiro suficiente

@@ -232,11 +232,18 @@ class Player {
         if (this.scene.gameInstance && this.scene.gameInstance.gunLoader) {
             equippedGun = this.scene.gameInstance.gunLoader.getPlayerGun();
         }
-        
-        if (equippedGun) {            const currentAmmo = equippedGun.model.ammo;
-            const maxAmmo = equippedGun.model.maxAmmo;
-            const totalAmmo = equippedGun.model.getTotalAmmo();
-            this.ammoText.text = `Ammo: ${currentAmmo}/${maxAmmo} ${totalAmmo}`;
+          if (equippedGun) {
+            if (equippedGun.model.isExplosive) {
+                // Para granadas, mostrar apenas o número disponível
+                const grenadeCount = equippedGun.model.getCurrentAmmo();
+                this.ammoText.text = `Grenades: ${grenadeCount}`;
+            } else {
+                // Para outras armas, mostrar formato tradicional
+                const currentAmmo = equippedGun.model.ammo;
+                const maxAmmo = equippedGun.model.maxAmmo;
+                const totalAmmo = equippedGun.model.getTotalAmmo();
+                this.ammoText.text = `Ammo: ${currentAmmo}/${maxAmmo} ${totalAmmo}`;
+            }
             this.ammoText.isVisible = true;
         } else {
             this.ammoText.text = "Ammo: - / - -";

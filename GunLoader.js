@@ -5,8 +5,7 @@ class GunLoader {
         this.scene = scene;
         this.guns = [];
     }
-    
-    // Criar uma arma com base no caractere G do maze.txt
+      // Criar uma arma com base no caractere G do maze.txt
     createGunAtPosition(x, y, z, type = 'pistol') {
         const gun = new Gun(this.scene, type, x, y, z);
         
@@ -61,8 +60,7 @@ class GunLoader {
         for (let z = 0; z < map.length; z++) {
             for (let x = 0; x < map[z].length; x++) {
                 const cell = map[z][x];
-                
-                // Converter coordenadas de grade para coordenadas 3D
+                  // Converter coordenadas de grade para coordenadas 3D
                 const worldX = x * cellSize + cellSize / 2;
                 const worldZ = z * cellSize + cellSize / 2;
                 const worldY = 0.5; // Altura do chão + pequena elevação
@@ -75,6 +73,10 @@ class GunLoader {
                 else if (cell === 'G2') {
                     // G2 = Rifle de assalto
                     this.createGunAtPosition(worldX, worldY, worldZ, 'assault_rifle');
+                }
+                else if (cell === 'G3') {
+                    // G3 = Granada
+                    this.createGunAtPosition(worldX, worldY, worldZ, 'granade');
                 }
                 else if (cell === 'H') {
                     // H = Martelo de reparo

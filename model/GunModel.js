@@ -14,8 +14,7 @@ class GunModel {
         // Propriedades específicas por tipo de arma
         this.configureGunType(type);
     }
-    
-    // Configurar propriedades específicas baseadas no tipo de arma
+      // Configurar propriedades específicas baseadas no tipo de arma
     configureGunType(type) {
         switch(type.toLowerCase()) {
             case 'hammer':
@@ -35,6 +34,17 @@ class GunModel {
                 this.reloadTime = 1.8;
                 this.isAutomatic = true;
                 this.name = "Assault Rifle";
+                break;              case 'granade':
+                this.damage = 100;
+                this.ammo = 0; 
+                this.maxAmmo = null; 
+                this.totalAmmo = 3; 
+                this.reloadTime = 0; 
+                this.isAutomatic = false;
+                this.isExplosive = true;
+                this.explosionRadius = 12; 
+                this.fuseTime = 3000; 
+                this.name = "Grenade";
                 break;
             case 'pistol':
             default:
@@ -61,11 +71,17 @@ class GunModel {
     drop() {
         this.isPickedUp = false;
         return this;
-    }
-
-    shoot() {
+    }    shoot() {
         if (this.isRepairTool) {
             return true; 
+        }
+        if (this.isExplosive) {
+            // Granada usa diretamente a munição total
+            if (this.totalAmmo > 0) {
+                this.totalAmmo--;
+                return true;
+            }
+            return false;
         }
         if (this.ammo > 0) {
             this.ammo--;
@@ -79,9 +95,13 @@ class GunModel {
             return target.receiveRepair(this.repairAmount);
         }
         return false;
-    }
-
-    reload() {
+    }    reload() {
+        // Granada não pode ser recarregada
+        if (this.isExplosive) {
+            console.log("Grenades cannot be reloaded");
+            return this;
+        }
+        
         // Verificar se há munição total disponível
         if (this.totalAmmo <= 0 && this.ammo <= 0) {
             console.log("No ammo available to reload");
@@ -115,10 +135,17 @@ class GunModel {
         this.totalAmmo += amount;
         return this;
     }
-    
-    // Método para obter o dano atual da arma
+      // Método para obter o dano atual da arma
     getDamage() {
         return this.damage;
+    }
+
+    // Para granadas, a munição atual é o totalAmmo
+    getCurrentAmmo() {
+        if (this.isExplosive) {
+            return this.totalAmmo;
+        }
+        return this.ammo;
     }
 
     getTotalAmmo() {

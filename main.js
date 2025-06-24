@@ -204,20 +204,23 @@ class Game {
             for (let i = 0; i < 10; i++) {
                 const gunPositions = this.maze.getGunPositions();
                 if (gunPositions && gunPositions.length > 0) {
-                    console.log(`Criando ${gunPositions.length} armas nas posições marcadas...`);
                     
                     // Criar arma em cada posição G encontrada no labirinto
                     gunPositions.forEach((position, index) => {
+                        console.log(`🎯 Processando arma ${index + 1}: Tipo '${position.type}' na posição`, position);
                         // Ajustar a altura para ficar um pouco acima do chão
                         position.y = 0.5;
-                        
-                        // Determinar o tipo de arma com base no marcador do mapa
+                          // Determinar o tipo de arma com base no marcador do mapa
                         let gunType = 'pistol'; // Tipo padrão
                         if (position.type === 'G2') {
                             gunType = 'assault_rifle';
+                        } else if (position.type === 'G3') {
+                            gunType = 'granade';                        
                         } else if (position.type === 'H') {
                             gunType = 'hammer';
                         }
+                        
+                        console.log(`🎯 Criando arma do tipo '${gunType}' para marcador '${position.type}'`);
                         
                         // Criar arma nesta posição com o tipo correto
                         const gun = this.gunLoader.createGunAtPosition(position.x, position.y, position.z, gunType);

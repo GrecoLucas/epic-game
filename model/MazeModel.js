@@ -47,13 +47,13 @@ class MazeModel {
                         // Armazenar a posição do monstro
                         this.monsterPositions.push({ row: i, col: j });
                         // Considerar essa posição como chão (0)
-                        processedRow.push(0);
-                    } else if (row[j] === 'H' || row[j] === 'G1' || row[j] === 'G2') {
+                        processedRow.push(0);                    
+                    } else if (row[j] === 'H' || row[j] === 'G1' || row[j] === 'G2' || row[j] === 'G3') {
                         // Armazenar a posição da arma com seu tipo
                         this.gunPositions.push({ 
                             row: i, 
                             col: j,
-                            type: row[j] // Armazenar G, G1 ou G2 para diferenciar os tipos
+                            type: row[j] // Armazenar G1, G2, G3 ou H para diferenciar os tipos
                         });
                         // Considerar essa posição como chão (0)
                         processedRow.push(0);
